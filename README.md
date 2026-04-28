@@ -1,16 +1,82 @@
-# topik_go
+# topik-go (LoroTOPIK)
 
-A new Flutter project.
+TOPIK II preparation app built with Flutter.
 
-## Getting Started
+This project aims to help learners pass TOPIK II through structured practice:
 
-This project is a starting point for a Flutter application.
+- Reading, Listening, Writing question practice
+- Mock exam sessions with timer and progress
+- Vocabulary and grammar study tools
+- Onboarding with language and target level setup
 
-A few resources to get you started if this is your first Flutter project:
+## Current Project Status
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Initial app scaffolding is implemented:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- Flutter + Riverpod + GoRouter setup
+- App theme tokens (mint/teal style)
+- Onboarding flow:
+  - Splash
+  - AI content notice
+  - Language select
+  - Goal level select
+- Login screen UI
+- Main tab shell:
+  - Home
+  - Practice
+  - Mock Exam
+  - Settings
+
+## Tech Stack
+
+- Flutter (Material 3)
+- `flutter_riverpod` (state management)
+- `go_router` (navigation)
+- `dio` (network layer, prepared)
+- `drift` + `sqlite3_flutter_libs` (local database, prepared)
+- `shared_preferences` (local settings, prepared)
+- `just_audio`, `flutter_tts` (audio/TTS, prepared)
+
+## Project Structure
+
+```text
+lib/
+  app/
+    app.dart
+    router.dart
+    theme/
+  features/
+    auth/
+    onboarding/
+    home/
+    practice/
+    mock_exam/
+    settings/
+```
+
+## Run Locally
+
+```bash
+flutter pub get
+flutter run
+```
+
+## Quality Checks
+
+```bash
+flutter analyze
+flutter test
+```
+
+## Roadmap (Next Steps)
+
+1. Persist onboarding preferences (`language`, `target level`, `timer mode`)
+2. Integrate social/email authentication (Google, Kakao, Email)
+3. Build practice engine (question session, answer submission, timer restore)
+4. Add offline-first storage and sync queue
+5. Implement mock exam result and weak-point analytics
+
+## Notes
+
+- UI and user flow reference existing LoroTOPIK screenshots provided during planning.
+- This repository is under active development.
