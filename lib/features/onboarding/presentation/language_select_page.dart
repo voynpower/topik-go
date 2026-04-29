@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
+import 'package:topik_go/core/constants/prefs_keys.dart';
 
 class LanguageSelectPage extends StatefulWidget {
   const LanguageSelectPage({super.key});
@@ -17,7 +19,35 @@ class _LanguageSelectPageState extends State<LanguageSelectPage> {
     ('en', 'English'),
     ('ru', 'Russian (Русский)'),
     ('uz', "Uzbek (O'zbekcha)"),
+    ('vi', 'Vietnamese (Tiếng Việt)'),
+    ('zh', 'Chinese (中文)'),
+    ('ja', 'Japanese (日本語)'),
+    ('fr', 'French (Français)'),
+    ('de', 'German (Deutsch)'),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedLanguage();
+  }
+
+  Future<void> _loadSavedLanguage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedCode = prefs.getString(PrefsKeys.preferredLanguageCode);
+    final isSupported = languages.any((lang) => lang.$1 == savedCode);
+
+    if (!mounted || savedCode == null || !isSupported) return;
+    setState(() => selected = savedCode);
+  }
+
+  Future<void> _saveLanguageAndContinue() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(PrefsKeys.preferredLanguageCode, selected);
+
+    if (!mounted) return;
+    context.go('/goal-level');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +101,7 @@ class _LanguageSelectPageState extends State<LanguageSelectPage> {
               ),
             ),
             FilledButton(
-              onPressed: () => context.go('/goal-level'),
+              onPressed: _saveLanguageAndContinue,
               child: const Text('Next Step'),
             ),
             const SizedBox(height: 16),

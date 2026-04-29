@@ -11,7 +11,7 @@ class TopikGoApp extends ConsumerWidget {
     final router = ref.watch(appRouterProvider);
 
     return MaterialApp.router(
-      title: 'LoroTOPIK',
+      title: 'TOPIK GO',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       routerConfig: router,

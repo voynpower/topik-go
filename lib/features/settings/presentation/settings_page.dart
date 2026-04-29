@@ -41,6 +41,16 @@ class _SettingsPageState extends State<SettingsPage> {
         return 'Русский';
       case 'uz':
         return "O'zbekcha";
+      case 'vi':
+        return 'Tiếng Việt';
+      case 'zh':
+        return '中文';
+      case 'ja':
+        return '日本語';
+      case 'fr':
+        return 'Français';
+      case 'de':
+        return 'Deutsch';
       default:
         return '미설정';
     }

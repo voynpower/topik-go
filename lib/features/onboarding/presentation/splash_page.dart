@@ -24,7 +24,7 @@ class _SplashPageState extends State<SplashPage> {
     final completed = prefs.getBool(PrefsKeys.onboardingCompleted) ?? false;
 
     if (!mounted) return;
-    context.go(completed ? '/auth/login' : '/ai-notice');
+    context.go(completed ? '/auth/login' : '/language');
   }
 
   @override
@@ -49,7 +49,7 @@ class _SplashPageState extends State<SplashPage> {
             ),
             const SizedBox(height: 16),
             Text(
-              'LoroTOPIK',
+              'TOPIK GO',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 color: AppColors.mintDark,
                 fontWeight: FontWeight.w800,

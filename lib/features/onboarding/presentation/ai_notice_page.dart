@@ -23,7 +23,7 @@ class AiNoticePage extends StatelessWidget {
             ),
             const SizedBox(height: 28),
             Text(
-              'LoroTOPIK에는 AI 생성 콘텐츠가 일부 포함되어 있으며,\n전문가와 편집자들의 검수를 거쳐 제공됩니다.',
+              'TOPIK GO에는 AI 생성 콘텐츠가 일부 포함되어 있으며,\n전문가와 편집자들의 검수를 거쳐 제공됩니다.',
               textAlign: TextAlign.center,
               style: Theme.of(
                 context,
@@ -32,7 +32,7 @@ class AiNoticePage extends StatelessWidget {
             const Spacer(),
             FilledButton(
               onPressed: () => context.go('/language'),
-              child: const Text('Start LoroTOPIK'),
+              child: const Text('Start TOPIK GO'),
             ),
             const SizedBox(height: 18),
           ],

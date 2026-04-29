@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:topik_go/features/auth/presentation/login_page.dart';
+import 'package:topik_go/features/auth/presentation/register_page.dart';
 import 'package:topik_go/features/home/presentation/home_page.dart';
 import 'package:topik_go/features/main_nav/presentation/main_shell_page.dart';
 import 'package:topik_go/features/mock_exam/presentation/mock_exam_page.dart';
@@ -31,6 +32,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/auth/login',
         builder: (context, state) => const LoginPage(),
+      ),
+      GoRoute(
+        path: '/auth/register',
+        builder: (context, state) => const RegisterPage(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {

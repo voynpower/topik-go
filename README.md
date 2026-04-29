@@ -1,4 +1,4 @@
-# topik-go (LoroTOPIK)
+# topik-go (TOPIK GO)
 
 TOPIK II preparation app built with Flutter.
 
@@ -78,5 +78,5 @@ flutter test
 
 ## Notes
 
-- UI and user flow reference existing LoroTOPIK screenshots provided during planning.
+- UI and user flow reference existing TOPIK GO screenshots provided during planning.
 - This repository is under active development.
