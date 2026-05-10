@@ -61,6 +61,42 @@ flutter pub get
 flutter run
 ```
 
+## Social Login Setup
+
+Google and Kakao login use native SDKs and then send the provider token to:
+
+```text
+POST /auth/social-login
+```
+
+Run with your real provider credentials. Kakao needs a Dart define at runtime; Android also needs the same URL scheme as a Gradle property:
+
+```bash
+flutter run \
+  --dart-define=GOOGLE_CLIENT_ID=your_google_client_id \
+  --dart-define=GOOGLE_SERVER_CLIENT_ID=90307596930-qt1h0vrsqg2p97vmngejvopr4fc30prs.apps.googleusercontent.com \
+  --dart-define=KAKAO_NATIVE_APP_KEY=your_kakao_native_app_key \
+  --dart-define=KAKAO_CUSTOM_SCHEME=kakaoYourKakaoNativeAppKey
+```
+
+For iOS, replace the placeholder values in:
+
+- `ios/Flutter/Debug.xcconfig`
+- `ios/Flutter/Release.xcconfig`
+
+Required iOS values:
+
+```text
+GOOGLE_CLIENT_ID=...apps.googleusercontent.com
+GOOGLE_REVERSED_CLIENT_ID=com.googleusercontent.apps....
+KAKAO_URL_SCHEME=kakao...
+```
+
+For Android, replace or pass the Kakao scheme in:
+
+- `android/gradle.properties`
+- `android/app/build.gradle.kts`
+
 ## Quality Checks
 
 ```bash

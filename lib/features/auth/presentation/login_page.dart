@@ -27,15 +27,26 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final password = _passwordController.text;
 
     if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('이메일과 비밀번호를 입력해주세요.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('이메일과 비밀번호를 입력해주세요.')));
       return;
     }
 
     final success = await ref
         .read(authControllerProvider)
         .login(email, password);
+
+    if (success && mounted) {
+      context.go('/main/home');
+    }
+  }
+
+  Future<void> _socialLogin(String provider) async {
+    final controller = ref.read(authControllerProvider);
+    final success = provider == 'google'
+        ? await controller.loginWithGoogle()
+        : await controller.loginWithKakao();
 
     if (success && mounted) {
       context.go('/main/home');
@@ -76,7 +87,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               ),
               const SizedBox(height: 24),
               OutlinedButton.icon(
-                onPressed: () {},
+                onPressed: () => _socialLogin('google'),
                 icon: const Icon(Icons.g_mobiledata_rounded),
                 label: const Text('Sign in with Google'),
                 style: OutlinedButton.styleFrom(
@@ -87,7 +98,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: () {},
+                  onPressed: () => _socialLogin('kakao'),
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFFFEE500),
                     foregroundColor: Colors.black,

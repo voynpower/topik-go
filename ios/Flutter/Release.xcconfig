@@ -1,2 +1,5 @@
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
 #include "Generated.xcconfig"
+GOOGLE_CLIENT_ID=90307596930-lt4rmpua8v7h1d7r4aohto2jki5b309n.apps.googleusercontent.com
+GOOGLE_REVERSED_CLIENT_ID=com.googleusercontent.apps.90307596930-lt4rmpua8v7h1d7r4aohto2jki5b309n
+KAKAO_URL_SCHEME=kakaoYOUR_KAKAO_NATIVE_APP_KEY

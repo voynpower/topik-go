@@ -68,10 +68,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         .register(email, password, nickname);
 
     if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('회원가입 성공! 로그인해주세요.')),
-      );
-      context.pop();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('회원가입 성공!')));
+      context.go('/main/home');
     }
   }
 
@@ -135,7 +135,9 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   contentPadding: const EdgeInsets.symmetric(vertical: 12),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                      _obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
                       color: Colors.grey,
                     ),
                     onPressed: () =>
@@ -159,7 +161,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                       color: Colors.grey,
                     ),
                     onPressed: () => setState(
-                        () => _obscureConfirmPassword = !_obscureConfirmPassword),
+                      () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                    ),
                   ),
                 ),
               ),
@@ -210,13 +213,16 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     width: double.infinity,
                     height: 56,
                     child: FilledButton(
-                      onPressed: (_isFormValid && !isLoading) ? _register : null,
+                      onPressed: (_isFormValid && !isLoading)
+                          ? _register
+                          : null,
                       style: FilledButton.styleFrom(
                         backgroundColor: _isFormValid
                             ? AppColors.mint
                             : const Color(0xFFE5E7EB),
-                        foregroundColor:
-                            _isFormValid ? Colors.white : const Color(0xFF9CA3AF),
+                        foregroundColor: _isFormValid
+                            ? Colors.white
+                            : const Color(0xFF9CA3AF),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(28),
                         ),
@@ -251,7 +257,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                       child: Center(
                         child: Text(
                           error.toString(),
-                          style: const TextStyle(color: Colors.red, fontSize: 13),
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 13,
+                          ),
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -273,10 +282,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         text,
-        style: const TextStyle(
-          fontSize: 14,
-          color: Color(0xFF4B5563),
-        ),
+        style: const TextStyle(fontSize: 14, color: Color(0xFF4B5563)),
       ),
     );
   }
@@ -306,7 +312,9 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: isRequired ? const Color(0xFFEF4444) : const Color(0xFFD1D5DB),
+                color: isRequired
+                    ? const Color(0xFFEF4444)
+                    : const Color(0xFFD1D5DB),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
