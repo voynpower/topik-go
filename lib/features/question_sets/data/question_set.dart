@@ -141,25 +141,30 @@ class QuestionOption {
     required this.id,
     required this.label,
     required this.text,
+    this.optionNumber,
   });
 
   final String id;
   final String label;
   final String text;
+  final int? optionNumber;
 
   factory QuestionOption.fromJson(Map<String, dynamic> json) {
+    final optionNumber = QuestionSet._asInt(json['option_number']);
     return QuestionOption(
       id: json['id']?.toString() ?? '',
       label:
           json['label']?.toString() ??
           json['option_label']?.toString() ??
           json['option_key']?.toString() ??
+          optionNumber?.toString() ??
           '',
       text:
           json['text']?.toString() ??
           json['option_text']?.toString() ??
           json['content']?.toString() ??
           '',
+      optionNumber: optionNumber,
     );
   }
 }
