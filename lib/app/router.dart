@@ -17,9 +17,11 @@ import 'package:topik_go/features/onboarding/presentation/language_select_page.d
 import 'package:topik_go/features/onboarding/presentation/splash_page.dart';
 import 'package:topik_go/features/practice/presentation/practice_page.dart';
 import 'package:topik_go/features/question_sets/presentation/question_set_detail_page.dart';
+import 'package:topik_go/features/questions/presentation/listening_practice_page.dart';
 import 'package:topik_go/features/questions/presentation/question_detail_page.dart';
 import 'package:topik_go/features/questions/presentation/question_list_page.dart';
 import 'package:topik_go/features/questions/presentation/reading_practice_page.dart';
+import 'package:topik_go/features/questions/presentation/writing_practice_page.dart';
 import 'package:topik_go/features/settings/presentation/settings_page.dart';
 import 'package:topik_go/features/vocabulary/presentation/vocabulary_detail_page.dart';
 import 'package:topik_go/features/vocabulary/presentation/vocabulary_list_page.dart';
@@ -67,6 +69,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/reading-practice',
         builder: (context, state) => const ReadingPracticePage(),
+      ),
+      GoRoute(
+        path: '/listening-practice',
+        builder: (context, state) => const ListeningPracticePage(),
+      ),
+      GoRoute(
+        path: '/writing-practice',
+        builder: (context, state) => const WritingPracticePage(),
       ),
       GoRoute(
         path: '/questions/:id',

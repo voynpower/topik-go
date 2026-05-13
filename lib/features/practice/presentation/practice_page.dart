@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart';
 import 'package:topik_go/features/question_sets/data/question_set_repository.dart';
+import 'package:topik_go/features/questions/data/listening_practice_set.dart';
 import 'package:topik_go/features/questions/data/reading_practice_set.dart';
+import 'package:topik_go/features/questions/data/writing_practice_set.dart';
 
 class PracticePage extends ConsumerWidget {
   const PracticePage({super.key});
@@ -27,13 +29,15 @@ class PracticePage extends ConsumerWidget {
           ),
           _MenuTile(
             title: '듣기 문제',
-            subtitle: '듣기 문제 목록을 불러옵니다',
-            onTap: () => context.push('/questions?section=listening'),
+            subtitle:
+                '${ListeningPracticeSet.level}급 / ${ListeningPracticeSet.total}문항',
+            onTap: () => context.push('/listening-practice'),
           ),
           _MenuTile(
             title: '쓰기 문제',
-            subtitle: '쓰기 문제 목록을 불러옵니다',
-            onTap: () => context.push('/questions?section=writing'),
+            subtitle:
+                '${WritingPracticeSet.level}급 / ${WritingPracticeSet.total}문항',
+            onTap: () => context.push('/writing-practice'),
           ),
           const SizedBox(height: 16),
           Text('문제 세트', style: Theme.of(context).textTheme.titleMedium),
