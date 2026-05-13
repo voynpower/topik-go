@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart';
 import 'package:topik_go/features/questions/data/question_repository.dart';
+import 'package:topik_go/features/questions/data/reading_practice_set.dart';
 
 class QuestionListPage extends ConsumerStatefulWidget {
   const QuestionListPage({super.key, this.initialSection, this.initialSetId});
@@ -35,7 +36,7 @@ class _QuestionListPageState extends ConsumerState<QuestionListPage> {
     final questions = ref.watch(questionsProvider(_query));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('문제 목록')),
+      appBar: AppBar(title: Text(_title)),
       body: Column(
         children: [
           _FilterBar(
@@ -75,6 +76,13 @@ class _QuestionListPageState extends ConsumerState<QuestionListPage> {
         ],
       ),
     );
+  }
+
+  String get _title {
+    if (widget.initialSetId == ReadingPracticeSet.id) {
+      return '읽기 문제';
+    }
+    return '문제 목록';
   }
 }
 
@@ -197,6 +205,12 @@ class _QuestionList extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
+        if (page.items.any(
+          (question) => question.setId == ReadingPracticeSet.id,
+        )) ...[
+          const _ReadingPracticeBanner(),
+          const SizedBox(height: 12),
+        ],
         Text('총 ${page.total}문항', style: Theme.of(context).textTheme.bodyLarge),
         const SizedBox(height: 12),
         ...page.items.map((question) => _QuestionTile(question: question)),
@@ -219,6 +233,33 @@ class _QuestionList extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _ReadingPracticeBanner extends StatelessWidget {
+  const _ReadingPracticeBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: AppColors.surface,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              ReadingPracticeSet.title,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '${ReadingPracticeSet.level}급 / ${ReadingPracticeSet.total}문항',
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

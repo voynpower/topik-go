@@ -67,6 +67,7 @@ class Question {
     this.level,
     this.setId,
     this.questionSetTitle,
+    this.correctAnswer,
     this.explanation,
     this.aiExplanation,
     this.difficulty,
@@ -84,6 +85,7 @@ class Question {
   final int? level;
   final String? setId;
   final String? questionSetTitle;
+  final String? correctAnswer;
   final String? explanation;
   final String? aiExplanation;
   final int? difficulty;
@@ -123,6 +125,7 @@ class Question {
       questionSetTitle: questionSet is Map<String, dynamic>
           ? questionSet['title']?.toString()
           : null,
+      correctAnswer: json['correct_answer']?.toString(),
       explanation: json['explanation']?.toString(),
       aiExplanation: json['ai_explanation']?.toString(),
       difficulty: QuestionSet._asInt(json['difficulty']),

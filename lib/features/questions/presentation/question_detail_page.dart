@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
-import 'package:topik_go/core/network/media_url_resolver.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/practice/data/practice_session_repository.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart';
@@ -50,10 +49,6 @@ class _QuestionDetailPageState extends ConsumerState<QuestionDetailPage> {
           children: [
             _QuestionHeader(question: item),
             const SizedBox(height: 16),
-            if (item.media.isNotEmpty) ...[
-              ...item.media.map((media) => _MediaCard(media: media)),
-              const SizedBox(height: 4),
-            ],
             if (item.passageText?.isNotEmpty ?? false) ...[
               _PassageCard(text: item.passageText!),
               const SizedBox(height: 16),
@@ -316,85 +311,6 @@ class _PassageCard extends StatelessWidget {
       ),
       child: Text(text),
     );
-  }
-}
-
-class _MediaCard extends StatelessWidget {
-  const _MediaCard({required this.media});
-
-  final QuestionMedia media;
-
-  @override
-  Widget build(BuildContext context) {
-    if (media.mediaType.toLowerCase() == 'image') {
-      final imageUrl = resolveMediaUrl(media.url);
-      return Card(
-        clipBehavior: Clip.antiAlias,
-        margin: const EdgeInsets.only(bottom: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            InteractiveViewer(
-              minScale: 1,
-              maxScale: 4,
-              child: Image.network(
-                imageUrl,
-                width: double.infinity,
-                fit: BoxFit.contain,
-                loadingBuilder: (context, child, progress) {
-                  if (progress == null) return child;
-                  return const AspectRatio(
-                    aspectRatio: 3 / 4,
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) {
-                  return AspectRatio(
-                    aspectRatio: 3 / 4,
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(
-                          '이미지를 불러오지 못했습니다.\n$imageUrl',
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            if (media.transcript?.isNotEmpty ?? false)
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: Text(media.transcript!),
-              ),
-          ],
-        ),
-      );
-    }
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        leading: Icon(_iconForType(media.mediaType)),
-        title: Text(media.mediaType.isEmpty ? '미디어' : media.mediaType),
-        subtitle: Text(resolveMediaUrl(media.url)),
-      ),
-    );
-  }
-
-  IconData _iconForType(String type) {
-    switch (type.toLowerCase()) {
-      case 'audio':
-        return Icons.volume_up_outlined;
-      case 'video':
-        return Icons.play_circle_outline;
-      case 'image':
-        return Icons.image_outlined;
-      default:
-        return Icons.attach_file;
-    }
   }
 }
 

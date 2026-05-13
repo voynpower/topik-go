@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart';
 import 'package:topik_go/features/question_sets/data/question_set_repository.dart';
+import 'package:topik_go/features/questions/data/reading_practice_set.dart';
 
 class PracticePage extends ConsumerWidget {
   const PracticePage({super.key});
@@ -20,8 +21,9 @@ class PracticePage extends ConsumerWidget {
           const SizedBox(height: 10),
           _MenuTile(
             title: '읽기 문제',
-            subtitle: '읽기 문제 목록을 불러옵니다',
-            onTap: () => context.push('/questions?section=reading'),
+            subtitle:
+                '${ReadingPracticeSet.level}급 / ${ReadingPracticeSet.total}문항',
+            onTap: () => context.push('/reading-practice'),
           ),
           _MenuTile(
             title: '듣기 문제',
