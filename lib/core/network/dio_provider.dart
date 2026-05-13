@@ -5,7 +5,7 @@ import 'package:topik_go/core/auth/session_store.dart';
 
 const _apiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
 
-String get _resolvedApiBaseUrl {
+String get resolvedApiBaseUrl {
   if (_apiBaseUrl.isNotEmpty) return _apiBaseUrl;
   if (defaultTargetPlatform == TargetPlatform.android) {
     return 'http://10.0.2.2:3000';
@@ -21,7 +21,7 @@ final dioProvider = Provider<Dio>((ref) {
       // iOS Simulator: http://localhost:3000
       // Android Emulator: http://10.0.2.2:3000
       // Physical devices: pass your Mac IP with --dart-define=API_BASE_URL.
-      baseUrl: _resolvedApiBaseUrl,
+      baseUrl: resolvedApiBaseUrl,
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 30),
       contentType: 'application/json',

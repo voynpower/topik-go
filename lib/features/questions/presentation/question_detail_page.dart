@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
+import 'package:topik_go/core/network/media_url_resolver.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/practice/data/practice_session_repository.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart';
@@ -111,17 +112,18 @@ class _QuestionDetailPageState extends ConsumerState<QuestionDetailPage> {
     }
 
     final repository = ref.read(practiceSessionRepositoryProvider);
-    final session = await repository.createSession(questionSetId: setId);
+    final session = await repository.createSession(
+      questionSetId: setId,
+      section: question.section,
+      level: question.level,
+    );
     if (session.id.isEmpty) {
       _showMessage('세션 ID를 받지 못했습니다.');
       return null;
     }
 
     _sessionId = session.id;
-    await repository.updateProgress(
-      sessionId: session.id,
-      currentQuestionId: question.id,
-    );
+    await repository.updateProgress(sessionId: session.id, currentIndex: 0);
     return session.id;
   }
 
@@ -324,12 +326,60 @@ class _MediaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (media.mediaType.toLowerCase() == 'image') {
+      final imageUrl = resolveMediaUrl(media.url);
+      return Card(
+        clipBehavior: Clip.antiAlias,
+        margin: const EdgeInsets.only(bottom: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            InteractiveViewer(
+              minScale: 1,
+              maxScale: 4,
+              child: Image.network(
+                imageUrl,
+                width: double.infinity,
+                fit: BoxFit.contain,
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return const AspectRatio(
+                    aspectRatio: 3 / 4,
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) {
+                  return AspectRatio(
+                    aspectRatio: 3 / 4,
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          '이미지를 불러오지 못했습니다.\n$imageUrl',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            if (media.transcript?.isNotEmpty ?? false)
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(media.transcript!),
+              ),
+          ],
+        ),
+      );
+    }
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
         leading: Icon(_iconForType(media.mediaType)),
         title: Text(media.mediaType.isEmpty ? '미디어' : media.mediaType),
-        subtitle: Text(media.url),
+        subtitle: Text(resolveMediaUrl(media.url)),
       ),
     );
   }

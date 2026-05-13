@@ -41,12 +41,17 @@ class PracticeAnswer {
   final bool? isCorrect;
 
   factory PracticeAnswer.fromJson(Map<String, dynamic> json) {
+    final rawIsCorrect = json['is_correct'];
     return PracticeAnswer(
       id: json['id']?.toString() ?? '',
       questionId: json['question_id']?.toString(),
       selectedAnswer: json['selected_answer']?.toString(),
       textAnswer: json['text_answer']?.toString(),
-      isCorrect: json['is_correct'] is bool ? json['is_correct'] as bool : null,
+      isCorrect: rawIsCorrect is bool
+          ? rawIsCorrect
+          : _asInt(rawIsCorrect) == null
+          ? null
+          : _asInt(rawIsCorrect) == 1,
     );
   }
 }
@@ -65,23 +70,31 @@ class PracticeResult {
   final int? score;
 
   factory PracticeResult.fromJson(Map<String, dynamic> json) {
+    final session = json['session'];
+    final summary = json['summary'];
+    final source = summary is Map<String, dynamic> ? summary : json;
+    final sessionId = session is Map<String, dynamic>
+        ? session['id']?.toString()
+        : null;
+
     return PracticeResult(
       sessionId:
+          sessionId ??
           json['session_id']?.toString() ??
           json['id']?.toString() ??
           json['exam_session_id']?.toString() ??
           '',
       totalQuestions:
-          _asInt(json['total_questions']) ??
-          _asInt(json['total']) ??
-          _asInt(json['question_count']) ??
+          _asInt(source['total_questions']) ??
+          _asInt(source['total']) ??
+          _asInt(source['question_count']) ??
           0,
       correctCount:
-          _asInt(json['correct_count']) ??
-          _asInt(json['correct']) ??
-          _asInt(json['correct_answers']) ??
+          _asInt(source['correct_count']) ??
+          _asInt(source['correct']) ??
+          _asInt(source['correct_answers']) ??
           0,
-      score: _asInt(json['score']),
+      score: _asInt(source['score']) ?? _asInt(source['score_percent']),
     );
   }
 }
@@ -91,12 +104,25 @@ class PracticeSessionRepository {
 
   final Dio _dio;
 
-  Future<PracticeSession> createSession({required String questionSetId}) async {
+  Future<PracticeSession> createSession({
+    required String questionSetId,
+    required String section,
+    int? level,
+  }) async {
     final response = await _dio.post(
       '/practice-sessions',
-      data: {'question_set_id': questionSetId, 'mode': 'practice'},
+      data: {
+        'set_id': questionSetId,
+        'section': section,
+        'mode': 'practice',
+        'level': ?level,
+      },
     );
-    return PracticeSession.fromJson(response.data as Map<String, dynamic>);
+    final data = response.data as Map<String, dynamic>;
+    final session = data['session'];
+    return PracticeSession.fromJson(
+      session is Map<String, dynamic> ? session : data,
+    );
   }
 
   Future<PracticeSession> getSession(String id) async {
@@ -106,11 +132,15 @@ class PracticeSessionRepository {
 
   Future<PracticeSession> updateProgress({
     required String sessionId,
-    required String currentQuestionId,
+    int? currentIndex,
+    int? remainingSeconds,
   }) async {
     final response = await _dio.patch(
       '/practice-sessions/$sessionId/progress',
-      data: {'current_question_id': currentQuestionId},
+      data: {
+        'current_index': ?currentIndex,
+        'remaining_seconds': ?remainingSeconds,
+      },
     );
     return PracticeSession.fromJson(response.data as Map<String, dynamic>);
   }
@@ -128,7 +158,7 @@ class PracticeSessionRepository {
         'question_id': questionId,
         'selected_answer': ?selectedAnswer,
         'text_answer': ?textAnswer,
-        'spent_time_seconds': ?spentTimeSeconds,
+        'spent_seconds': ?spentTimeSeconds,
       },
     );
     return PracticeAnswer.fromJson(response.data as Map<String, dynamic>);
