@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:topik_go/features/question_sets/data/question_set.dart';
-import 'package:topik_go/features/question_sets/data/question_set_repository.dart';
 import 'package:topik_go/features/questions/data/listening_practice_set.dart';
 import 'package:topik_go/features/questions/data/reading_practice_set.dart';
 import 'package:topik_go/features/questions/data/writing_practice_set.dart';
@@ -12,8 +10,6 @@ class PracticePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final questionSets = ref.watch(questionSetsProvider);
-
     return Scaffold(
       appBar: AppBar(title: const Text('학습')),
       body: ListView(
@@ -38,35 +34,6 @@ class PracticePage extends ConsumerWidget {
             subtitle:
                 '${WritingPracticeSet.level}급 / ${WritingPracticeSet.total}문항',
             onTap: () => context.push('/writing-practice'),
-          ),
-          const SizedBox(height: 16),
-          Text('문제 세트', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 10),
-          questionSets.when(
-            data: (sets) {
-              if (sets.isEmpty) {
-                return const _MenuTile(
-                  title: '등록된 문제 세트가 없습니다',
-                  subtitle: '백엔드에 question set 데이터를 추가하면 여기에 표시됩니다.',
-                );
-              }
-
-              return Column(
-                children: sets
-                    .map((set) => _QuestionSetTile(set: set))
-                    .toList(),
-              );
-            },
-            loading: () => const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: CircularProgressIndicator(),
-              ),
-            ),
-            error: (error, _) => _MenuTile(
-              title: '문제 세트를 불러오지 못했습니다',
-              subtitle: error.toString(),
-            ),
           ),
           const SizedBox(height: 16),
           Text('학습 도구', style: Theme.of(context).textTheme.titleMedium),
@@ -100,25 +67,6 @@ class PracticePage extends ConsumerWidget {
           const _MenuTile(title: '오프라인 저장 데이터', subtitle: '오프라인 저장 데이터 열람'),
         ],
       ),
-    );
-  }
-}
-
-class _QuestionSetTile extends StatelessWidget {
-  const _QuestionSetTile({required this.set});
-
-  final QuestionSet set;
-
-  @override
-  Widget build(BuildContext context) {
-    final countLabel = set.questionCount == null
-        ? ''
-        : ' / ${set.questionCount}문제';
-
-    return _MenuTile(
-      title: set.title,
-      subtitle: '${set.sectionLabel} / ${set.level}급$countLabel',
-      onTap: () => context.push('/question-sets/${set.id}'),
     );
   }
 }

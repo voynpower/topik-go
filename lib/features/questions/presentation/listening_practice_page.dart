@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:topik_go/core/network/dio_provider.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart';
@@ -72,6 +73,7 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
                             _AudioPlayerCard(
                               key: ValueKey(audio.url),
                               url: _resolveMediaUrl(audio.url),
+                              transcript: audio.transcript,
                             ),
                           const SizedBox(height: 18),
                           Text(
@@ -342,9 +344,10 @@ class _ExamInstruction extends StatelessWidget {
 }
 
 class _AudioPlayerCard extends StatefulWidget {
-  const _AudioPlayerCard({super.key, required this.url});
+  const _AudioPlayerCard({super.key, required this.url, this.transcript});
 
   final String url;
+  final String? transcript;
 
   @override
   State<_AudioPlayerCard> createState() => _AudioPlayerCardState();
@@ -352,12 +355,25 @@ class _AudioPlayerCard extends StatefulWidget {
 
 class _AudioPlayerCardState extends State<_AudioPlayerCard> {
   late final AudioPlayer _player;
+  late final FlutterTts _tts;
   Object? _error;
+  bool _ttsPlaying = false;
 
   @override
   void initState() {
     super.initState();
     _player = AudioPlayer();
+    _tts = FlutterTts();
+    _tts.setCompletionHandler(() {
+      if (mounted) {
+        setState(() => _ttsPlaying = false);
+      }
+    });
+    _tts.setCancelHandler(() {
+      if (mounted) {
+        setState(() => _ttsPlaying = false);
+      }
+    });
     _load();
   }
 
@@ -372,18 +388,14 @@ class _AudioPlayerCardState extends State<_AudioPlayerCard> {
   @override
   void dispose() {
     _player.dispose();
+    _tts.stop();
     super.dispose();
   }
 
   Future<void> _load() async {
     setState(() => _error = null);
     try {
-      await _player.setAudioSource(
-        AudioSource.uri(
-          Uri.parse(widget.url),
-          headers: const {'Accept': 'audio/wav,audio/*;q=0.9,*/*;q=0.8'},
-        ),
-      );
+      await _player.setUrl(widget.url);
     } catch (error) {
       if (mounted) {
         setState(() => _error = error);
@@ -395,9 +407,27 @@ class _AudioPlayerCardState extends State<_AudioPlayerCard> {
   Widget build(BuildContext context) {
     if (_error != null) {
       return _AudioShell(
-        child: Text(
-          '오디오를 불러오지 못했습니다.\n$_error',
-          style: const TextStyle(color: Colors.red),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '오디오를 불러오지 못했습니다.\n$_error',
+              style: const TextStyle(color: Colors.red),
+            ),
+            const SizedBox(height: 8),
+            SelectableText(
+              widget.url,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            if (widget.transcript?.trim().isNotEmpty ?? false) ...[
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: _toggleFallbackTts,
+                icon: Icon(_ttsPlaying ? Icons.stop : Icons.volume_up),
+                label: Text(_ttsPlaying ? '대체 음성 중지' : '대체 음성 재생'),
+              ),
+            ],
+          ],
         ),
       );
     }
@@ -476,6 +506,11 @@ class _AudioPlayerCardState extends State<_AudioPlayerCard> {
   }
 
   Future<void> _togglePlay() async {
+    if (_ttsPlaying) {
+      await _tts.stop();
+      setState(() => _ttsPlaying = false);
+    }
+
     if (_player.playing) {
       await _player.pause();
       return;
@@ -485,6 +520,28 @@ class _AudioPlayerCardState extends State<_AudioPlayerCard> {
       await _player.seek(Duration.zero);
     }
     await _player.play();
+  }
+
+  Future<void> _toggleFallbackTts() async {
+    if (_ttsPlaying) {
+      await _tts.stop();
+      setState(() => _ttsPlaying = false);
+      return;
+    }
+
+    final transcript = widget.transcript?.trim();
+    if (transcript == null || transcript.isEmpty) return;
+
+    await _player.stop();
+    await _tts.setLanguage('ko-KR');
+    await _tts.setSpeechRate(0.45);
+    await _tts.setPitch(1.0);
+    setState(() => _ttsPlaying = true);
+    await _tts.speak(_spokenTranscript(transcript));
+  }
+
+  String _spokenTranscript(String transcript) {
+    return transcript.replaceAll(RegExp(r'(여자|남자)\s*:\s*'), '');
   }
 
   String _formatDuration(Duration duration) {
