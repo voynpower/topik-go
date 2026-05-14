@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:topik_go/core/network/dio_provider.dart';
@@ -197,12 +199,36 @@ bool _asBool(Object? value) {
 }
 
 List<String> _stringList(Object? value) {
+  if (value is String) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return const [];
+    try {
+      return _stringList(jsonDecode(trimmed));
+    } catch (_) {
+      return [trimmed];
+    }
+  }
+
   if (value is List) {
     return value
-        .map((item) => item is Map ? item.values.join(' / ') : item.toString())
+        .map(_stringListItem)
         .where((item) => item.trim().isNotEmpty)
         .toList();
   }
   if (value == null) return const [];
   return [value.toString()];
+}
+
+String _stringListItem(Object? item) {
+  if (item is Map) {
+    final ko = item['ko']?.toString().trim();
+    final en = item['en']?.toString().trim();
+    if (ko != null && ko.isNotEmpty && en != null && en.isNotEmpty) {
+      return '$ko\n$en';
+    }
+    if (ko != null && ko.isNotEmpty) return ko;
+    if (en != null && en.isNotEmpty) return en;
+    return item.values.map((value) => value.toString()).join('\n');
+  }
+  return item?.toString() ?? '';
 }

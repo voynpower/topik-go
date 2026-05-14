@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
+import 'package:topik_go/features/exam_schedule/data/exam_schedule_repository.dart';
 import 'package:topik_go/features/question_sets/data/question_set_repository.dart';
 import 'package:topik_go/features/users/data/user_repository.dart';
 
@@ -13,6 +15,7 @@ class HomePage extends ConsumerWidget {
     final profile = ref.watch(userProfileProvider);
     final questionSets = ref.watch(questionSetsProvider);
     final bookmarkSummary = ref.watch(bookmarkSummaryProvider);
+    final nextExam = ref.watch(nextExamScheduleProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('홈')),
@@ -37,6 +40,17 @@ class HomePage extends ConsumerWidget {
             ).textTheme.bodyLarge?.copyWith(color: AppColors.mintDark),
           ),
           const SizedBox(height: 16),
+          nextExam.when(
+            data: (schedule) {
+              if (schedule == null) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _NextExamCard(schedule: schedule),
+              );
+            },
+            loading: () => const SizedBox.shrink(),
+            error: (_, _) => const SizedBox.shrink(),
+          ),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -115,6 +129,79 @@ class HomePage extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _NextExamCard extends StatelessWidget {
+  const _NextExamCard({required this.schedule});
+
+  final TopikExamSchedule schedule;
+
+  @override
+  Widget build(BuildContext context) {
+    final dateFormat = DateFormat('yyyy.MM.dd (E)', 'ko_KR');
+    final diff = schedule.examDate.difference(DateTime.now()).inDays;
+
+    return Card(
+      color: AppColors.mint.withValues(alpha: 0.1),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: AppColors.mint.withValues(alpha: 0.3)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '다음 시험 일정',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.mintDark,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    schedule.title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '시험일: ${dateFormat.format(schedule.examDate)}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.mintDark,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                'D-$diff',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
