@@ -2,13 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:topik_go/core/network/dio_provider.dart';
+import 'package:topik_go/core/network/api_media_url.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart';
+import 'package:topik_go/features/question_sets/data/question_set_repository.dart';
 import 'package:topik_go/features/questions/data/listening_practice_set.dart';
+import 'package:topik_go/features/questions/data/practice_set_resolution.dart';
 import 'package:topik_go/features/questions/data/question_repository.dart';
 
 class ListeningPracticePage extends ConsumerStatefulWidget {
-  const ListeningPracticePage({super.key});
+  const ListeningPracticePage({super.key, required this.level});
+
+  /// TOPIK II 듣기 급수 (3–6).
+  final int level;
 
   @override
   ConsumerState<ListeningPracticePage> createState() =>
@@ -16,24 +21,35 @@ class ListeningPracticePage extends ConsumerStatefulWidget {
 }
 
 class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
-  static const _query = QuestionQuery(
-    section: ListeningPracticeSet.section,
-    setId: ListeningPracticeSet.id,
-    page: 1,
-    limit: ListeningPracticeSet.total,
-  );
-
   int _currentIndex = 0;
   final Map<String, String> _selectedAnswers = {};
   _PracticeSummary? _summary;
 
   @override
   Widget build(BuildContext context) {
-    final questions = ref.watch(questionsProvider(_query));
+    final level = widget.level;
+    final setId = ref.watch(questionSetsProvider).maybeWhen(
+          data: (sets) => resolvedPracticeSetId(
+            sets: sets,
+            section: ListeningPracticeSet.section,
+            fallbackId: ListeningPracticeSet.id,
+            level: level,
+          ),
+          orElse: () => ListeningPracticeSet.id,
+        );
+    final questions = ref.watch(
+      practiceQuestionsProvider(
+        PracticeSetQuestionsKey(
+          section: ListeningPracticeSet.section,
+          setId: setId,
+          level: level,
+        ),
+      ),
+    );
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F5F7),
-      appBar: AppBar(title: const Text('TOPIK II 듣기')),
+      appBar: AppBar(title: Text('듣기 연습 · $level급')),
       body: questions.when(
         data: (page) {
           if (page.items.isEmpty) {
@@ -52,6 +68,7 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
                 current: safeIndex + 1,
                 total: page.items.length,
                 question: question,
+                practiceLevel: level,
               ),
               Expanded(
                 child: ListView(
@@ -71,8 +88,11 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
                             const Text('이 문제에는 오디오가 없습니다.')
                           else
                             _AudioPlayerCard(
-                              key: ValueKey(audio.url),
-                              url: _resolveMediaUrl(audio.url),
+                              key: ValueKey(
+                                '${question.id}|'
+                                '${audio.url.trim().isEmpty ? 'tts' : resolveApiMediaUrl(audio.url)}',
+                              ),
+                              url: resolveApiMediaUrl(audio.url),
                               transcript: audio.transcript,
                             ),
                           const SizedBox(height: 18),
@@ -134,28 +154,60 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => _ErrorState(
           message: error.toString(),
-          onRetry: () => ref.invalidate(questionsProvider(_query)),
+          onRetry: () => ref.invalidate(
+                practiceQuestionsProvider(
+                  PracticeSetQuestionsKey(
+                    section: ListeningPracticeSet.section,
+                    setId: readResolvedPracticeSetId(
+                      ref,
+                      section: ListeningPracticeSet.section,
+                      fallbackId: ListeningPracticeSet.id,
+                      level: level,
+                    ),
+                    level: level,
+                  ),
+                ),
+              ),
         ),
       ),
     );
   }
 
   QuestionMedia? _audioMedia(Question question) {
+    QuestionMedia? transcriptOnly;
+
+    bool looksLikeAudioFile(String url) {
+      final u = url.trim().toLowerCase();
+      return u.endsWith('.mp3') ||
+          u.endsWith('.wav') ||
+          u.endsWith('.m4a') ||
+          u.endsWith('.aac') ||
+          u.endsWith('.ogg') ||
+          u.endsWith('.flac');
+    }
+
+    bool isAudioCandidate(QuestionMedia m) {
+      final t = m.mediaType.trim().toLowerCase();
+      final u = m.url.trim();
+      if (t == 'audio' || t.contains('audio') || t.contains('mpeg')) {
+        return true;
+      }
+      if (u.isNotEmpty && looksLikeAudioFile(u)) return true;
+      if (u.isEmpty && (t == 'audio' || t.contains('audio'))) return true;
+      return false;
+    }
+
     for (final media in question.media) {
-      if (media.mediaType.toLowerCase() == 'audio' && media.url.isNotEmpty) {
+      if (!isAudioCandidate(media)) continue;
+      if (media.url.trim().isNotEmpty) {
         return media;
       }
+      if ((media.transcript?.trim().isNotEmpty ?? false) &&
+          transcriptOnly == null) {
+        transcriptOnly = media;
+      }
     }
-    return null;
-  }
-
-  String _resolveMediaUrl(String url) {
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    final base = resolvedApiBaseUrl.endsWith('/')
-        ? resolvedApiBaseUrl.substring(0, resolvedApiBaseUrl.length - 1)
-        : resolvedApiBaseUrl;
-    final path = url.startsWith('/') ? url : '/$url';
-    return '$base$path';
+    return transcriptOnly;
   }
 
   void _submitTest(List<Question> questions) {
@@ -230,11 +282,13 @@ class _ProgressHeader extends StatelessWidget {
     required this.current,
     required this.total,
     required this.question,
+    required this.practiceLevel,
   });
 
   final int current;
   final int total;
   final Question question;
+  final int practiceLevel;
 
   @override
   Widget build(BuildContext context) {
@@ -249,10 +303,10 @@ class _ProgressHeader extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'TOPIK II 듣기',
-                    style: TextStyle(fontWeight: FontWeight.w700),
+                    'TOPIK II 듣기 · $practiceLevel급',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -358,6 +412,7 @@ class _AudioPlayerCardState extends State<_AudioPlayerCard> {
   late final FlutterTts _tts;
   Object? _error;
   bool _ttsPlaying = false;
+  bool _ttsOnly = false;
 
   @override
   void initState() {
@@ -380,7 +435,7 @@ class _AudioPlayerCardState extends State<_AudioPlayerCard> {
   @override
   void didUpdateWidget(covariant _AudioPlayerCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.url != widget.url) {
+    if (oldWidget.url != widget.url || oldWidget.transcript != widget.transcript) {
       _load();
     }
   }
@@ -393,7 +448,17 @@ class _AudioPlayerCardState extends State<_AudioPlayerCard> {
   }
 
   Future<void> _load() async {
-    setState(() => _error = null);
+    setState(() {
+      _error = null;
+      _ttsOnly = false;
+    });
+    if (widget.url.trim().isEmpty) {
+      final script = widget.transcript?.trim();
+      if (script != null && script.isNotEmpty) {
+        if (mounted) setState(() => _ttsOnly = true);
+        return;
+      }
+    }
     try {
       await _player.setUrl(widget.url);
     } catch (error) {
@@ -405,6 +470,26 @@ class _AudioPlayerCardState extends State<_AudioPlayerCard> {
 
   @override
   Widget build(BuildContext context) {
+    if (_ttsOnly) {
+      return _AudioShell(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '이 문항은 음성 파일 대신 안내 음성(TTS)으로 들을 수 있습니다.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: _toggleFallbackTts,
+              icon: Icon(_ttsPlaying ? Icons.stop : Icons.volume_up),
+              label: Text(_ttsPlaying ? '재생 중지' : '듣기 재생'),
+            ),
+          ],
+        ),
+      );
+    }
+
     if (_error != null) {
       return _AudioShell(
         child: Column(

@@ -30,7 +30,10 @@ class QuestionSet {
       section: json['section']?.toString() ?? 'unknown',
       level: _asInt(json['level']) ?? 0,
       questions: parsedQuestions,
-      questionCount: questions is List ? parsedQuestions.length : null,
+      questionCount:
+          _asInt(json['question_count']) ??
+          _asInt(json['questions_count']) ??
+          (questions is List ? parsedQuestions.length : null),
     );
   }
 
@@ -94,49 +97,128 @@ class Question {
 
   factory Question.fromJson(Map<String, dynamic> json) {
     final options = json['options'] ?? json['question_options'];
-    final media = json['media'] ?? json['question_media'];
+    final mediaRaw = json['media'] ?? json['question_media'];
     final passage = json['passage'] ?? json['question_passages'];
     final questionSet = json['question_set'] ?? json['question_sets'];
+    final section = json['section']?.toString() ?? '';
+    final questionNumber = QuestionSet._asInt(json['question_number']) ?? 0;
+    final setIdStr =
+        json['set_id']?.toString() ??
+        (questionSet is Map<String, dynamic>
+            ? questionSet['id']?.toString()
+            : null) ??
+        '';
 
-    return Question(
-      id: json['id']?.toString() ?? '',
-      questionNumber: QuestionSet._asInt(json['question_number']) ?? 0,
-      section: json['section']?.toString() ?? '',
-      questionType: json['question_type']?.toString() ?? '',
-      prompt: json['prompt']?.toString() ?? '',
-      options: options is List
-          ? options
-                .whereType<Map<String, dynamic>>()
-                .map(QuestionOption.fromJson)
-                .toList()
-          : const [],
-      media: media is List
-          ? media
+    final rawId = json['id']?.toString() ?? '';
+    final id =
+        rawId.isNotEmpty
+            ? rawId
+            : (questionNumber > 0
+                ? 'practice-$setIdStr-$questionNumber'
+                : 'practice-$setIdStr-${json['question_type']?.toString().hashCode}');
+
+    final prompt =
+        _nonEmpty([
+              json['prompt']?.toString(),
+              json['question_text']?.toString(),
+            ]) ??
+        '';
+
+    final passageText = _passageTextFromJson(passage);
+
+    var media =
+        mediaRaw is List
+            ? mediaRaw
                 .whereType<Map<String, dynamic>>()
                 .map(QuestionMedia.fromJson)
                 .toList()
-          : const [],
+            : <QuestionMedia>[];
+
+    final audioText = json['audio_text']?.toString().trim();
+    if (audioText != null &&
+        audioText.isNotEmpty &&
+        !media.any(
+          (m) =>
+              m.mediaType.toLowerCase() == 'audio' && m.url.trim().isNotEmpty,
+        )) {
+      media = [
+        ...media,
+        QuestionMedia(
+          id: rawId.isNotEmpty ? '$rawId-audio-text' : '$id-audio-text',
+          mediaType: 'audio',
+          url: '',
+          transcript: audioText,
+        ),
+      ];
+    }
+
+    return Question(
+      id: id,
+      questionNumber: questionNumber,
+      section: section,
+      questionType: json['question_type']?.toString() ?? '',
+      prompt: prompt,
+      options: _questionOptionsFromJson(options),
+      media: media,
       level: QuestionSet._asInt(json['level']),
-      setId:
-          json['set_id']?.toString() ??
-          (questionSet is Map<String, dynamic>
-              ? questionSet['id']?.toString()
-              : null),
+      setId: setIdStr.isNotEmpty ? setIdStr : null,
       questionSetTitle: questionSet is Map<String, dynamic>
           ? questionSet['title']?.toString()
           : null,
       correctAnswer: json['correct_answer']?.toString(),
-      explanation: json['explanation']?.toString(),
+      explanation: _nonEmpty([
+        json['explanation']?.toString(),
+        json['sample_answer']?.toString(),
+      ]),
       aiExplanation: json['ai_explanation']?.toString(),
       difficulty: QuestionSet._asInt(json['difficulty']),
       timeLimitSeconds: QuestionSet._asInt(json['time_limit_seconds']),
-      passageText: passage is Map<String, dynamic>
-          ? passage['passage_text']?.toString() ??
-                passage['text']?.toString() ??
-                passage['content']?.toString()
-          : null,
+      passageText: passageText,
     );
   }
+}
+
+String? _nonEmpty(List<String?> candidates) {
+  for (final s in candidates) {
+    if (s != null && s.trim().isNotEmpty) return s.trim();
+  }
+  return null;
+}
+
+String? _passageTextFromJson(Object? passage) {
+  if (passage is String) {
+    final t = passage.trim();
+    return t.isEmpty ? null : t;
+  }
+  if (passage is Map<String, dynamic>) {
+    return _nonEmpty([
+      passage['passage_text']?.toString(),
+      passage['text']?.toString(),
+      passage['content']?.toString(),
+    ]);
+  }
+  return null;
+}
+
+List<QuestionOption> _questionOptionsFromJson(Object? options) {
+  if (options is! List || options.isEmpty) return const [];
+
+  if (options.every((e) => e is String)) {
+    return [
+      for (var i = 0; i < options.length; i++)
+        QuestionOption(
+          id: '${i + 1}',
+          label: '${i + 1}',
+          text: options[i]! as String,
+          optionNumber: i + 1,
+        ),
+    ];
+  }
+
+  return options
+      .whereType<Map<String, dynamic>>()
+      .map(QuestionOption.fromJson)
+      .toList();
 }
 
 class QuestionOption {
@@ -188,12 +270,21 @@ class QuestionMedia {
   final int? durationSeconds;
 
   factory QuestionMedia.fromJson(Map<String, dynamic> json) {
+    final url =
+        json['url']?.toString() ??
+        json['media_url']?.toString() ??
+        json['file_url']?.toString() ??
+        json['audio_url']?.toString() ??
+        json['src']?.toString() ??
+        json['path']?.toString() ??
+        '';
     return QuestionMedia(
       id: json['id']?.toString() ?? '',
       mediaType:
           json['media_type']?.toString() ?? json['type']?.toString() ?? '',
-      url: json['url']?.toString() ?? json['media_url']?.toString() ?? '',
-      transcript: json['transcript']?.toString(),
+      url: url,
+      transcript:
+          json['transcript']?.toString() ?? json['audio_text']?.toString(),
       durationSeconds: QuestionSet._asInt(json['duration_seconds']),
     );
   }

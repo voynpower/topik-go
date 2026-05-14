@@ -2,11 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart';
+import 'package:topik_go/features/question_sets/data/question_set_repository.dart';
+import 'package:topik_go/features/questions/data/practice_set_resolution.dart';
 import 'package:topik_go/features/questions/data/question_repository.dart';
 import 'package:topik_go/features/questions/data/reading_practice_set.dart';
 
 class ReadingPracticePage extends ConsumerStatefulWidget {
-  const ReadingPracticePage({super.key});
+  const ReadingPracticePage({super.key, required this.level});
+
+  /// TOPIK II 읽기 급수 (3–6).
+  final int level;
 
   @override
   ConsumerState<ReadingPracticePage> createState() =>
@@ -14,24 +19,35 @@ class ReadingPracticePage extends ConsumerStatefulWidget {
 }
 
 class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
-  static const _query = QuestionQuery(
-    section: ReadingPracticeSet.section,
-    setId: ReadingPracticeSet.id,
-    page: 1,
-    limit: ReadingPracticeSet.total,
-  );
-
   int _currentIndex = 0;
   final Map<String, String> _selectedAnswers = {};
   _PracticeSummary? _summary;
 
   @override
   Widget build(BuildContext context) {
-    final questions = ref.watch(questionsProvider(_query));
+    final level = widget.level;
+    final setId = ref.watch(questionSetsProvider).maybeWhen(
+          data: (sets) => resolvedPracticeSetId(
+            sets: sets,
+            section: ReadingPracticeSet.section,
+            fallbackId: ReadingPracticeSet.id,
+            level: level,
+          ),
+          orElse: () => ReadingPracticeSet.id,
+        );
+    final questions = ref.watch(
+      practiceQuestionsProvider(
+        PracticeSetQuestionsKey(
+          section: ReadingPracticeSet.section,
+          setId: setId,
+          level: level,
+        ),
+      ),
+    );
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F5F7),
-      appBar: AppBar(title: const Text('TOPIK II 읽기')),
+      appBar: AppBar(title: Text('읽기 연습 · $level급')),
       body: questions.when(
         data: (page) {
           if (page.items.isEmpty) {
@@ -49,6 +65,7 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
                 current: safeIndex + 1,
                 total: page.items.length,
                 question: question,
+                practiceLevel: level,
               ),
               Expanded(
                 child: ListView(
@@ -122,7 +139,20 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => _ErrorState(
           message: error.toString(),
-          onRetry: () => ref.invalidate(questionsProvider(_query)),
+          onRetry: () => ref.invalidate(
+                practiceQuestionsProvider(
+                  PracticeSetQuestionsKey(
+                    section: ReadingPracticeSet.section,
+                    setId: readResolvedPracticeSetId(
+                      ref,
+                      section: ReadingPracticeSet.section,
+                      fallbackId: ReadingPracticeSet.id,
+                      level: level,
+                    ),
+                    level: level,
+                  ),
+                ),
+              ),
         ),
       ),
     );
@@ -202,11 +232,13 @@ class _ProgressHeader extends StatelessWidget {
     required this.current,
     required this.total,
     required this.question,
+    required this.practiceLevel,
   });
 
   final int current;
   final int total;
   final Question question;
+  final int practiceLevel;
 
   @override
   Widget build(BuildContext context) {
@@ -223,7 +255,7 @@ class _ProgressHeader extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'TOPIK II 읽기',
+                    'TOPIK II 읽기 · $practiceLevel급',
                     style: const TextStyle(fontWeight: FontWeight.w700),
                     overflow: TextOverflow.ellipsis,
                   ),

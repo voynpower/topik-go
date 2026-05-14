@@ -17,7 +17,7 @@ class QuestionPage {
   final int total;
 
   factory QuestionPage.fromJson(Map<String, dynamic> json) {
-    final items = json['items'];
+    final items = json['items'] ?? json['questions'];
 
     return QuestionPage(
       items: items is List
@@ -105,6 +105,30 @@ class QuestionQuery {
   }
 }
 
+/// Key for loading every page of a practice set into one [QuestionPage].
+class PracticeSetQuestionsKey {
+  const PracticeSetQuestionsKey({
+    required this.section,
+    required this.setId,
+    this.level,
+  });
+
+  final String section;
+  final String setId;
+  final int? level;
+
+  @override
+  bool operator ==(Object other) {
+    return other is PracticeSetQuestionsKey &&
+        other.section == section &&
+        other.setId == setId &&
+        other.level == level;
+  }
+
+  @override
+  int get hashCode => Object.hash(section, setId, level);
+}
+
 class QuestionRepository {
   const QuestionRepository(this._dio);
 
@@ -116,6 +140,55 @@ class QuestionRepository {
       queryParameters: query.toQueryParameters(),
     );
     return QuestionPage.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// Fetches all pages for a set (e.g. server caps at 30 per request but total is 50).
+  Future<QuestionPage> getAllQuestionsForPracticeSet({
+    required String section,
+    required String setId,
+    int? level,
+    int pageSize = 50,
+  }) async {
+    if (setId.isEmpty) {
+      return const QuestionPage(items: [], page: 1, limit: 0, total: 0);
+    }
+
+    final merged = <Question>[];
+    int? reportedTotal;
+    var page = 1;
+
+    while (true) {
+      final chunk = await getQuestions(
+        QuestionQuery(
+          section: section,
+          setId: setId,
+          level: level,
+          page: page,
+          limit: pageSize,
+        ),
+      );
+
+      reportedTotal ??= chunk.total > 0 ? chunk.total : null;
+      if (chunk.items.isEmpty) break;
+
+      merged.addAll(chunk.items);
+
+      final rt = reportedTotal;
+      final doneByTotal = rt != null && merged.length >= rt;
+      final shortPage = chunk.items.length < pageSize;
+      if (doneByTotal || shortPage) break;
+
+      page++;
+      if (page > 50) break;
+    }
+
+    final total = reportedTotal ?? merged.length;
+    return QuestionPage(
+      items: merged,
+      page: 1,
+      limit: merged.length,
+      total: total,
+    );
   }
 
   Future<Question> getQuestion(String id) async {
@@ -133,6 +206,18 @@ final questionsProvider = FutureProvider.family<QuestionPage, QuestionQuery>((
   query,
 ) {
   return ref.watch(questionRepositoryProvider).getQuestions(query);
+});
+
+final practiceQuestionsProvider =
+    FutureProvider.family<QuestionPage, PracticeSetQuestionsKey>((
+  ref,
+  key,
+) {
+  return ref.watch(questionRepositoryProvider).getAllQuestionsForPracticeSet(
+        section: key.section,
+        setId: key.setId,
+        level: key.level,
+      );
 });
 
 final questionProvider = FutureProvider.family<Question, String>((ref, id) {

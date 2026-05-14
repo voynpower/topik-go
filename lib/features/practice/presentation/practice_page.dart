@@ -19,14 +19,12 @@ class PracticePage extends ConsumerWidget {
           const SizedBox(height: 10),
           _MenuTile(
             title: '읽기 문제',
-            subtitle:
-                '${ReadingPracticeSet.level}급 / ${ReadingPracticeSet.total}문항',
+            subtitle: '급수 선택 후 연습 · 최대 ${ReadingPracticeSet.total}문항',
             onTap: () => context.push('/reading-practice'),
           ),
           _MenuTile(
             title: '듣기 문제',
-            subtitle:
-                '${ListeningPracticeSet.level}급 / ${ListeningPracticeSet.total}문항',
+            subtitle: '급수 선택 후 연습 · 최대 ${ListeningPracticeSet.total}문항',
             onTap: () => context.push('/listening-practice'),
           ),
           _MenuTile(

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:topik_go/features/practice/data/practice_session_repository.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart';
+import 'package:topik_go/features/question_sets/data/question_set_repository.dart';
+import 'package:topik_go/features/questions/data/practice_set_resolution.dart';
 import 'package:topik_go/features/questions/data/question_repository.dart';
 import 'package:topik_go/features/questions/data/writing_practice_set.dart';
 
@@ -14,13 +16,6 @@ class WritingPracticePage extends ConsumerStatefulWidget {
 }
 
 class _WritingPracticePageState extends ConsumerState<WritingPracticePage> {
-  static const _query = QuestionQuery(
-    section: WritingPracticeSet.section,
-    setId: WritingPracticeSet.id,
-    page: 1,
-    limit: WritingPracticeSet.total,
-  );
-
   int _currentIndex = 0;
   bool _submitted = false;
   bool _saving = false;
@@ -38,7 +33,22 @@ class _WritingPracticePageState extends ConsumerState<WritingPracticePage> {
 
   @override
   Widget build(BuildContext context) {
-    final questions = ref.watch(questionsProvider(_query));
+    final setId = ref.watch(questionSetsProvider).maybeWhen(
+          data: (sets) => resolvedPracticeSetId(
+            sets: sets,
+            section: WritingPracticeSet.section,
+            fallbackId: WritingPracticeSet.id,
+          ),
+          orElse: () => WritingPracticeSet.id,
+        );
+    final questions = ref.watch(
+      practiceQuestionsProvider(
+        PracticeSetQuestionsKey(
+          section: WritingPracticeSet.section,
+          setId: setId,
+        ),
+      ),
+    );
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F5F7),
@@ -125,7 +135,18 @@ class _WritingPracticePageState extends ConsumerState<WritingPracticePage> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => _ErrorState(
           message: error.toString(),
-          onRetry: () => ref.invalidate(questionsProvider(_query)),
+          onRetry: () => ref.invalidate(
+                practiceQuestionsProvider(
+                  PracticeSetQuestionsKey(
+                    section: WritingPracticeSet.section,
+                    setId: readResolvedPracticeSetId(
+                      ref,
+                      section: WritingPracticeSet.section,
+                      fallbackId: WritingPracticeSet.id,
+                    ),
+                  ),
+                ),
+              ),
         ),
       ),
     );
