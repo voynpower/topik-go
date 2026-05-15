@@ -38,9 +38,15 @@ class _WritingPracticePageState extends ConsumerState<WritingPracticePage> {
             sets: sets,
             section: WritingPracticeSet.section,
             fallbackId: WritingPracticeSet.id,
+            // For writing, we might not have a specific set for each level, 
+            // but we can still pass a level if we want to filter.
+            // Currently, WritingPracticeSet defaults to level 3.
           ),
           orElse: () => WritingPracticeSet.id,
         );
+
+    debugPrint('WritingPracticePage resolved setId: $setId');
+
     final questions = ref.watch(
       practiceQuestionsProvider(
         PracticeSetQuestionsKey(

@@ -150,6 +150,11 @@ class _NextExamCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('yyyy.MM.dd (E)', 'ko_KR');
     final diff = schedule.examDate.difference(DateTime.now()).inDays;
+    final dDay = schedule.dDayLabel ?? 'D-$diff';
+    final examDate =
+        schedule.examDateLabel ?? dateFormat.format(schedule.examDate);
+    final registrationPeriod = schedule.registrationPeriodLabel;
+    final resultDate = schedule.resultDateLabel;
 
     return Card(
       color: AppColors.mint.withValues(alpha: 0.1),
@@ -183,12 +188,43 @@ class _NextExamCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '시험일: ${dateFormat.format(schedule.examDate)}',
+                    '시험일: $examDate',
                     style: TextStyle(
                       fontSize: 14,
                       color: AppColors.textSecondary,
                     ),
                   ),
+                  if (registrationPeriod != null &&
+                      registrationPeriod.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      '접수기간: $registrationPeriod',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                  if (resultDate != null && resultDate.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      '결과발표: $resultDate',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                  if (schedule.location?.isNotEmpty ?? false) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      schedule.location!,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -199,7 +235,7 @@ class _NextExamCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                'D-$diff',
+                dDay,
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w900,

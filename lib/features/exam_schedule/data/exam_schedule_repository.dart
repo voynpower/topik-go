@@ -11,6 +11,13 @@ class TopikExamSchedule {
     this.registrationStartDate,
     this.registrationEndDate,
     this.resultDate,
+    this.location,
+    this.registrationUrl,
+    this.dDayLabel,
+    this.examDateLabel,
+    this.registrationPeriodLabel,
+    this.resultDateLabel,
+    this.feeLabel,
     this.isCurrent = false,
   });
 
@@ -20,6 +27,13 @@ class TopikExamSchedule {
   final DateTime? registrationStartDate;
   final DateTime? registrationEndDate;
   final DateTime? resultDate;
+  final String? location;
+  final String? registrationUrl;
+  final String? dDayLabel;
+  final String? examDateLabel;
+  final String? registrationPeriodLabel;
+  final String? resultDateLabel;
+  final String? feeLabel;
   final bool isCurrent;
 
   factory TopikExamSchedule.fromJson(Map<String, dynamic> json) {
@@ -41,17 +55,27 @@ class TopikExamSchedule {
       registrationStartDate: json['registration_start_at'] != null
           ? parseDate(json['registration_start_at'])
           : json['registration_start_date'] != null
-              ? parseDate(json['registration_start_date'])
-              : null,
+          ? parseDate(json['registration_start_date'])
+          : null,
       registrationEndDate: json['registration_end_at'] != null
           ? parseDate(json['registration_end_at'])
           : json['registration_end_date'] != null
-              ? parseDate(json['registration_end_date'])
-              : null,
+          ? parseDate(json['registration_end_date'])
+          : null,
       resultDate: json['result_date'] != null
           ? parseDate(json['result_date'])
           : null,
-      isCurrent: json['is_active'] == 1 || json['is_current'] == true || json['is_current'] == 1,
+      location: json['location']?.toString(),
+      registrationUrl: json['registration_url']?.toString(),
+      dDayLabel: json['d_day']?.toString(),
+      examDateLabel: json['exam_date_label']?.toString(),
+      registrationPeriodLabel: json['registration_period_label']?.toString(),
+      resultDateLabel: json['result_date_label']?.toString(),
+      feeLabel: json['fee_label']?.toString(),
+      isCurrent:
+          json['is_active'] == 1 ||
+          json['is_current'] == true ||
+          json['is_current'] == 1,
     );
   }
 
@@ -63,8 +87,7 @@ class TopikExamSchedule {
         'registration_start_date': registrationStartDate!.toIso8601String(),
       if (registrationEndDate != null)
         'registration_end_date': registrationEndDate!.toIso8601String(),
-      if (resultDate != null)
-        'result_date': resultDate!.toIso8601String(),
+      if (resultDate != null) 'result_date': resultDate!.toIso8601String(),
       'is_current': isCurrent,
     };
   }
@@ -99,12 +122,12 @@ class ExamScheduleRepository {
     try {
       final response = await _dio.get('/topik-exam-schedules/next');
       debugPrint('Next exam schedule response: ${response.data}');
-      
+
       final data = response.data;
       if (data == null || (data is Map && data.isEmpty)) {
         return null;
       }
-      
+
       return TopikExamSchedule.fromJson(data as Map<String, dynamic>);
     } catch (e) {
       debugPrint('Error fetching next schedule: $e');
