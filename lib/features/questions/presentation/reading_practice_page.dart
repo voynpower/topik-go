@@ -33,7 +33,7 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
             fallbackId: ReadingPracticeSet.id,
             level: level,
           ),
-          orElse: () => ReadingPracticeSet.id,
+          orElse: () => level == ReadingPracticeSet.level ? ReadingPracticeSet.id : null,
         );
     final questions = ref.watch(
       practiceQuestionsProvider(

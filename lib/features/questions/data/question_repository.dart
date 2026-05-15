@@ -60,7 +60,7 @@ class QuestionQuery {
   Map<String, Object> toQueryParameters() {
     return {
       if (section != null && section!.isNotEmpty) 'section': section!,
-      'level': ?level,
+      if (level != null) 'level': level!,
       if (questionType != null && questionType!.isNotEmpty)
         'question_type': questionType!,
       if (setId != null && setId!.isNotEmpty) 'set_id': setId!,
@@ -109,12 +109,12 @@ class QuestionQuery {
 class PracticeSetQuestionsKey {
   const PracticeSetQuestionsKey({
     required this.section,
-    required this.setId,
+    this.setId,
     this.level,
   });
 
   final String section;
-  final String setId;
+  final String? setId;
   final int? level;
 
   @override
@@ -143,21 +143,25 @@ class QuestionRepository {
   }
 
   /// Fetches all pages for a set (e.g. server caps at 30 per request but total is 50).
+  /// For practice, we cap it at 30 items as requested.
   Future<QuestionPage> getAllQuestionsForPracticeSet({
     required String section,
-    required String setId,
+    String? setId,
     int? level,
-    int pageSize = 50,
+    int pageSize = 30,
+    int maxItems = 30,
   }) async {
-    if (setId.isEmpty) {
+    // If no setId AND no level, we can't fetch anything specific enough for practice.
+    if ((setId == null || setId.isEmpty) && level == null) {
       return const QuestionPage(items: [], page: 1, limit: 0, total: 0);
     }
 
     final merged = <Question>[];
-    int? reportedTotal;
+    int totalCount = 0;
     var page = 1;
 
-    while (true) {
+    // Continue fetching until we have enough items or no more pages.
+    while (merged.length < maxItems) {
       final chunk = await getQuestions(
         QuestionQuery(
           section: section,
@@ -168,32 +172,44 @@ class QuestionRepository {
         ),
       );
 
-      reportedTotal ??= chunk.total > 0 ? chunk.total : null;
       if (chunk.items.isEmpty) break;
 
       merged.addAll(chunk.items);
+      totalCount = chunk.total;
 
-      final rt = reportedTotal;
-      final doneByTotal = rt != null && merged.length >= rt;
-      final shortPage = chunk.items.length < pageSize;
-      if (doneByTotal || shortPage) break;
+      // Stop if we got a short page (end of data) or reached maxItems
+      if (chunk.items.length < pageSize || merged.length >= maxItems) {
+        break;
+      }
 
       page++;
-      if (page > 50) break;
+      if (page > 10) break; // Safety break
     }
 
-    final total = reportedTotal ?? merged.length;
+    // Strictly cap at maxItems
+    if (merged.length > maxItems) {
+      merged.removeRange(maxItems, merged.length);
+    }
+
     return QuestionPage(
       items: merged,
       page: 1,
       limit: merged.length,
-      total: total,
+      total: merged.length, // Display the actual count fetched
     );
   }
 
   Future<Question> getQuestion(String id) async {
     final response = await _dio.get('/questions/$id');
     return Question.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<void> markAsDownloaded(String id) async {
+    await _dio.post('/questions/$id/download');
+  }
+
+  Future<void> removeDownloadMarker(String id) async {
+    await _dio.delete('/questions/$id/download');
   }
 }
 

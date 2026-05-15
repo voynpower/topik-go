@@ -4,19 +4,24 @@ import 'package:topik_go/features/question_sets/data/question_set_repository.dar
 
 /// Picks the best [QuestionSet.id] for practice after import, since DB UUIDs
 /// differ from authoring fixtures. Falls back to [fallbackId] (dev default).
-String resolvedPracticeSetId({
+String? resolvedPracticeSetId({
   required List<QuestionSet> sets,
   required String section,
-  required String fallbackId,
+  required String? fallbackId,
   int? level,
 }) {
   final target = section.toLowerCase();
   var candidates =
       sets.where((s) => s.section.toLowerCase() == target).toList();
+
   if (level != null) {
     final byLevel = candidates.where((s) => s.level == level).toList();
-    if (byLevel.isNotEmpty) candidates = byLevel;
+    // If we want a specific level, we MUST find a set for that level.
+    // Otherwise, return null so we can fallback to querying by level only.
+    if (byLevel.isEmpty) return null;
+    candidates = byLevel;
   }
+
   if (candidates.isEmpty) return fallbackId;
   int score(QuestionSet s) {
     final n = s.questionCount ?? s.questions.length;
@@ -28,10 +33,10 @@ String resolvedPracticeSetId({
   return best.id.isNotEmpty ? best.id : fallbackId;
 }
 
-String readResolvedPracticeSetId(
+String? readResolvedPracticeSetId(
   WidgetRef ref, {
   required String section,
-  required String fallbackId,
+  required String? fallbackId,
   int? level,
 }) {
   return ref.read(questionSetsProvider).maybeWhen(

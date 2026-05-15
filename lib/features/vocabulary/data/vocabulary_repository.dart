@@ -74,7 +74,7 @@ class VocabularyQuery {
 
   Map<String, Object> toQueryParameters() {
     return {
-      'level': ?level,
+      if (level != null) 'level': level!,
       if (q != null && q!.trim().isNotEmpty) 'q': q!.trim(),
       'page': page,
       'limit': limit,
@@ -140,8 +140,8 @@ class VocabularyRepository {
         'word': word,
         'meaning_ko': meaningKo,
         'level': level,
-        'meaning_user_lang': ?meaningUserLang,
-        'tts_url': ?ttsUrl,
+        if (meaningUserLang != null) 'meaning_user_lang': meaningUserLang,
+        if (ttsUrl != null) 'tts_url': ttsUrl,
       },
     );
     return VocabularyItem.fromJson(response.data as Map<String, dynamic>);
@@ -158,11 +158,11 @@ class VocabularyRepository {
     final response = await _dio.patch(
       '/vocabulary/$id',
       data: {
-        'word': ?word,
-        'meaning_ko': ?meaningKo,
-        'level': ?level,
-        'meaning_user_lang': ?meaningUserLang,
-        'tts_url': ?ttsUrl,
+        if (word != null) 'word': word,
+        if (meaningKo != null) 'meaning_ko': meaningKo,
+        if (level != null) 'level': level,
+        if (meaningUserLang != null) 'meaning_user_lang': meaningUserLang,
+        if (ttsUrl != null) 'tts_url': ttsUrl,
       },
     );
     return VocabularyItem.fromJson(response.data as Map<String, dynamic>);

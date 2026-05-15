@@ -35,7 +35,7 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
             fallbackId: ListeningPracticeSet.id,
             level: level,
           ),
-          orElse: () => ListeningPracticeSet.id,
+          orElse: () => level == ListeningPracticeSet.level ? ListeningPracticeSet.id : null,
         );
     final questions = ref.watch(
       practiceQuestionsProvider(
@@ -626,7 +626,11 @@ class _AudioPlayerCardState extends State<_AudioPlayerCard> {
   }
 
   String _spokenTranscript(String transcript) {
-    return transcript.replaceAll(RegExp(r'(여자|남자)\s*:\s*'), '');
+    // Remove labels like 남자:, 여자:, [남자], (여자), 남자 : etc.
+    return transcript.replaceAll(
+      RegExp(r'[\[\(\s]*(여자|남자)[\]\)\s]*[:：]?\s*'),
+      '',
+    );
   }
 
   String _formatDuration(Duration duration) {

@@ -115,7 +115,7 @@ class PracticeSessionRepository {
         'set_id': questionSetId,
         'section': section,
         'mode': 'practice',
-        'level': ?level,
+        if (level != null) 'level': level,
       },
     );
     final data = response.data as Map<String, dynamic>;
@@ -138,8 +138,8 @@ class PracticeSessionRepository {
     final response = await _dio.patch(
       '/practice-sessions/$sessionId/progress',
       data: {
-        'current_index': ?currentIndex,
-        'remaining_seconds': ?remainingSeconds,
+        if (currentIndex != null) 'current_index': currentIndex,
+        if (remainingSeconds != null) 'remaining_seconds': remainingSeconds,
       },
     );
     return PracticeSession.fromJson(response.data as Map<String, dynamic>);
@@ -156,9 +156,9 @@ class PracticeSessionRepository {
       '/practice-sessions/$sessionId/answers',
       data: {
         'question_id': questionId,
-        'selected_answer': ?selectedAnswer,
-        'text_answer': ?textAnswer,
-        'spent_seconds': ?spentTimeSeconds,
+        if (selectedAnswer != null) 'selected_answer': selectedAnswer,
+        if (textAnswer != null) 'text_answer': textAnswer,
+        if (spentTimeSeconds != null) 'spent_seconds': spentTimeSeconds,
       },
     );
     return PracticeAnswer.fromJson(response.data as Map<String, dynamic>);

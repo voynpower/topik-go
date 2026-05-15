@@ -5,5 +5,5 @@ class ReadingPracticeSet {
   static const title = 'TOPIK II Reading Practice Set 1';
   static const section = 'reading';
   static const level = 3;
-  static const total = 50;
+  static const total = 30;
 }

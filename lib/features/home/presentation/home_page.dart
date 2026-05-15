@@ -42,14 +42,21 @@ class HomePage extends ConsumerWidget {
           const SizedBox(height: 16),
           nextExam.when(
             data: (schedule) {
+              debugPrint('HomePage nextExam data: $schedule');
               if (schedule == null) return const SizedBox.shrink();
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _NextExamCard(schedule: schedule),
               );
             },
-            loading: () => const SizedBox.shrink(),
-            error: (_, _) => const SizedBox.shrink(),
+            loading: () {
+              debugPrint('HomePage nextExam: loading');
+              return const SizedBox.shrink();
+            },
+            error: (err, stack) {
+              debugPrint('HomePage nextExam: error $err');
+              return const SizedBox.shrink();
+            },
           ),
           Card(
             child: Padding(

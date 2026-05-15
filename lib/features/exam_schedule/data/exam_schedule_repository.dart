@@ -23,20 +23,35 @@ class TopikExamSchedule {
   final bool isCurrent;
 
   factory TopikExamSchedule.fromJson(Map<String, dynamic> json) {
+    DateTime parseDate(dynamic value) {
+      if (value == null) return DateTime.now();
+      if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+      if (value is String) {
+        final parsed = int.tryParse(value);
+        if (parsed != null) return DateTime.fromMillisecondsSinceEpoch(parsed);
+        return DateTime.parse(value);
+      }
+      return DateTime.now();
+    }
+
     return TopikExamSchedule(
       id: json['id']?.toString() ?? '',
-      title: json['title']?.toString() ?? '',
-      examDate: DateTime.parse(json['exam_date']),
-      registrationStartDate: json['registration_start_date'] != null
-          ? DateTime.parse(json['registration_start_date'])
-          : null,
-      registrationEndDate: json['registration_end_date'] != null
-          ? DateTime.parse(json['registration_end_date'])
-          : null,
+      title: json['exam_name']?.toString() ?? json['title']?.toString() ?? '',
+      examDate: parseDate(json['exam_date']),
+      registrationStartDate: json['registration_start_at'] != null
+          ? parseDate(json['registration_start_at'])
+          : json['registration_start_date'] != null
+              ? parseDate(json['registration_start_date'])
+              : null,
+      registrationEndDate: json['registration_end_at'] != null
+          ? parseDate(json['registration_end_at'])
+          : json['registration_end_date'] != null
+              ? parseDate(json['registration_end_date'])
+              : null,
       resultDate: json['result_date'] != null
-          ? DateTime.parse(json['result_date'])
+          ? parseDate(json['result_date'])
           : null,
-      isCurrent: json['is_current'] == true || json['is_current'] == 1,
+      isCurrent: json['is_active'] == 1 || json['is_current'] == true || json['is_current'] == 1,
     );
   }
 
@@ -83,8 +98,14 @@ class ExamScheduleRepository {
   Future<TopikExamSchedule?> getNextSchedule() async {
     try {
       final response = await _dio.get('/topik-exam-schedules/next');
-      if (response.data == null) return null;
-      return TopikExamSchedule.fromJson(response.data as Map<String, dynamic>);
+      debugPrint('Next exam schedule response: ${response.data}');
+      
+      final data = response.data;
+      if (data == null || (data is Map && data.isEmpty)) {
+        return null;
+      }
+      
+      return TopikExamSchedule.fromJson(data as Map<String, dynamic>);
     } catch (e) {
       debugPrint('Error fetching next schedule: $e');
       return null;

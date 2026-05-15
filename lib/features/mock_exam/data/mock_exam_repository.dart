@@ -319,8 +319,8 @@ class MockExamRepository {
       '/mock-exams/sessions/$sessionId/answers',
       data: {
         'question_id': questionId,
-        'selected_answer': ?selectedAnswer,
-        'text_answer': ?textAnswer,
+        if (selectedAnswer != null) 'selected_answer': selectedAnswer,
+        if (textAnswer != null) 'text_answer': textAnswer,
         'spent_seconds': spentSeconds,
         'bookmarked': bookmarked,
       },
