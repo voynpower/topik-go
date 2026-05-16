@@ -80,128 +80,137 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
     final catalog = ref.watch(mockExamCatalogProvider);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text('모의고사 풀기'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
+        backgroundColor: Colors.transparent,
       ),
-      body: catalog.when(
-        data: (catalog) {
-          if (_result != null) {
-            return _ResultCard(result: _result!, onRestart: _reset);
-          }
+      body: _GradientBackground(
+        child: SafeArea(
+          child: catalog.when(
+            data: (catalog) {
+              if (_result != null) {
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+                  children: [_ResultCard(result: _result!, onRestart: _reset)],
+                );
+              }
 
-          if (_detail != null) {
-            return _ExamPanel(
-              detail: _detail!,
-              currentIndex: _currentIndex,
-              remainingSeconds: _remainingSeconds,
-              selectedAnswers: _selectedAnswers,
-              loading: _loading,
-              onAnswer: _saveAnswer,
-              onPrevious: _currentIndex > 0
-                  ? () => _moveToQuestion(_currentIndex - 1)
-                  : null,
-              onNext: _currentIndex < (_detail!.questions.length - 1)
-                  ? () => _moveToQuestion(_currentIndex + 1)
-                  : null,
-              onSubmit: _submit,
-            );
-          }
+              if (_detail != null) {
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+                  children: [
+                    _ExamPanel(
+                      detail: _detail!,
+                      currentIndex: _currentIndex,
+                      remainingSeconds: _remainingSeconds,
+                      selectedAnswers: _selectedAnswers,
+                      loading: _loading,
+                      onAnswer: _saveAnswer,
+                      onPrevious: _currentIndex > 0
+                          ? () => _moveToQuestion(_currentIndex - 1)
+                          : null,
+                      onNext: _currentIndex < (_detail!.questions.length - 1)
+                          ? () => _moveToQuestion(_currentIndex + 1)
+                          : null,
+                      onSubmit: _submit,
+                    ),
+                  ],
+                );
+              }
 
-          final tabs = catalog.tabs;
-          final currentItems = tabs[_selectedTab] ?? [];
+              final tabs = catalog.tabs;
+              final currentItems = tabs[_selectedTab] ?? [];
 
-          return RefreshIndicator(
-            onRefresh: () => ref.refresh(mockExamCatalogProvider.future),
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              children: [
-                const SizedBox(height: 10),
-                Text(
-                  '실제 시험과 같은 환경에서 모의고사 풀기!',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.mintDark,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                _ActiveSessionBanner(
-                  session: catalog.activeSession,
-                  loading: _loading,
-                  onStart: (setId) => _start(setId),
-                  onContinue: () => _loadActive(),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  '문제 유형',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 12),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: tabs.keys.map((tab) {
-                      final isSelected = _selectedTab == tab;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text(_getTabLabel(tab)),
-                          selected: isSelected,
-                          onSelected: (val) {
-                            if (val) setState(() => _selectedTab = tab);
-                          },
-                          selectedColor: AppColors.mint.withValues(alpha: 0.2),
-                          labelStyle: TextStyle(
-                            color: isSelected
-                                ? AppColors.mintDark
-                                : Colors.grey[600],
-                            fontWeight: isSelected
-                                ? FontWeight.w700
-                                : FontWeight.w400,
+              return RefreshIndicator(
+                onRefresh: () => ref.refresh(mockExamCatalogProvider.future),
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+                  children: [
+                    const _MockHero(),
+                    const SizedBox(height: 22),
+                    _ActiveSessionBanner(
+                      session: catalog.activeSession,
+                      loading: _loading,
+                      onStart: (setId) => _start(setId),
+                      onContinue: () => _loadActive(),
+                    ),
+                    const SizedBox(height: 22),
+                    const _SectionTitle(
+                      icon: Icons.tune_outlined,
+                      title: '문제 유형',
+                    ),
+                    const SizedBox(height: 12),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: tabs.keys.map((tab) {
+                          final isSelected = _selectedTab == tab;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              label: Text(_getTabLabel(tab)),
+                              selected: isSelected,
+                              onSelected: (val) {
+                                if (val) setState(() => _selectedTab = tab);
+                              },
+                              selectedColor: AppColors.mint.withValues(
+                                alpha: 0.18,
+                              ),
+                              labelStyle: TextStyle(
+                                color: isSelected
+                                    ? AppColors.mintDark
+                                    : AppColors.textSecondary,
+                                fontWeight: isSelected
+                                    ? FontWeight.w800
+                                    : FontWeight.w600,
+                              ),
+                              side: BorderSide(
+                                color: isSelected
+                                    ? AppColors.mint.withValues(alpha: 0.45)
+                                    : Colors.white,
+                              ),
+                              backgroundColor: Colors.white.withValues(
+                                alpha: 0.9,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            childAspectRatio: 1.03,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
                           ),
-                          side: BorderSide(
-                            color: isSelected
-                                ? AppColors.mint.withValues(alpha: 0.4)
-                                : Colors.grey[300]!,
-                          ),
-                          backgroundColor: Colors.white,
-                        ),
-                      );
-                    }).toList(),
-                  ),
+                      itemCount: currentItems.length,
+                      itemBuilder: (context, index) {
+                        return _ExamItemCard(
+                          item: currentItems[index],
+                          onTap: () => _start(currentItems[index].setId),
+                        );
+                      },
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 1.1,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  itemCount: currentItems.length,
-                  itemBuilder: (context, index) {
-                    return _ExamItemCard(
-                      item: currentItems[index],
-                      onTap: () => _start(currentItems[index].setId),
-                    );
-                  },
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, _) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  apiErrorMessage(error),
+                  textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 40),
-              ],
+              ),
             ),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(apiErrorMessage(error), textAlign: TextAlign.center),
           ),
         ),
       ),
@@ -362,6 +371,104 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
   }
 }
 
+class _GradientBackground extends StatelessWidget {
+  const _GradientBackground({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFE8F8F6), Color(0xFFF8FBFF), Color(0xFFFFF8EA)],
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _MockHero extends StatelessWidget {
+  const _MockHero();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.9)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.mintDark.withValues(alpha: 0.12),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: AppColors.mint.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(
+              Icons.edit_note_outlined,
+              color: AppColors.mintDark,
+              size: 30,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'TOPIK II 모의고사',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '실제 시험 흐름에 맞춰 시간을 재고 답안을 저장하며 풀어보세요.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    height: 1.35,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.icon, required this.title});
+
+  final IconData icon;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: AppColors.mintDark),
+        const SizedBox(width: 8),
+        Text(title, style: Theme.of(context).textTheme.titleMedium),
+      ],
+    );
+  }
+}
+
 class _ActiveSessionBanner extends StatelessWidget {
   const _ActiveSessionBanner({
     required this.session,
@@ -379,16 +486,16 @@ class _ActiveSessionBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[200]!),
+        color: Colors.white.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -400,10 +507,13 @@ class _ActiveSessionBanner extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppColors.mint.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  color: const Color(0xFFEAF1FF),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(Icons.description_outlined, color: AppColors.mint),
+                child: const Icon(
+                  Icons.assignment_outlined,
+                  color: Color(0xFF2E6BD9),
+                ),
               ),
               const SizedBox(width: 12),
               const Expanded(
@@ -418,7 +528,10 @@ class _ActiveSessionBanner extends StatelessWidget {
                 },
                 child: Text(
                   '최근 학습 기록',
-                  style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                  ),
                 ),
               ),
             ],
@@ -428,8 +541,8 @@ class _ActiveSessionBanner extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.mint.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(12),
+                color: AppColors.mint.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Column(
                 children: [
@@ -539,72 +652,109 @@ class _ExamItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[200]!),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    item.title,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                _PriceBadge(
-                  label: item.priceLabel ?? 'free',
-                  isFree: item.isFree,
-                ),
-              ],
-            ),
-            const Spacer(),
-            Row(
-              children: [
-                Icon(Icons.assignment_outlined, size: 14, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text(
-                  '총 ${item.totalQuestions}문항',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(Icons.timer_outlined, size: 14, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text(
-                  item.durationLabel ?? '70:00',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                ),
-              ],
-            ),
-            const Spacer(),
-            Align(
-              alignment: Alignment.bottomRight,
-              child: Icon(
-                Icons.book_outlined,
-                color: AppColors.mint.withValues(alpha: 0.3),
-                size: 40,
+    final isListening = item.section.toLowerCase() == 'listening';
+    final icon = isListening
+        ? Icons.headphones_outlined
+        : Icons.menu_book_outlined;
+    final iconColor = isListening
+        ? const Color(0xFF2E6BD9)
+        : const Color(0xFF1D8F86);
+    final iconBg = isListening
+        ? const Color(0xFFEAF1FF)
+        : const Color(0xFFE8F8F3);
+
+    return Material(
+      color: Colors.white.withValues(alpha: 0.92),
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
               ),
-            ),
-          ],
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: iconBg,
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    child: Icon(icon, color: iconColor, size: 24),
+                  ),
+                  const Spacer(),
+                  _PriceBadge(
+                    label: item.priceLabel ?? 'free',
+                    isFree: item.isFree,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                item.title,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const Spacer(),
+              _ExamMeta(
+                icon: Icons.assignment_outlined,
+                label: '총 ${item.totalQuestions}문항',
+              ),
+              const SizedBox(height: 5),
+              _ExamMeta(
+                icon: Icons.timer_outlined,
+                label: item.durationLabel ?? '70:00',
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _ExamMeta extends StatelessWidget {
+  const _ExamMeta({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: AppColors.textSecondary),
+        const SizedBox(width: 5),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -641,127 +791,6 @@ class _PriceBadge extends StatelessWidget {
               fontWeight: FontWeight.w700,
               color: isFree ? AppColors.mintDark : Colors.orange,
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StartPanel extends StatelessWidget {
-  const _StartPanel({
-    required this.sets,
-    required this.activeSession,
-    required this.selectedSetId,
-    required this.loading,
-    required this.onSelected,
-    required this.onStart,
-    required this.onLoadActive,
-  });
-
-  final List<MockExamCatalogItem> sets;
-  final MockExamDetail? activeSession;
-  final String? selectedSetId;
-  final bool loading;
-  final ValueChanged<String?> onSelected;
-  final VoidCallback onStart;
-  final VoidCallback onLoadActive;
-
-  @override
-  Widget build(BuildContext context) {
-    if (sets.isEmpty && activeSession == null) {
-      return const _InfoCard(
-        title: '등록된 모의고사가 없습니다',
-        message: '백엔드 catalog에 모의고사 세트를 추가하면 여기에 표시됩니다.',
-      );
-    }
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('시험 세트 선택', style: Theme.of(context).textTheme.titleMedium),
-            if (activeSession != null) ...[
-              const SizedBox(height: 12),
-              _ActiveSessionCard(
-                activeSession: activeSession!,
-                loading: loading,
-                onLoadActive: onLoadActive,
-              ),
-            ],
-            const SizedBox(height: 12),
-            if (sets.isNotEmpty) ...[
-              DropdownButtonFormField<String>(
-                initialValue: selectedSetId,
-                items: sets
-                    .map(
-                      (set) => DropdownMenuItem(
-                        value: set.setId,
-                        child: Text(
-                          '${set.title} / ${set.level == 0 ? 'TOPIK II' : '${set.level}급'}',
-                        ),
-                      ),
-                    )
-                    .toList(),
-                onChanged: loading ? null : onSelected,
-              ),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: loading ? null : onStart,
-                icon: const Icon(Icons.play_arrow),
-                label: const Text('시작하기'),
-              ),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: loading ? null : onLoadActive,
-                icon: const Icon(Icons.restore),
-                label: const Text('진행 중인 시험 불러오기'),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ActiveSessionCard extends StatelessWidget {
-  const _ActiveSessionCard({
-    required this.activeSession,
-    required this.loading,
-    required this.onLoadActive,
-  });
-
-  final MockExamDetail activeSession;
-  final bool loading;
-  final VoidCallback onLoadActive;
-
-  @override
-  Widget build(BuildContext context) {
-    final session = activeSession.session;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.mint.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.mint.withValues(alpha: 0.35)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('진행 중인 시험', style: TextStyle(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 6),
-          Text('문항 ${session.currentIndex + 1} / ${session.totalQuestions}'),
-          Text('남은 시간: ${session.remainingSeconds}초'),
-          const SizedBox(height: 10),
-          FilledButton.icon(
-            onPressed: loading ? null : onLoadActive,
-            icon: const Icon(Icons.restore),
-            label: const Text('이어 풀기'),
           ),
         ],
       ),
