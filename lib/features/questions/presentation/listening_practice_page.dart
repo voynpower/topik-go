@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/core/network/api_media_url.dart';
+import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart';
 import 'package:topik_go/features/question_sets/data/question_set_repository.dart';
 import 'package:topik_go/features/questions/data/listening_practice_set.dart';
@@ -28,14 +30,18 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
   @override
   Widget build(BuildContext context) {
     final level = widget.level;
-    final setId = ref.watch(questionSetsProvider).maybeWhen(
+    final setId = ref
+        .watch(questionSetsProvider)
+        .maybeWhen(
           data: (sets) => resolvedPracticeSetId(
             sets: sets,
             section: ListeningPracticeSet.section,
             fallbackId: ListeningPracticeSet.id,
             level: level,
           ),
-          orElse: () => level == ListeningPracticeSet.level ? ListeningPracticeSet.id : null,
+          orElse: () => level == ListeningPracticeSet.level
+              ? ListeningPracticeSet.id
+              : null,
         );
     final questions = ref.watch(
       practiceQuestionsProvider(
@@ -155,59 +161,30 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
         error: (error, _) => _ErrorState(
           message: error.toString(),
           onRetry: () => ref.invalidate(
-                practiceQuestionsProvider(
-                  PracticeSetQuestionsKey(
-                    section: ListeningPracticeSet.section,
-                    setId: readResolvedPracticeSetId(
-                      ref,
-                      section: ListeningPracticeSet.section,
-                      fallbackId: ListeningPracticeSet.id,
-                      level: level,
-                    ),
-                    level: level,
-                  ),
+            practiceQuestionsProvider(
+              PracticeSetQuestionsKey(
+                section: ListeningPracticeSet.section,
+                setId: readResolvedPracticeSetId(
+                  ref,
+                  section: ListeningPracticeSet.section,
+                  fallbackId: ListeningPracticeSet.id,
+                  level: level,
                 ),
+                level: level,
               ),
+            ),
+          ),
         ),
       ),
     );
   }
 
   QuestionMedia? _audioMedia(Question question) {
-    QuestionMedia? transcriptOnly;
-
-    bool looksLikeAudioFile(String url) {
-      final u = url.trim().toLowerCase();
-      return u.endsWith('.mp3') ||
-          u.endsWith('.wav') ||
-          u.endsWith('.m4a') ||
-          u.endsWith('.aac') ||
-          u.endsWith('.ogg') ||
-          u.endsWith('.flac');
-    }
-
-    bool isAudioCandidate(QuestionMedia m) {
-      final t = m.mediaType.trim().toLowerCase();
-      final u = m.url.trim();
-      if (t == 'audio' || t.contains('audio') || t.contains('mpeg')) {
-        return true;
-      }
-      if (u.isNotEmpty && looksLikeAudioFile(u)) return true;
-      if (u.isEmpty && (t == 'audio' || t.contains('audio'))) return true;
-      return false;
-    }
-
-    for (final media in question.media) {
-      if (!isAudioCandidate(media)) continue;
-      if (media.url.trim().isNotEmpty) {
-        return media;
-      }
-      if ((media.transcript?.trim().isNotEmpty ?? false) &&
-          transcriptOnly == null) {
-        transcriptOnly = media;
-      }
-    }
-    return transcriptOnly;
+    if (question.media.isEmpty) return null;
+    return question.media.firstWhere(
+      (m) => m.mediaType.toLowerCase().contains('audio'),
+      orElse: () => question.media.first,
+    );
   }
 
   void _submitTest(List<Question> questions) {
@@ -239,7 +216,9 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
       unanswered: unanswered,
     );
 
-    setState(() => _summary = summary);
+    setState(() {
+      _summary = summary;
+    });
 
     showDialog<void>(
       context: context,
@@ -277,7 +256,7 @@ class _PracticeSummary {
   final int unanswered;
 }
 
-class _ProgressHeader extends StatelessWidget {
+class _ProgressHeader extends ConsumerWidget {
   const _ProgressHeader({
     required this.current,
     required this.total,
@@ -291,13 +270,15 @@ class _ProgressHeader extends StatelessWidget {
   final int practiceLevel;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final levelLabel = question.level == null ? '' : '${question.level}급';
+    final bookmarkedIds = ref.watch(bookmarkedQuestionIdsProvider).value ?? {};
+    final isBookmarked = bookmarkedIds.contains(question.id);
 
     return Material(
       color: Colors.white,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
+        padding: const EdgeInsets.fromLTRB(20, 14, 10, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -311,6 +292,31 @@ class _ProgressHeader extends StatelessWidget {
                   ),
                 ),
                 Text('$current / $total'),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: Icon(
+                    isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                    color: isBookmarked ? Colors.orange : Colors.grey,
+                  ),
+                  onPressed: () async {
+                    try {
+                      await ref
+                          .read(bookmarkRepositoryProvider)
+                          .setQuestionBookmark(
+                            questionId: question.id,
+                            bookmarked: !isBookmarked,
+                          );
+                      ref.invalidate(bookmarkSummaryProvider);
+                      ref.invalidate(bookmarkedQuestionsProvider);
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('북마크 저장 실패: $e')),
+                        );
+                      }
+                    }
+                  },
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -386,7 +392,7 @@ class _ExamInstruction extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            '잘 듣고 알맞은 답을 고르십시오.',
+            '다음을 듣고 알맞은 것을 고르십시오.',
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
@@ -408,36 +414,46 @@ class _AudioPlayerCard extends StatefulWidget {
 }
 
 class _AudioPlayerCardState extends State<_AudioPlayerCard> {
-  late final AudioPlayer _player;
-  late final FlutterTts _tts;
-  Object? _error;
+  late AudioPlayer _player;
+  late FlutterTts _tts;
+  bool _isPlaying = false;
   bool _ttsPlaying = false;
-  bool _ttsOnly = false;
+  Duration _duration = Duration.zero;
+  Duration _position = Duration.zero;
 
   @override
   void initState() {
     super.initState();
     _player = AudioPlayer();
     _tts = FlutterTts();
+    _tts.setLanguage('ko-KR');
+    _tts.setSpeechRate(0.45);
     _tts.setCompletionHandler(() {
-      if (mounted) {
-        setState(() => _ttsPlaying = false);
-      }
+      if (mounted) setState(() => _ttsPlaying = false);
     });
-    _tts.setCancelHandler(() {
-      if (mounted) {
-        setState(() => _ttsPlaying = false);
-      }
-    });
-    _load();
-  }
 
-  @override
-  void didUpdateWidget(covariant _AudioPlayerCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.url != widget.url || oldWidget.transcript != widget.transcript) {
-      _load();
+    if (widget.url.isNotEmpty) {
+      _player.setUrl(widget.url).catchError((e) {
+        debugPrint('Audio loading error: $e');
+        return null;
+      });
     }
+
+    _player.playerStateStream.listen((state) {
+      if (mounted) {
+        setState(() {
+          _isPlaying = state.playing;
+        });
+      }
+    });
+
+    _player.durationStream.listen((d) {
+      if (mounted) setState(() => _duration = d ?? Duration.zero);
+    });
+
+    _player.positionStream.listen((p) {
+      if (mounted) setState(() => _position = p);
+    });
   }
 
   @override
@@ -447,180 +463,101 @@ class _AudioPlayerCardState extends State<_AudioPlayerCard> {
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _error = null;
-      _ttsOnly = false;
-    });
-    if (widget.url.trim().isEmpty) {
-      final script = widget.transcript?.trim();
-      if (script != null && script.isNotEmpty) {
-        if (mounted) setState(() => _ttsOnly = true);
-        return;
-      }
-    }
-    try {
-      await _player.setUrl(widget.url);
-    } catch (error) {
-      if (mounted) {
-        setState(() => _error = error);
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_ttsOnly) {
-      return _AudioShell(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '이 문항은 음성 파일 대신 안내 음성(TTS)으로 들을 수 있습니다.',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: _toggleFallbackTts,
-              icon: Icon(_ttsPlaying ? Icons.stop : Icons.volume_up),
-              label: Text(_ttsPlaying ? '재생 중지' : '듣기 재생'),
-            ),
-          ],
-        ),
-      );
-    }
+    final useTts =
+        widget.url.isEmpty && (widget.transcript?.isNotEmpty ?? false);
 
-    if (_error != null) {
-      return _AudioShell(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '오디오를 불러오지 못했습니다.\n$_error',
-              style: const TextStyle(color: Colors.red),
-            ),
-            const SizedBox(height: 8),
-            SelectableText(
-              widget.url,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            if (widget.transcript?.trim().isNotEmpty ?? false) ...[
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: _toggleFallbackTts,
-                icon: Icon(_ttsPlaying ? Icons.stop : Icons.volume_up),
-                label: Text(_ttsPlaying ? '대체 음성 중지' : '대체 음성 재생'),
-              ),
-            ],
-          ],
-        ),
-      );
-    }
-
-    return _AudioShell(
-      child: StreamBuilder<PlayerState>(
-        stream: _player.playerStateStream,
-        builder: (context, snapshot) {
-          final state = snapshot.data;
-          final playing = state?.playing ?? false;
-          final processing = state?.processingState;
-          final loading =
-              processing == ProcessingState.loading ||
-              processing == ProcessingState.buffering;
-
-          return Column(
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.mint.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.mint.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  IconButton.filled(
-                    onPressed: loading ? null : _togglePlay,
-                    icon: loading
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Icon(playing ? Icons.pause : Icons.play_arrow),
-                  ),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      '듣기 오디오',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                ],
+              IconButton.filled(
+                onPressed: useTts ? _toggleTts : _togglePlay,
+                icon: Icon(
+                  useTts
+                      ? (_ttsPlaying ? Icons.stop : Icons.record_voice_over)
+                      : (_isPlaying ? Icons.pause : Icons.play_arrow),
+                ),
+                style: IconButton.styleFrom(
+                  backgroundColor: AppColors.mint,
+                  foregroundColor: Colors.white,
+                ),
               ),
-              StreamBuilder<Duration>(
-                stream: _player.positionStream,
-                builder: (context, positionSnapshot) {
-                  final position = positionSnapshot.data ?? Duration.zero;
-                  final duration = _player.duration ?? Duration.zero;
-                  final max = duration.inMilliseconds.toDouble();
-                  final value = position.inMilliseconds
-                      .clamp(0, duration.inMilliseconds)
-                      .toDouble();
-
-                  return Column(
-                    children: [
-                      Slider(
-                        value: max == 0 ? 0 : value,
-                        max: max == 0 ? 1 : max,
-                        onChanged: max == 0
-                            ? null
-                            : (value) => _player.seek(
-                                Duration(milliseconds: value.round()),
-                              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      useTts ? '기계음 재생 (대본 기반)' : '오디오 재생',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
                       ),
+                    ),
+                    if (!useTts) ...[
+                      const SizedBox(height: 4),
+                      LinearProgressIndicator(
+                        value: _duration.inMilliseconds > 0
+                            ? _position.inMilliseconds /
+                                  _duration.inMilliseconds
+                            : 0,
+                        backgroundColor: Colors.black12,
+                        valueColor: const AlwaysStoppedAnimation(
+                          AppColors.mint,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(_formatDuration(position)),
-                          const Spacer(),
-                          Text(_formatDuration(duration)),
+                          Text(
+                            _formatDuration(_position),
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          Text(
+                            _formatDuration(_duration),
+                            style: const TextStyle(fontSize: 11),
+                          ),
                         ],
                       ),
                     ],
-                  );
-                },
+                  ],
+                ),
               ),
             ],
-          );
-        },
+          ),
+        ],
       ),
     );
   }
 
-  Future<void> _togglePlay() async {
-    if (_ttsPlaying) {
-      await _tts.stop();
-      setState(() => _ttsPlaying = false);
+  void _togglePlay() {
+    if (_isPlaying) {
+      _player.pause();
+    } else {
+      _player.play();
     }
-
-    if (_player.playing) {
-      await _player.pause();
-      return;
-    }
-
-    if (_player.processingState == ProcessingState.completed) {
-      await _player.seek(Duration.zero);
-    }
-    await _player.play();
   }
 
-  Future<void> _toggleFallbackTts() async {
+  Future<void> _toggleTts() async {
     if (_ttsPlaying) {
       await _tts.stop();
       setState(() => _ttsPlaying = false);
       return;
     }
 
-    final transcript = widget.transcript?.trim();
+    final transcript = widget.transcript;
     if (transcript == null || transcript.isEmpty) return;
 
-    await _player.stop();
-    await _tts.setLanguage('ko-KR');
-    await _tts.setSpeechRate(0.45);
-    await _tts.setPitch(1.0);
     setState(() => _ttsPlaying = true);
     await _tts.speak(_spokenTranscript(transcript));
   }
@@ -637,26 +574,6 @@ class _AudioPlayerCardState extends State<_AudioPlayerCard> {
     final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
     final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '$minutes:$seconds';
-  }
-}
-
-class _AudioShell extends StatelessWidget {
-  const _AudioShell({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.black12),
-      ),
-      child: child,
-    );
   }
 }
 
@@ -690,7 +607,7 @@ class _AnswerOptionTile extends StatelessWidget {
       borderColor = Colors.blue.shade600;
       backgroundColor = Colors.blue.withValues(alpha: 0.08);
     } else {
-      borderColor = Colors.black12;
+      borderColor = AppColors.border;
       backgroundColor = Colors.white;
     }
 
@@ -763,7 +680,7 @@ class _AnswerResultCard extends StatelessWidget {
           ? Colors.green.withValues(alpha: 0.08)
           : Colors.red.withValues(alpha: 0.08),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         side: BorderSide(
           color: isCorrect ? Colors.green.shade600 : Colors.red.shade600,
         ),
@@ -797,19 +714,24 @@ class _TranscriptCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: const Color(0xFFFAFAFA),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('듣기 대본', style: TextStyle(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            Text(text, style: const TextStyle(height: 1.5)),
-          ],
-        ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAFAFA),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.black12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '듣기 대본',
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+          Text(text, style: const TextStyle(height: 1.5, fontSize: 14)),
+        ],
       ),
     );
   }

@@ -60,7 +60,7 @@ class QuestionQuery {
   Map<String, Object> toQueryParameters() {
     return {
       if (section != null && section!.isNotEmpty) 'section': section!,
-      if (level != null) 'level': level!,
+      'level': ?level,
       if (questionType != null && questionType!.isNotEmpty)
         'question_type': questionType!,
       if (setId != null && setId!.isNotEmpty) 'set_id': setId!,
@@ -225,16 +225,15 @@ final questionsProvider = FutureProvider.family<QuestionPage, QuestionQuery>((
 });
 
 final practiceQuestionsProvider =
-    FutureProvider.family<QuestionPage, PracticeSetQuestionsKey>((
-  ref,
-  key,
-) {
-  return ref.watch(questionRepositoryProvider).getAllQuestionsForPracticeSet(
-        section: key.section,
-        setId: key.setId,
-        level: key.level,
-      );
-});
+    FutureProvider.family<QuestionPage, PracticeSetQuestionsKey>((ref, key) {
+      return ref
+          .watch(questionRepositoryProvider)
+          .getAllQuestionsForPracticeSet(
+            section: key.section,
+            setId: key.setId,
+            level: key.level,
+          );
+    });
 
 final questionProvider = FutureProvider.family<Question, String>((ref, id) {
   return ref.watch(questionRepositoryProvider).getQuestion(id);

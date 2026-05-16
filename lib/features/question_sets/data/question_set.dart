@@ -109,13 +109,21 @@ class Question {
             : null) ??
         '';
 
-    final rawId = json['id']?.toString() ?? '';
+    final questionType = json['question_type']?.toString() ?? '';
+    final rawId =
+        json['id']?.toString() ??
+        json['question_id']?.toString() ??
+        json['uuid']?.toString() ??
+        '';
+
+    // Senior Dev Note: We need a unique ID for bookmarking. 
+    // If the server didn't provide one, we generate a specific composite ID.
     final id =
         rawId.isNotEmpty
             ? rawId
             : (questionNumber > 0
-                ? 'practice-$setIdStr-$questionNumber'
-                : 'practice-$setIdStr-${json['question_type']?.toString().hashCode}');
+                ? 'p-${setIdStr.isNotEmpty ? setIdStr : 'unset'}-$questionNumber'
+                : 'p-${setIdStr.isNotEmpty ? setIdStr : 'unset'}-${questionType.hashCode}');
 
     final prompt =
         _nonEmpty([

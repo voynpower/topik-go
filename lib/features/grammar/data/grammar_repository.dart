@@ -151,10 +151,10 @@ class GrammarRepository {
     final response = await _dio.patch(
       '/grammar/$id',
       data: {
-        if (pattern != null) 'pattern': pattern,
-        if (description != null) 'description': description,
-        if (examples != null) 'examples_json': examples,
-        if (tags != null) 'tags_json': tags,
+        'pattern': ?pattern,
+        'description': ?description,
+        'examples_json': ?examples,
+        'tags_json': ?tags,
       },
     );
     return GrammarItem.fromJson(response.data as Map<String, dynamic>);

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/practice/data/practice_session_repository.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart';
 import 'package:topik_go/features/question_sets/data/question_set_repository.dart';
@@ -274,7 +275,7 @@ class _WritingInputConfig {
   }
 }
 
-class _ProgressHeader extends StatelessWidget {
+class _ProgressHeader extends ConsumerWidget {
   const _ProgressHeader({
     required this.current,
     required this.total,
@@ -286,11 +287,14 @@ class _ProgressHeader extends StatelessWidget {
   final Question question;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bookmarkedIds = ref.watch(bookmarkedQuestionIdsProvider).value ?? {};
+    final isBookmarked = bookmarkedIds.contains(question.id);
+
     return Material(
       color: Colors.white,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
+        padding: const EdgeInsets.fromLTRB(20, 14, 10, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -303,6 +307,31 @@ class _ProgressHeader extends StatelessWidget {
                   ),
                 ),
                 Text('$current / $total'),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: Icon(
+                    isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                    color: isBookmarked ? Colors.orange : Colors.grey,
+                  ),
+                  onPressed: () async {
+                    try {
+                      await ref
+                          .read(bookmarkRepositoryProvider)
+                          .setQuestionBookmark(
+                            questionId: question.id,
+                            bookmarked: !isBookmarked,
+                          );
+                      ref.invalidate(bookmarkSummaryProvider);
+                      ref.invalidate(bookmarkedQuestionsProvider);
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('북마크 저장 실패: $e')),
+                        );
+                      }
+                    }
+                  },
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -632,11 +661,9 @@ class _SummaryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               '쓰기 제출 완료',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
             ),
             const SizedBox(height: 8),
             Text('작성 $answered문항 / 전체 $total문항'),

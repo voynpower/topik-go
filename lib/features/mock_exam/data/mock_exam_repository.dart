@@ -25,23 +25,22 @@ class MockExamCatalog {
       for (final entry in rawTabs.entries) {
         if (entry.value is List) {
           final list = entry.value as List;
-          tabsMap[entry.key] =
-              list
-                  .whereType<Map<String, dynamic>>()
-                  .map(MockExamCatalogItem.fromJson)
-                  .toList();
+          tabsMap[entry.key] = list
+              .whereType<Map<String, dynamic>>()
+              .map(MockExamCatalogItem.fromJson)
+              .toList();
         }
       }
     }
 
     return MockExamCatalog(
       tabs: tabsMap,
-      activeSession:
-          rawActive is Map<String, dynamic>
-              ? MockExamSession.fromJson(rawActive)
-              : null,
-      difficultyLevels:
-          rawDifficulty is List ? rawDifficulty.whereType<int>().toList() : [],
+      activeSession: rawActive is Map<String, dynamic>
+          ? MockExamSession.fromJson(rawActive)
+          : null,
+      difficultyLevels: rawDifficulty is List
+          ? rawDifficulty.whereType<int>().toList()
+          : [],
     );
   }
 }
@@ -319,8 +318,8 @@ class MockExamRepository {
       '/mock-exams/sessions/$sessionId/answers',
       data: {
         'question_id': questionId,
-        if (selectedAnswer != null) 'selected_answer': selectedAnswer,
-        if (textAnswer != null) 'text_answer': textAnswer,
+        'selected_answer': ?selectedAnswer,
+        'text_answer': ?textAnswer,
         'spent_seconds': spentSeconds,
         'bookmarked': bookmarked,
       },

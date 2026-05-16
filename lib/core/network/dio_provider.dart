@@ -4,15 +4,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:topik_go/core/auth/session_store.dart';
 
 const _apiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
-// Senior Dev Note: Updated IP from backend team - 192.168.45.62
-const _backendTeamIp = '192.168.45.62'; 
+// Senior Dev Note: Updated IP from backend team - 172.30.1.79
+const _backendTeamIp = '172.30.1.79'; 
 const _physicalDeviceApiBaseUrl = 'http://$_backendTeamIp:3000';
 const _androidEmulatorApiBaseUrl = 'http://10.0.2.2:3000';
 
 String get resolvedApiBaseUrl {
   if (_apiBaseUrl.isNotEmpty) return _apiBaseUrl;
   
-  // By default, assume we are on a physical device or a simulator that can see the LAN.
+  // Senior Dev Note: Android Emulators use 10.0.2.2 to access host's localhost.
+  // Physical devices use the LAN IP: 172.30.1.79
+  if (defaultTargetPlatform == TargetPlatform.android && !kIsWeb) {
+    // For local development on Emulator, 10.0.2.2 is usually the best bet.
+    // However, since we are testing both, let's use the provided backend IP
+    // if 10.0.2.2 fails, OR just use 10.0.2.2 as the primary for Emulator.
+    return 'http://10.0.2.2:3000'; 
+  }
+  
   return _physicalDeviceApiBaseUrl;
 }
 
@@ -31,8 +39,8 @@ final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(
       baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 30),
+      connectTimeout: const Duration(seconds: 45),
+      receiveTimeout: const Duration(seconds: 60),
       contentType: 'application/json',
     ),
   );

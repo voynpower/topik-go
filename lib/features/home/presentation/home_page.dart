@@ -68,51 +68,6 @@ class HomePage extends ConsumerWidget {
                   return const SizedBox.shrink();
                 },
               ),
-              const _SectionTitle(
-                icon: Icons.insights_outlined,
-                title: '오늘의 학습',
-              ),
-              const SizedBox(height: 10),
-              questionSets.when(
-                data: (sets) {
-                  final reading = sets
-                      .where((set) => set.section.toLowerCase() == 'reading')
-                      .length;
-                  final listening = sets
-                      .where((set) => set.section.toLowerCase() == 'listening')
-                      .length;
-                  final writing = sets
-                      .where((set) => set.section.toLowerCase() == 'writing')
-                      .length;
-
-                  return _StatusPanel(
-                    icon: Icons.school_outlined,
-                    iconColor: AppColors.mintDark,
-                    backgroundColor: const Color(0xFFE8F8F3),
-                    title: '학습 콘텐츠',
-                    subtitle: '사용 가능한 문제 세트 ${sets.length}개',
-                    children: [
-                      _MetricPill(label: '읽기', count: reading),
-                      _MetricPill(label: '듣기', count: listening),
-                      _MetricPill(label: '쓰기', count: writing),
-                    ],
-                  );
-                },
-                loading: () => const _StatusPanel(
-                  icon: Icons.school_outlined,
-                  iconColor: AppColors.mintDark,
-                  backgroundColor: Color(0xFFE8F8F3),
-                  title: '학습 콘텐츠',
-                  subtitle: '문제 세트를 불러오는 중...',
-                ),
-                error: (_, _) => const _StatusPanel(
-                  icon: Icons.school_outlined,
-                  iconColor: AppColors.mintDark,
-                  backgroundColor: Color(0xFFE8F8F3),
-                  title: '학습 콘텐츠',
-                  subtitle: '문제 세트를 불러오지 못했습니다.',
-                ),
-              ),
               const SizedBox(height: 12),
               bookmarkSummary.when(
                 data: (summary) => _StatusPanel(
@@ -121,10 +76,23 @@ class HomePage extends ConsumerWidget {
                   backgroundColor: const Color(0xFFFFF1DC),
                   title: '북마크',
                   subtitle: '다시 보고 싶은 자료를 모아두는 공간입니다.',
+                  onTap: () => context.push('/bookmarks/questions'),
                   children: [
-                    _MetricPill(label: '문제', count: summary.questions),
-                    _MetricPill(label: '단어', count: summary.vocabulary),
-                    _MetricPill(label: '문법', count: summary.grammar),
+                    _MetricPill(
+                      label: '문제',
+                      count: summary.questions,
+                      onTap: () => context.push('/bookmarks/questions'),
+                    ),
+                    _MetricPill(
+                      label: '단어',
+                      count: summary.vocabulary,
+                      onTap: () => context.push('/bookmarks/vocabulary'),
+                    ),
+                    _MetricPill(
+                      label: '문법',
+                      count: summary.grammar,
+                      onTap: () => context.push('/bookmarks/grammar'),
+                    ),
                   ],
                 ),
                 loading: () => const _StatusPanel(
@@ -143,36 +111,6 @@ class HomePage extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              const _SectionTitle(
-                icon: Icons.flash_on_outlined,
-                title: '바로 시작',
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: _QuickActionCard(
-                      icon: Icons.menu_book_outlined,
-                      iconColor: const Color(0xFF1D8F86),
-                      backgroundColor: const Color(0xFFE8F8F3),
-                      title: '학습',
-                      subtitle: '유형별 연습',
-                      onTap: () => context.go('/main/practice'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _QuickActionCard(
-                      icon: Icons.edit_note_outlined,
-                      iconColor: const Color(0xFF2E6BD9),
-                      backgroundColor: const Color(0xFFEAF1FF),
-                      title: '모의고사',
-                      subtitle: '실전 풀이',
-                      onTap: () => context.go('/main/mock'),
-                    ),
-                  ),
-                ],
-              ),
             ],
           ),
         ),
@@ -386,6 +324,7 @@ class _StatusPanel extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.children = const [],
+    this.onTap,
   });
 
   final IconData icon;
@@ -394,92 +333,105 @@ class _StatusPanel extends StatelessWidget {
   final String title;
   final String subtitle;
   final List<Widget> children;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: backgroundColor,
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: Icon(icon, color: iconColor, size: 28),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary,
-                  ),
+          child: Row(
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: backgroundColor,
+                  borderRadius: BorderRadius.circular(15),
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    height: 1.35,
-                    color: AppColors.textSecondary,
-                  ),
+                child: Icon(icon, color: iconColor, size: 28),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        height: 1.35,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    if (children.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Row(children: children),
+                    ],
+                  ],
                 ),
-                if (children.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Row(children: children),
-                ],
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
 class _MetricPill extends StatelessWidget {
-  const _MetricPill({required this.label, required this.count});
+  const _MetricPill({required this.label, required this.count, this.onTap});
 
   final String label;
   final int count;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-        decoration: BoxDecoration(
-          color: AppColors.bg.withValues(alpha: 0.9),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: AppColors.border.withValues(alpha: 0.7)),
-        ),
-        child: Text(
-          '$label $count',
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: AppColors.bg.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: AppColors.border.withValues(alpha: 0.7)),
+          ),
+          child: Text(
+            '$label $count',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
           ),
         ),
       ),
