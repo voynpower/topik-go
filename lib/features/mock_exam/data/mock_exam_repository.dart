@@ -20,21 +20,41 @@ class MockExamCatalog {
     final rawTabs = json['tabs'];
     final rawDifficulty = json['difficulty_levels'];
 
-    final tabsMap = <String, List<MockExamCatalogItem>>{};
+    final allItems = <MockExamCatalogItem>[];
+
     if (rawTabs is Map) {
       for (final entry in rawTabs.entries) {
         if (entry.value is List) {
           final list = entry.value as List;
-          tabsMap[entry.key] = list
+          final items = list
               .whereType<Map<String, dynamic>>()
               .map(MockExamCatalogItem.fromJson)
               .toList();
+          allItems.addAll(items);
         }
       }
     }
 
+    final reading102 = _topik102Item(
+      items: allItems,
+      setId: 'topik2-102-reading',
+      title: '102회 TOPIK II 읽기',
+      section: 'reading',
+      durationSeconds: 4200,
+    );
+    final listening102 = _topik102Item(
+      items: allItems,
+      setId: 'topik2-102-listening',
+      title: '102회 TOPIK II 듣기',
+      section: 'listening',
+      durationSeconds: 3600,
+    );
+
     return MockExamCatalog(
-      tabs: tabsMap,
+      tabs: {
+        'reading_mock': [reading102],
+        'listening_mock': [listening102],
+      },
       activeSession: rawActive is Map<String, dynamic>
           ? MockExamSession.fromJson(rawActive)
           : null,
@@ -43,6 +63,31 @@ class MockExamCatalog {
           : [],
     );
   }
+}
+
+MockExamCatalogItem _topik102Item({
+  required List<MockExamCatalogItem> items,
+  required String setId,
+  required String title,
+  required String section,
+  required int durationSeconds,
+}) {
+  for (final item in items) {
+    if (item.setId == setId) return item;
+  }
+
+  return MockExamCatalogItem(
+    setId: setId,
+    title: title,
+    section: section,
+    level: 3,
+    totalQuestions: 50,
+    durationSeconds: durationSeconds,
+    durationLabel: _formatSeconds(durationSeconds),
+    examKind: 'mock',
+    isFree: true,
+    priceLabel: 'free',
+  );
 }
 
 class MockExamCatalogItem {
@@ -78,9 +123,11 @@ class MockExamCatalogItem {
       level: _asInt(json['level']) ?? 0,
       totalQuestions: _asInt(json['total_questions']) ?? 0,
       durationSeconds: _asInt(json['duration_seconds']) ?? 4200,
-      durationLabel: json['duration_label']?.toString(),
+      durationLabel:
+          json['duration_label']?.toString() ??
+          _formatSeconds(_asInt(json['duration_seconds']) ?? 4200),
       examKind: json['exam_kind']?.toString(),
-      isFree: json['is_free'] == true,
+      isFree: json['is_free'] == true || json['is_free'] == 1,
       priceLabel: json['price_label']?.toString(),
     );
   }
@@ -254,7 +301,7 @@ class MockExamRepository {
 
   Future<MockExamCatalog> getCatalog() async {
     final response = await _dio.get('/mock-exams/catalog');
-    return MockExamCatalog.fromJson(response.data);
+    return MockExamCatalog.fromJson(response.data as Map<String, dynamic>);
   }
 
   Future<MockExamDetail> createSession({
@@ -347,7 +394,6 @@ final mockExamCatalogProvider = FutureProvider<MockExamCatalog>((ref) async {
   final catalog = await repository.getCatalog();
 
   // If catalog didn't include active_session, fetch it explicitly
-  // as per backend tip: "앱 시작 시 GET /mock-exams/sessions/active 한 번 호출"
   if (catalog.activeSession == null) {
     try {
       final active = await repository.getActiveSession();
@@ -372,4 +418,10 @@ int? _asInt(Object? value) {
   if (value is num) return value.toInt();
   if (value is String) return int.tryParse(value);
   return null;
+}
+
+String _formatSeconds(int seconds) {
+  final minutes = seconds ~/ 60;
+  final rest = seconds % 60;
+  return '$minutes:${rest.toString().padLeft(2, '0')}';
 }

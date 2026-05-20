@@ -7,6 +7,7 @@ import 'package:topik_go/features/bookmarks/presentation/bookmarked_vocabulary_p
 import 'package:topik_go/features/auth/presentation/login_page.dart';
 import 'package:topik_go/features/auth/presentation/register_page.dart';
 import 'package:topik_go/features/explanation_video/presentation/explanation_video_list_page.dart';
+import 'package:topik_go/features/explanation_video/presentation/video_player_page.dart';
 import 'package:topik_go/features/grammar/presentation/grammar_detail_page.dart';
 import 'package:topik_go/features/grammar/presentation/grammar_list_page.dart';
 import 'package:topik_go/features/home/presentation/home_page.dart';
@@ -142,6 +143,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/explanation-videos',
         builder: (context, state) => const ExplanationVideoListPage(),
+      ),
+      GoRoute(
+        path: '/video-player',
+        builder: (context, state) {
+          final url = state.uri.queryParameters['url'] ?? '';
+          final title = state.uri.queryParameters['title'] ?? '영상 재생';
+          return VideoPlayerPage(url: url, title: title);
+        },
       ),
       GoRoute(
         path: '/admin/question-sets',

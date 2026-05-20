@@ -2,11 +2,16 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/core/network/api_error_message.dart';
+import 'package:topik_go/core/network/api_media_url.dart';
+import 'package:topik_go/features/explanation_video/data/explanation_video_repository.dart';
 import 'package:topik_go/features/mock_exam/data/mock_exam_repository.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart'
-    show QuestionOption;
+    show Question, QuestionMedia, QuestionOption;
 
 class MockExamPage extends ConsumerStatefulWidget {
   const MockExamPage({super.key});
@@ -193,10 +198,15 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
                       itemBuilder: (context, index) {
                         return _ExamItemCard(
                           item: currentItems[index],
-                          onTap: () => _start(currentItems[index].setId),
+                          onTap: () => _start(
+                            currentItems[index].setId,
+                            remainingSeconds:
+                                currentItems[index].durationSeconds,
+                          ),
                         );
                       },
                     ),
+                    const SizedBox(height: 40),
                   ],
                 ),
               );
@@ -223,22 +233,37 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
         return '읽기 모의고사';
       case 'reading_type':
         return '읽기 유형별';
+      case 'reading_actual':
+      case 'reading_past':
+        return '읽기 기출문제';
       case 'listening_mock':
         return '듣기 모의고사';
       case 'listening_type':
         return '듣기 유형별';
+      case 'listening_actual':
+      case 'listening_past':
+        return '듣기 기출문제';
       default:
-        return key;
+        return key
+            .split('_')
+            .map((s) {
+              if (s.isEmpty) return s;
+              return s[0].toUpperCase() + s.substring(1);
+            })
+            .join(' ');
     }
   }
 
-  Future<void> _start(String setId) async {
+  Future<void> _start(String setId, {int remainingSeconds = 4200}) async {
     await _run(() async {
       final repository = ref.read(mockExamRepositoryProvider);
       MockExamDetail? detail;
 
       try {
-        detail = await repository.createSession(setId: setId);
+        detail = await repository.createSession(
+          setId: setId,
+          remainingSeconds: remainingSeconds,
+        );
       } catch (e) {
         if (e is DioException && e.response?.statusCode == 409) {
           detail = await repository.getActiveSession();
@@ -830,6 +855,15 @@ class _ExamPanel extends StatelessWidget {
 
     final question = questions[currentIndex.clamp(0, questions.length - 1)];
     final selectedAnswer = selectedAnswers[question.id];
+    final audio = _firstMedia(question.media, 'audio');
+    final images = question.media.where(_isImageMedia).toList();
+    final documents = question.media.where((media) {
+      final type = media.mediaType.toLowerCase();
+      final url = media.url.toLowerCase();
+      return type.contains('document') ||
+          type.contains('pdf') ||
+          url.endsWith('.pdf');
+    }).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -857,15 +891,35 @@ class _ExamPanel extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  question.prompt,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                if (question.passageText?.isNotEmpty ?? false) ...[
-                  const SizedBox(height: 12),
-                  Text(question.passageText!),
+                if (audio != null) ...[
+                  _MockAudioCard(media: audio),
+                  const SizedBox(height: 14),
                 ],
-                const SizedBox(height: 16),
+                if (images.isNotEmpty) ...[
+                  for (final image in images) _QuestionImage(media: image),
+                  const SizedBox(height: 14),
+                ],
+                if (documents.isNotEmpty) ...[
+                  for (final document in documents)
+                    _DocumentLink(media: document),
+                  const SizedBox(height: 14),
+                ],
+                _QuestionNumberLabel(question: question),
+                const SizedBox(height: 12),
+                if (question.passageText?.isNotEmpty ?? false) ...[
+                  _PassageBox(text: question.passageText!),
+                  const SizedBox(height: 14),
+                ],
+                if (question.prompt.trim().isNotEmpty) ...[
+                  Text(
+                    question.prompt,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      height: 1.45,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 for (final option in question.options)
                   _OptionTile(
                     option: option,
@@ -873,6 +927,8 @@ class _ExamPanel extends StatelessWidget {
                     enabled: !loading && option.label.isNotEmpty,
                     onTap: () => onAnswer(question.id, option.label),
                   ),
+                const SizedBox(height: 8),
+                _QuestionExplanationVideoButton(question: question),
               ],
             ),
           ),
@@ -902,6 +958,293 @@ class _ExamPanel extends StatelessWidget {
           label: const Text('제출하기'),
         ),
       ],
+    );
+  }
+
+  QuestionMedia? _firstMedia(List<QuestionMedia> media, String type) {
+    for (final item in media) {
+      if (item.mediaType.toLowerCase().contains(type)) return item;
+    }
+    return null;
+  }
+
+  bool _isImageMedia(QuestionMedia media) {
+    final type = media.mediaType.toLowerCase();
+    final url = media.url.toLowerCase();
+    return type.contains('image') ||
+        url.endsWith('.png') ||
+        url.endsWith('.jpg') ||
+        url.endsWith('.jpeg') ||
+        url.endsWith('.webp');
+  }
+}
+
+class _QuestionExplanationVideoButton extends ConsumerWidget {
+  const _QuestionExplanationVideoButton({required this.question});
+
+  final Question question;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final videos = ref.watch(
+      explanationVideosForQueryProvider(
+        ExplanationVideoQuery(
+          section: question.section,
+          questionId: question.id,
+          setId: question.setId,
+          limit: 1,
+        ),
+      ),
+    );
+
+    return videos.when(
+      data: (items) {
+        if (items.isEmpty) return const SizedBox.shrink();
+        final video = items.first;
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            onPressed: video.videoUrl.trim().isEmpty
+                ? null
+                : () => context.push(
+                    Uri(
+                      path: '/video-player',
+                      queryParameters: {
+                        'url': video.videoUrl,
+                        'title': video.title,
+                      },
+                    ).toString(),
+                  ),
+            icon: const Icon(Icons.play_circle_outline),
+            label: const Text('해설 영상 보기'),
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (error, stackTrace) => const SizedBox.shrink(),
+    );
+  }
+}
+
+class _QuestionNumberLabel extends StatelessWidget {
+  const _QuestionNumberLabel({required this.question});
+
+  final Question question;
+
+  @override
+  Widget build(BuildContext context) {
+    final number = question.questionNumber > 0
+        ? '${question.questionNumber}'
+        : '';
+    final section = question.section.toLowerCase() == 'listening' ? '듣기' : '읽기';
+
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppColors.mint.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            number.isEmpty ? section : '$section $number번',
+            style: const TextStyle(
+              color: AppColors.mintDark,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MockAudioCard extends StatefulWidget {
+  const _MockAudioCard({required this.media});
+
+  final QuestionMedia media;
+
+  @override
+  State<_MockAudioCard> createState() => _MockAudioCardState();
+}
+
+class _MockAudioCardState extends State<_MockAudioCard> {
+  late final AudioPlayer _player;
+  bool _playing = false;
+  Duration _duration = Duration.zero;
+  Duration _position = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _player = AudioPlayer();
+    final url = resolveApiMediaUrl(widget.media.url);
+    if (url.isNotEmpty) {
+      _player.setUrl(url).catchError((error) {
+        debugPrint('Mock exam audio load failed: $error');
+        return null;
+      });
+    }
+    _player.playerStateStream.listen((state) {
+      if (mounted) setState(() => _playing = state.playing);
+    });
+    _player.durationStream.listen((duration) {
+      if (mounted) setState(() => _duration = duration ?? Duration.zero);
+    });
+    _player.positionStream.listen((position) {
+      if (mounted) setState(() => _position = position);
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _MockAudioCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.media.url != widget.media.url) {
+      _player.setUrl(resolveApiMediaUrl(widget.media.url)).catchError((error) {
+        debugPrint('Mock exam audio reload failed: $error');
+        return null;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF1FF),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          IconButton.filled(
+            onPressed: _toggle,
+            icon: Icon(_playing ? Icons.pause : Icons.play_arrow),
+            style: IconButton.styleFrom(
+              backgroundColor: const Color(0xFF2E6BD9),
+              foregroundColor: Colors.white,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '듣기 오디오',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 6),
+                LinearProgressIndicator(
+                  value: _duration.inMilliseconds > 0
+                      ? _position.inMilliseconds / _duration.inMilliseconds
+                      : 0,
+                  backgroundColor: Colors.white,
+                  valueColor: const AlwaysStoppedAnimation(Color(0xFF2E6BD9)),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${_formatDuration(_position)} / ${_formatDuration(_duration)}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _toggle() {
+    if (_playing) {
+      _player.pause();
+    } else {
+      _player.play();
+    }
+  }
+}
+
+String _formatDuration(Duration duration) {
+  final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+  final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+  return '$minutes:$seconds';
+}
+
+class _DocumentLink extends StatelessWidget {
+  const _DocumentLink({required this.media});
+
+  final QuestionMedia media;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: OutlinedButton.icon(
+        onPressed: () => launchUrl(Uri.parse(resolveApiMediaUrl(media.url))),
+        icon: const Icon(Icons.picture_as_pdf_outlined),
+        label: const Text('PDF 원문 열기'),
+      ),
+    );
+  }
+}
+
+class _QuestionImage extends StatelessWidget {
+  const _QuestionImage({required this.media});
+
+  final QuestionMedia media;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = resolveApiMediaUrl(media.url);
+    if (url.isEmpty) return const SizedBox.shrink();
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: Image.network(
+        url,
+        width: double.infinity,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF3F0),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Text('이미지를 불러오지 못했습니다.'),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _PassageBox extends StatelessWidget {
+  const _PassageBox({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.bg.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Text(text, style: const TextStyle(height: 1.5)),
     );
   }
 }

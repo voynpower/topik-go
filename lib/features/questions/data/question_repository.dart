@@ -142,14 +142,14 @@ class QuestionRepository {
     return QuestionPage.fromJson(response.data as Map<String, dynamic>);
   }
 
-  /// Fetches all pages for a set (e.g. server caps at 30 per request but total is 50).
-  /// For practice, we cap it at 30 items as requested.
+  /// Fetches all pages for a practice set so TOPIK II reading/listening can
+  /// show the full 50-question set even when the server paginates responses.
   Future<QuestionPage> getAllQuestionsForPracticeSet({
     required String section,
     String? setId,
     int? level,
     int pageSize = 30,
-    int maxItems = 30,
+    int maxItems = 50,
   }) async {
     // If no setId AND no level, we can't fetch anything specific enough for practice.
     if ((setId == null || setId.isEmpty) && level == null) {
@@ -157,7 +157,6 @@ class QuestionRepository {
     }
 
     final merged = <Question>[];
-    int totalCount = 0;
     var page = 1;
 
     // Continue fetching until we have enough items or no more pages.
@@ -175,7 +174,6 @@ class QuestionRepository {
       if (chunk.items.isEmpty) break;
 
       merged.addAll(chunk.items);
-      totalCount = chunk.total;
 
       // Stop if we got a short page (end of data) or reached maxItems
       if (chunk.items.length < pageSize || merged.length >= maxItems) {
@@ -195,7 +193,7 @@ class QuestionRepository {
       items: merged,
       page: 1,
       limit: merged.length,
-      total: merged.length, // Display the actual count fetched
+      total: merged.length,
     );
   }
 

@@ -116,31 +116,39 @@ class Question {
         json['uuid']?.toString() ??
         '';
 
-    // Senior Dev Note: We need a unique ID for bookmarking. 
+    // Senior Dev Note: We need a unique ID for bookmarking.
     // If the server didn't provide one, we generate a specific composite ID.
-    final id =
-        rawId.isNotEmpty
-            ? rawId
-            : (questionNumber > 0
-                ? 'p-${setIdStr.isNotEmpty ? setIdStr : 'unset'}-$questionNumber'
-                : 'p-${setIdStr.isNotEmpty ? setIdStr : 'unset'}-${questionType.hashCode}');
+    final id = rawId.isNotEmpty
+        ? rawId
+        : (questionNumber > 0
+              ? 'p-${setIdStr.isNotEmpty ? setIdStr : 'unset'}-$questionNumber'
+              : 'p-${setIdStr.isNotEmpty ? setIdStr : 'unset'}-${questionType.hashCode}');
 
-    final prompt =
+    final rawPrompt =
         _nonEmpty([
-              json['prompt']?.toString(),
-              json['question_text']?.toString(),
-            ]) ??
+          json['prompt']?.toString(),
+          json['question_text']?.toString(),
+          json['question']?.toString(),
+          json['text']?.toString(),
+          json['content']?.toString(),
+        ]) ??
         '';
+    final prompt = _scopedQuestionText(rawPrompt, questionNumber);
 
-    final passageText = _passageTextFromJson(passage);
+    final rawPassageText = _passageTextFromJson(
+      passage,
+      questionNumber: questionNumber,
+    );
+    final passageText = rawPassageText == null
+        ? null
+        : _scopedQuestionText(rawPassageText, questionNumber);
 
-    var media =
-        mediaRaw is List
-            ? mediaRaw
-                .whereType<Map<String, dynamic>>()
-                .map(QuestionMedia.fromJson)
-                .toList()
-            : <QuestionMedia>[];
+    var media = mediaRaw is List
+        ? mediaRaw
+              .whereType<Map<String, dynamic>>()
+              .map(QuestionMedia.fromJson)
+              .toList()
+        : <QuestionMedia>[];
 
     final audioText = json['audio_text']?.toString().trim();
     if (audioText != null &&
@@ -173,7 +181,8 @@ class Question {
       questionSetTitle: questionSet is Map<String, dynamic>
           ? questionSet['title']?.toString()
           : null,
-      correctAnswer: json['correct_answer']?.toString(),
+      correctAnswer:
+          json['correct_answer']?.toString() ?? json['answer']?.toString(),
       explanation: _nonEmpty([
         json['explanation']?.toString(),
         json['sample_answer']?.toString(),
@@ -193,7 +202,52 @@ String? _nonEmpty(List<String?> candidates) {
   return null;
 }
 
-String? _passageTextFromJson(Object? passage) {
+String _scopedQuestionText(String text, int questionNumber) {
+  final source = text.trim();
+  if (source.isEmpty || questionNumber <= 0) return source;
+
+  final current = _firstQuestionMarker(source, questionNumber);
+  if (current == null) return source;
+
+  final next = _firstQuestionMarker(
+    source,
+    questionNumber + 1,
+    start: current.end,
+  );
+  final end = next?.start ?? source.length;
+  return source.substring(current.start, end).trim();
+}
+
+_TextRange? _firstQuestionMarker(
+  String text,
+  int questionNumber, {
+  int start = 0,
+}) {
+  final escaped = RegExp.escape('$questionNumber');
+  final patterns = [
+    RegExp('(^|\\n)\\s*\\[?$escaped\\]?\\s*[.)번]', multiLine: true),
+    RegExp('(^|\\n)\\s*문제\\s*$escaped\\s*[.)번]?', multiLine: true),
+    RegExp('(^|\\n)\\s*$escaped\\s', multiLine: true),
+  ];
+
+  for (final pattern in patterns) {
+    final match = pattern.firstMatch(text.substring(start));
+    if (match != null) {
+      return _TextRange(match.start + start, match.end + start);
+    }
+  }
+
+  return null;
+}
+
+class _TextRange {
+  const _TextRange(this.start, this.end);
+
+  final int start;
+  final int end;
+}
+
+String? _passageTextFromJson(Object? passage, {int? questionNumber}) {
   if (passage is String) {
     final t = passage.trim();
     return t.isEmpty ? null : t;
@@ -203,8 +257,47 @@ String? _passageTextFromJson(Object? passage) {
       passage['passage_text']?.toString(),
       passage['text']?.toString(),
       passage['content']?.toString(),
+      passage['body']?.toString(),
     ]);
   }
+  if (passage is List) {
+    final parsed = passage.whereType<Map<String, dynamic>>().toList();
+    final matched = _matchingPassage(parsed, questionNumber);
+    if (matched != null) {
+      return _passageTextFromJson(matched, questionNumber: questionNumber);
+    }
+
+    for (final item in passage) {
+      final text = _passageTextFromJson(item, questionNumber: questionNumber);
+      if (text != null && text.trim().isNotEmpty) return text;
+    }
+  }
+  return null;
+}
+
+Map<String, dynamic>? _matchingPassage(
+  List<Map<String, dynamic>> passages,
+  int? questionNumber,
+) {
+  if (questionNumber == null || questionNumber <= 0) return null;
+
+  for (final passage in passages) {
+    final candidate =
+        QuestionSet._asInt(passage['question_number']) ??
+        QuestionSet._asInt(passage['number']) ??
+        QuestionSet._asInt(passage['start_question_number']);
+    if (candidate == questionNumber) return passage;
+
+    final start = QuestionSet._asInt(passage['start_question_number']);
+    final end = QuestionSet._asInt(passage['end_question_number']);
+    if (start != null &&
+        end != null &&
+        questionNumber >= start &&
+        questionNumber <= end) {
+      return passage;
+    }
+  }
+
   return null;
 }
 
@@ -223,10 +316,14 @@ List<QuestionOption> _questionOptionsFromJson(Object? options) {
     ];
   }
 
-  return options
+  final parsed = options
       .whereType<Map<String, dynamic>>()
       .map(QuestionOption.fromJson)
       .toList();
+  parsed.sort(
+    (a, b) => (a.optionNumber ?? 999).compareTo(b.optionNumber ?? 999),
+  );
+  return parsed;
 }
 
 class QuestionOption {
@@ -255,7 +352,9 @@ class QuestionOption {
       text:
           json['text']?.toString() ??
           json['option_text']?.toString() ??
+          json['option']?.toString() ??
           json['content']?.toString() ??
+          json['body']?.toString() ??
           '',
       optionNumber: optionNumber,
     );

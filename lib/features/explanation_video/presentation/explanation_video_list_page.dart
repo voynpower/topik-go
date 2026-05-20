@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/core/network/api_error_message.dart';
 import 'package:topik_go/features/explanation_video/data/explanation_video_repository.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 class ExplanationVideoListPage extends ConsumerWidget {
   const ExplanationVideoListPage({super.key});
@@ -66,15 +68,13 @@ class _VideoHorizontalList extends StatelessWidget {
     if (videos.isEmpty) return const _EmptyCard(message: '추천 영상이 없습니다.');
 
     return SizedBox(
-      height: 200,
+      height: 220,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: videos.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (context, index) => _VideoCard(
-          video: videos[index],
-          width: 280,
-        ),
+        separatorBuilder: (_, index) => const SizedBox(width: 12),
+        itemBuilder: (context, index) =>
+            SizedBox(width: 260, child: _VideoGridItem(video: videos[index])),
       ),
     );
   }
@@ -88,52 +88,108 @@ class _VideoVerticalList extends StatelessWidget {
   Widget build(BuildContext context) {
     if (videos.isEmpty) return const _EmptyCard(message: '영상 목록이 비어있습니다.');
 
-    return ListView.separated(
+    return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 16,
+        childAspectRatio: 0.85,
+      ),
       itemCount: videos.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, index) => _VideoListItem(video: videos[index]),
+      itemBuilder: (context, index) => _VideoGridItem(video: videos[index]),
     );
   }
 }
 
-class _VideoCard extends StatelessWidget {
-  const _VideoCard({required this.video, required this.width});
+class _VideoGridItem extends StatelessWidget {
+  const _VideoGridItem({required this.video});
   final ExplanationVideo video;
-  final double width;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: width,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: InkWell(
         onTap: () {
-          // TODO: Open Video Player
+          final rawUrl = video.videoUrl.trim();
+          if (rawUrl.isEmpty) {
+            _showError(context, '영상 주소가 없습니다.');
+            return;
+          }
+
+          context.push(
+            Uri(
+              path: '/video-player',
+              queryParameters: {'url': rawUrl, 'title': video.title},
+            ).toString(),
+          );
         },
         borderRadius: BorderRadius.circular(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-              child: AspectRatio(
-                aspectRatio: 16 / 9,
-                child: video.thumbnailUrl != null
-                    ? Image.network(video.thumbnailUrl!, fit: BoxFit.cover)
-                    : Container(
-                        color: Colors.grey[200],
-                        child: const Icon(Icons.play_circle_outline, size: 40),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(12),
+                  ),
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: _VideoThumbnail(video: video),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.4),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.play_arrow,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+                Positioned(
+                  bottom: 6,
+                  right: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      _formatDuration(video.durationSeconds),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
                       ),
-              ),
+                    ),
+                  ),
+                ),
+              ],
             ),
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -141,12 +197,18 @@ class _VideoCard extends StatelessWidget {
                     video.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      height: 1.3,
+                    ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Text(
-                    '${_formatDuration(video.durationSeconds)} · 조회수 ${video.viewCount}회',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    video.targetTitle ?? '해설 영상',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -157,56 +219,68 @@ class _VideoCard extends StatelessWidget {
     );
   }
 
-  String _formatDuration(int seconds) {
+  static String _formatDuration(int seconds) {
     final min = seconds ~/ 60;
     final sec = seconds % 60;
     return '$min:${sec.toString().padLeft(2, '0')}';
   }
+
+  void _showError(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
 }
 
-class _VideoListItem extends StatelessWidget {
-  const _VideoListItem({required this.video});
+class _VideoThumbnail extends StatelessWidget {
+  const _VideoThumbnail({required this.video});
+
   final ExplanationVideo video;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () {},
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: SizedBox(
-              width: 120,
-              height: 68,
-              child: video.thumbnailUrl != null
-                  ? Image.network(video.thumbnailUrl!, fit: BoxFit.cover)
-                  : Container(color: Colors.grey[200]),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  video.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '조회수 ${video.viewCount}회',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    final youtubeId = YoutubePlayer.convertUrlToId(video.videoUrl);
+    final thumbnailUrl = _usableThumbnail(video.thumbnailUrl)
+        ? video.thumbnailUrl!
+        : youtubeId == null
+        ? null
+        : 'https://img.youtube.com/vi/$youtubeId/hqdefault.jpg';
+
+    if (thumbnailUrl == null) {
+      return Container(
+        color: const Color(0xFFEAF1FF),
+        child: const Icon(Icons.ondemand_video, color: Color(0xFF2E6BD9)),
+      );
+    }
+
+    return Image.network(
+      thumbnailUrl,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        if (youtubeId != null &&
+            thumbnailUrl !=
+                'https://img.youtube.com/vi/$youtubeId/hqdefault.jpg') {
+          return Image.network(
+            'https://img.youtube.com/vi/$youtubeId/hqdefault.jpg',
+            fit: BoxFit.cover,
+          );
+        }
+        return Container(
+          color: const Color(0xFFEAF1FF),
+          child: const Icon(Icons.ondemand_video, color: Color(0xFF2E6BD9)),
+        );
+      },
     );
+  }
+
+  bool _usableThumbnail(String? url) {
+    final value = url?.trim();
+    if (value == null || value.isEmpty) return false;
+    return !value.contains('cdn.example.com');
   }
 }
 
@@ -251,7 +325,9 @@ class _EmptyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 20),
-      child: Center(child: Text(message, style: const TextStyle(color: Colors.grey))),
+      child: Center(
+        child: Text(message, style: const TextStyle(color: Colors.grey)),
+      ),
     );
   }
 }
