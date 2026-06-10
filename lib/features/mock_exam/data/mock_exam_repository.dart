@@ -219,16 +219,19 @@ class MockExamResult {
     required this.session,
     required this.summary,
     required this.answers,
+    this.questions = const [],
   });
 
   final MockExamSession session;
   final MockExamSummary summary;
   final List<MockExamAnswer> answers;
+  final List<Question> questions;
 
   factory MockExamResult.fromJson(Map<String, dynamic> json) {
     final session = json['session'];
     final summary = json['summary'];
     final answers = json['answers'];
+    final questions = json['questions'];
 
     return MockExamResult(
       session: MockExamSession.fromJson(
@@ -241,6 +244,12 @@ class MockExamResult {
           ? answers
                 .whereType<Map<String, dynamic>>()
                 .map(MockExamAnswer.fromJson)
+                .toList()
+          : const [],
+      questions: questions is List
+          ? questions
+                .whereType<Map<String, dynamic>>()
+                .map(Question.fromJson)
                 .toList()
           : const [],
     );

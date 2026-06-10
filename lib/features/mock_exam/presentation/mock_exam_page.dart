@@ -6,7 +6,7 @@ import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/core/network/api_error_message.dart';
 import 'package:topik_go/features/mock_exam/data/mock_exam_repository.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart'
-    show QuestionOption;
+    show Question, QuestionOption;
 
 class MockExamPage extends ConsumerStatefulWidget {
   const MockExamPage({super.key});
@@ -92,7 +92,13 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
               if (_result != null) {
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-                  children: [_ResultCard(result: _result!, onRestart: _reset)],
+                  children: [
+                    _ResultCard(
+                      result: _result!,
+                      questions: _detail?.questions ?? const [],
+                      onRestart: _reset,
+                    ),
+                  ],
                 );
               }
 
@@ -956,14 +962,25 @@ class _OptionTile extends StatelessWidget {
 }
 
 class _ResultCard extends StatelessWidget {
-  const _ResultCard({required this.result, required this.onRestart});
+  const _ResultCard({
+    required this.result,
+    required this.questions,
+    required this.onRestart,
+  });
 
   final MockExamResult result;
+  final List<Question> questions;
   final VoidCallback onRestart;
 
   @override
   Widget build(BuildContext context) {
     final summary = result.summary;
+    final reviewQuestions = result.questions.isNotEmpty
+        ? result.questions
+        : questions;
+    final answerByQuestionId = {
+      for (final answer in result.answers) answer.questionId: answer,
+    };
 
     return Card(
       child: Padding(
@@ -978,9 +995,94 @@ class _ResultCard extends StatelessWidget {
             Text('응답: ${summary.answeredCount}개'),
             Text('오답: ${summary.incorrectCount}개'),
             const SizedBox(height: 16),
+            if (reviewQuestions.isNotEmpty) ...[
+              Text('문항별 해설', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 10),
+              for (final question in reviewQuestions)
+                _QuestionReviewTile(
+                  question: question,
+                  answer: answerByQuestionId[question.id],
+                ),
+              const SizedBox(height: 8),
+            ],
             FilledButton(onPressed: onRestart, child: const Text('다시 선택하기')),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _QuestionReviewTile extends StatelessWidget {
+  const _QuestionReviewTile({required this.question, required this.answer});
+
+  final Question question;
+  final MockExamAnswer? answer;
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedAnswer = answer?.selectedAnswer ?? answer?.textAnswer;
+    final correctAnswer = question.correctAnswer;
+    final isCorrect =
+        answer?.isCorrect == 1 ||
+        (selectedAnswer != null &&
+            correctAnswer != null &&
+            selectedAnswer == correctAnswer);
+    final hasExplanation = question.explanation?.isNotEmpty ?? false;
+    final hasAiExplanation = question.aiExplanation?.isNotEmpty ?? false;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${question.questionNumber}번',
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+              Icon(
+                isCorrect ? Icons.check_circle : Icons.cancel,
+                color: isCorrect ? AppColors.mintDark : Colors.redAccent,
+                size: 18,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(question.prompt),
+          const SizedBox(height: 8),
+          Text('내 답: ${selectedAnswer?.isNotEmpty == true ? selectedAnswer : '-'}'),
+          if (correctAnswer?.isNotEmpty ?? false) Text('정답: $correctAnswer'),
+          if (hasExplanation) ...[
+            const SizedBox(height: 10),
+            Text('해설', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 4),
+            Text(question.explanation!, style: const TextStyle(height: 1.45)),
+          ],
+          if (hasAiExplanation) ...[
+            const SizedBox(height: 10),
+            Text('AI 해설', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 4),
+            Text(question.aiExplanation!, style: const TextStyle(height: 1.45)),
+          ],
+          if (!hasExplanation && !hasAiExplanation) ...[
+            const SizedBox(height: 10),
+            const Text(
+              '등록된 해설이 없습니다.',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ],
+        ],
       ),
     );
   }
