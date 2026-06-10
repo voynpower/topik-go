@@ -174,11 +174,11 @@ class Question {
           ? questionSet['title']?.toString()
           : null,
       correctAnswer: json['correct_answer']?.toString(),
-      explanation: _nonEmpty([
+      explanation: _cleanExplanation(_nonEmpty([
         json['explanation']?.toString(),
         json['sample_answer']?.toString(),
-      ]),
-      aiExplanation: json['ai_explanation']?.toString(),
+      ])),
+      aiExplanation: _cleanExplanation(json['ai_explanation']?.toString()),
       difficulty: QuestionSet._asInt(json['difficulty']),
       timeLimitSeconds: QuestionSet._asInt(json['time_limit_seconds']),
       passageText: passageText,
@@ -191,6 +191,22 @@ String? _nonEmpty(List<String?> candidates) {
     if (s != null && s.trim().isNotEmpty) return s.trim();
   }
   return null;
+}
+
+String? _cleanExplanation(String? text) {
+  if (text == null) return null;
+
+  final normalized = text.trim();
+  if (normalized.isEmpty) return null;
+
+  // Some imported records append PDF/media guidance after the actual explanation.
+  // Keep the substantive explanation and drop the boilerplate tail.
+  final tailMarker = normalized.indexOf('원문 문제지는');
+  if (tailMarker >= 0) {
+    return normalized.substring(0, tailMarker).trimRight();
+  }
+
+  return normalized;
 }
 
 String? _passageTextFromJson(Object? passage) {
