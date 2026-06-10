@@ -181,6 +181,8 @@ class MockExamAnswer {
     this.selectedAnswer,
     this.textAnswer,
     this.isCorrect,
+    this.spentSeconds,
+    this.bookmarked = 0,
   });
 
   final String id;
@@ -188,6 +190,8 @@ class MockExamAnswer {
   final String? selectedAnswer;
   final String? textAnswer;
   final int? isCorrect;
+  final int? spentSeconds;
+  final int bookmarked;
 
   factory MockExamAnswer.fromJson(Map<String, dynamic> json) {
     return MockExamAnswer(
@@ -196,6 +200,8 @@ class MockExamAnswer {
       selectedAnswer: json['selected_answer']?.toString(),
       textAnswer: json['text_answer']?.toString(),
       isCorrect: _asInt(json['is_correct']),
+      spentSeconds: _asInt(json['spent_seconds']),
+      bookmarked: _asInt(json['bookmarked']) ?? 0,
     );
   }
 }
@@ -266,16 +272,19 @@ class MockExamResult {
     required this.session,
     required this.summary,
     required this.answers,
+    this.questions = const [],
   });
 
   final MockExamSession session;
   final MockExamSummary summary;
   final List<MockExamAnswer> answers;
+  final List<Question> questions;
 
   factory MockExamResult.fromJson(Map<String, dynamic> json) {
     final session = json['session'];
     final summary = json['summary'];
     final answers = json['answers'];
+    final questions = json['questions'];
 
     return MockExamResult(
       session: MockExamSession.fromJson(
@@ -290,6 +299,26 @@ class MockExamResult {
                 .map(MockExamAnswer.fromJson)
                 .toList()
           : const [],
+      questions: questions is List
+          ? questions
+                .whereType<Map<String, dynamic>>()
+                .map(Question.fromJson)
+                .toList()
+          : const [],
+    );
+  }
+
+  MockExamResult copyWith({
+    MockExamSession? session,
+    MockExamSummary? summary,
+    List<MockExamAnswer>? answers,
+    List<Question>? questions,
+  }) {
+    return MockExamResult(
+      session: session ?? this.session,
+      summary: summary ?? this.summary,
+      answers: answers ?? this.answers,
+      questions: questions ?? this.questions,
     );
   }
 }

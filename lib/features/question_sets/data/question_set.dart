@@ -6,6 +6,7 @@ class QuestionSet {
     required this.level,
     required this.questions,
     this.questionCount,
+    this.examKind,
   });
 
   final String id;
@@ -14,6 +15,7 @@ class QuestionSet {
   final int level;
   final List<Question> questions;
   final int? questionCount;
+  final String? examKind;
 
   factory QuestionSet.fromJson(Map<String, dynamic> json) {
     final questions = json['questions'];
@@ -34,6 +36,7 @@ class QuestionSet {
           _asInt(json['question_count']) ??
           _asInt(json['questions_count']) ??
           (questions is List ? parsedQuestions.length : null),
+      examKind: json['exam_kind']?.toString(),
     );
   }
 
@@ -133,7 +136,11 @@ class Question {
           json['content']?.toString(),
         ]) ??
         '';
-    final prompt = _scopedQuestionText(rawPrompt, questionNumber);
+    final prompt = _scopedQuestionText(
+      rawPrompt,
+      questionNumber,
+      keepSharedPassageContext: false,
+    );
 
     final rawPassageText = _passageTextFromJson(
       passage,
@@ -141,7 +148,11 @@ class Question {
     );
     final passageText = rawPassageText == null
         ? null
-        : _scopedQuestionText(rawPassageText, questionNumber);
+        : _scopedQuestionText(
+            rawPassageText,
+            questionNumber,
+            keepSharedPassageContext: true,
+          );
 
     var media = mediaRaw is List
         ? mediaRaw
@@ -174,7 +185,10 @@ class Question {
       section: section,
       questionType: json['question_type']?.toString() ?? '',
       prompt: prompt,
-      options: _questionOptionsFromJson(options),
+      options: _cleanQuestionOptions(
+        _questionOptionsFromJson(options),
+        questionNumber,
+      ),
       media: media,
       level: QuestionSet._asInt(json['level']),
       setId: setIdStr.isNotEmpty ? setIdStr : null,
@@ -202,27 +216,55 @@ String? _nonEmpty(List<String?> candidates) {
   return null;
 }
 
-String _scopedQuestionText(String text, int questionNumber) {
+String _scopedQuestionText(
+  String text,
+  int questionNumber, {
+  required bool keepSharedPassageContext,
+}) {
   final source = text.trim();
   if (source.isEmpty || questionNumber <= 0) return source;
 
-  final current = _firstQuestionMarker(source, questionNumber);
-  if (current == null) return source;
+  final currentMarkers = _questionMarkers(source, questionNumber);
+  if (currentMarkers.isEmpty) return _stripTopikNoise(source);
 
-  final next = _firstQuestionMarker(
+  if (currentMarkers.length > 1) {
+    final current = currentMarkers.last;
+    final next = _firstAnyQuestionMarker(source, start: current.end);
+    final end = next?.start ?? source.length;
+    return _stripTopikNoise(source.substring(current.start, end).trim());
+  }
+
+  final current = currentMarkers.first;
+  final hasPreviousQuestion = _hasAnyQuestionMarkerBefore(
     source,
-    questionNumber + 1,
-    start: current.end,
+    before: current.start,
   );
-  final end = next?.start ?? source.length;
-  return source.substring(current.start, end).trim();
+  final next = _firstAnyQuestionMarker(source, start: current.end);
+
+  if (hasPreviousQuestion || next != null) {
+    final end = next?.start ?? source.length;
+    return _stripTopikNoise(source.substring(current.start, end).trim());
+  }
+
+  if (keepSharedPassageContext &&
+      _looksLikePreviousListeningTranscript(source, current.start) &&
+      !_hasRangeHeaderForQuestion(source, questionNumber)) {
+    final end = next?.start ?? source.length;
+    return _stripTopikNoise(source.substring(current.start, end).trim());
+  }
+
+  if (keepSharedPassageContext && current.start > source.length * 0.45) {
+    return _stripTopikNoise(source);
+  }
+
+  if (!keepSharedPassageContext) {
+    return _stripTopikNoise(source.substring(current.start).trim());
+  }
+
+  return _stripTopikNoise(source);
 }
 
-_TextRange? _firstQuestionMarker(
-  String text,
-  int questionNumber, {
-  int start = 0,
-}) {
+List<_TextRange> _questionMarkers(String text, int questionNumber) {
   final escaped = RegExp.escape('$questionNumber');
   final patterns = [
     RegExp('(^|\\n)\\s*\\[?$escaped\\]?\\s*[.)번]', multiLine: true),
@@ -230,14 +272,102 @@ _TextRange? _firstQuestionMarker(
     RegExp('(^|\\n)\\s*$escaped\\s', multiLine: true),
   ];
 
+  final markers = <_TextRange>[];
   for (final pattern in patterns) {
-    final match = pattern.firstMatch(text.substring(start));
-    if (match != null) {
-      return _TextRange(match.start + start, match.end + start);
+    for (final match in pattern.allMatches(text)) {
+      markers.add(_TextRange(match.start, match.end));
     }
   }
 
-  return null;
+  markers.sort((a, b) => a.start.compareTo(b.start));
+  return markers;
+}
+
+_TextRange? _firstAnyQuestionMarker(String text, {int start = 0}) {
+  final pattern = RegExp(
+    r'(^|\n)\s*(?:문제\s*)?\[?(?:[1-9]|[1-5][0-9]|60)\]?\s*[.)번]',
+    multiLine: true,
+  );
+  final match = pattern.firstMatch(text.substring(start));
+  if (match == null) return null;
+  return _TextRange(match.start + start, match.end + start);
+}
+
+bool _hasAnyQuestionMarkerBefore(String text, {required int before}) {
+  final marker = _firstAnyQuestionMarker(text);
+  return marker != null && marker.start < before;
+}
+
+bool _looksLikePreviousListeningTranscript(String text, int before) {
+  final prefix = text.substring(0, before.clamp(0, text.length));
+  return prefix.contains('남자') || prefix.contains('여자');
+}
+
+bool _hasRangeHeaderForQuestion(String text, int questionNumber) {
+  final pattern = RegExp(r'※\s*\[?(\d{1,2})\s*~\s*(\d{1,2})\]?');
+  for (final match in pattern.allMatches(text)) {
+    final start = int.tryParse(match.group(1) ?? '');
+    final end = int.tryParse(match.group(2) ?? '');
+    if (start != null &&
+        end != null &&
+        questionNumber >= start &&
+        questionNumber <= end) {
+      return true;
+    }
+  }
+  return false;
+}
+
+String _stripTopikNoise(String text) {
+  final lines = text.split('\n').map((line) => line.trimRight()).where((line) {
+    final normalized = line.trim().toLowerCase();
+    if (normalized.isEmpty) return true;
+    if (normalized.contains('test of proficiency in korean')) return false;
+    if (normalized.contains('tesk ot prolciensyin korean')) return false;
+    if (normalized.startsWith('topik 제102회')) return false;
+    if (normalized.startsWith(') topik 제102회')) return false;
+    return true;
+  }).toList();
+  return lines.join('\n').trim();
+}
+
+List<QuestionOption> _cleanQuestionOptions(
+  List<QuestionOption> options,
+  int questionNumber,
+) {
+  if (questionNumber <= 0) return options;
+  return [
+    for (final option in options)
+      QuestionOption(
+        id: option.id,
+        label: option.label,
+        text: _stripOptionLeak(option.text, questionNumber),
+        optionNumber: option.optionNumber,
+      ),
+  ];
+}
+
+String _stripOptionLeak(String text, int questionNumber) {
+  var cleaned = text.trim();
+  for (var number = questionNumber + 1; number <= 60; number++) {
+    final marker = _firstQuestionMarker(cleaned, number);
+    if (marker != null) {
+      cleaned = cleaned.substring(0, marker.start).trim();
+      break;
+    }
+  }
+  return _stripTopikNoise(cleaned);
+}
+
+_TextRange? _firstQuestionMarker(
+  String text,
+  int questionNumber, {
+  int start = 0,
+}) {
+  final markers = _questionMarkers(text.substring(start), questionNumber);
+  if (markers.isEmpty) return null;
+  final first = markers.first;
+  return _TextRange(first.start + start, first.end + start);
 }
 
 class _TextRange {

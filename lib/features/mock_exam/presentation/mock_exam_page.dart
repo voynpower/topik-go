@@ -363,7 +363,11 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
       final repository = ref.read(mockExamRepositoryProvider);
       await repository.submitSession(detail.session.id);
       final result = await repository.getResult(detail.session.id);
-      setState(() => _result = result);
+      setState(() {
+        _result = result.questions.isEmpty
+            ? result.copyWith(questions: detail.questions)
+            : result;
+      });
     });
   }
 
@@ -901,7 +905,10 @@ class _ExamPanel extends StatelessWidget {
                 ],
                 if (documents.isNotEmpty) ...[
                   for (final document in documents)
-                    _DocumentLink(media: document),
+                    _DocumentLink(
+                      media: document,
+                      isVisualChoice: _isVisualChoiceQuestion(question),
+                    ),
                   const SizedBox(height: 14),
                 ],
                 _QuestionNumberLabel(question: question),
@@ -976,6 +983,13 @@ class _ExamPanel extends StatelessWidget {
         url.endsWith('.jpg') ||
         url.endsWith('.jpeg') ||
         url.endsWith('.webp');
+  }
+
+  bool _isVisualChoiceQuestion(Question question) {
+    final content = '${question.passageText ?? ''}\n${question.prompt}';
+    return content.contains('그림 또는 그래프') ||
+        content.contains('그림') ||
+        content.contains('그래프');
   }
 }
 
@@ -1180,9 +1194,10 @@ String _formatDuration(Duration duration) {
 }
 
 class _DocumentLink extends StatelessWidget {
-  const _DocumentLink({required this.media});
+  const _DocumentLink({required this.media, required this.isVisualChoice});
 
   final QuestionMedia media;
+  final bool isVisualChoice;
 
   @override
   Widget build(BuildContext context) {
@@ -1191,7 +1206,7 @@ class _DocumentLink extends StatelessWidget {
       child: OutlinedButton.icon(
         onPressed: () => launchUrl(Uri.parse(resolveApiMediaUrl(media.url))),
         icon: const Icon(Icons.picture_as_pdf_outlined),
-        label: const Text('PDF 원문 열기'),
+        label: Text(isVisualChoice ? '보기 자료 열기' : 'PDF 원문 열기'),
       ),
     );
   }
@@ -1298,33 +1313,516 @@ class _OptionTile extends StatelessWidget {
   }
 }
 
-class _ResultCard extends StatelessWidget {
+enum _ReviewFilter { all, correct, incorrect, unanswered }
+
+class _ResultCard extends StatefulWidget {
   const _ResultCard({required this.result, required this.onRestart});
 
   final MockExamResult result;
   final VoidCallback onRestart;
 
   @override
+  State<_ResultCard> createState() => _ResultCardState();
+}
+
+class _ResultCardState extends State<_ResultCard> {
+  _ReviewFilter _filter = _ReviewFilter.all;
+
+  @override
   Widget build(BuildContext context) {
-    final summary = result.summary;
+    final summary = widget.result.summary;
+    final reviewItems = _buildReviewItems(widget.result);
+    final filteredItems = reviewItems.where((item) {
+      return switch (_filter) {
+        _ReviewFilter.all => true,
+        _ReviewFilter.correct => item.isCorrect,
+        _ReviewFilter.incorrect => item.isAnswered && !item.isCorrect,
+        _ReviewFilter.unanswered => !item.isAnswered,
+      };
+    }).toList();
+    final unansweredCount = (summary.totalQuestions - summary.answeredCount)
+        .clamp(0, summary.totalQuestions);
+    final scoreValue = summary.totalQuestions > 0
+        ? (summary.scorePercent / 100).clamp(0.0, 1.0)
+        : 0.0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: AppColors.mint.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(
+                        Icons.fact_check_outlined,
+                        color: AppColors.mintDark,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '모의고사 결과',
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${summary.totalQuestions}문항 중 ${summary.answeredCount}문항 응답',
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      '${summary.scorePercent}%',
+                      style: const TextStyle(
+                        color: AppColors.mintDark,
+                        fontSize: 34,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    value: scoreValue,
+                    minHeight: 10,
+                    backgroundColor: AppColors.border,
+                    valueColor: const AlwaysStoppedAnimation(
+                      AppColors.mintDark,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                GridView.count(
+                  crossAxisCount: 2,
+                  childAspectRatio: 2.55,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  children: [
+                    _SummaryPill(
+                      icon: Icons.check_circle_outline,
+                      label: '정답',
+                      value:
+                          '${summary.correctCount}/${summary.totalQuestions}',
+                      color: const Color(0xFF198754),
+                    ),
+                    _SummaryPill(
+                      icon: Icons.cancel_outlined,
+                      label: '오답',
+                      value: '${summary.incorrectCount}',
+                      color: const Color(0xFFE14D4D),
+                    ),
+                    _SummaryPill(
+                      icon: Icons.edit_outlined,
+                      label: '응답',
+                      value: '${summary.answeredCount}',
+                      color: const Color(0xFF2E6BD9),
+                    ),
+                    _SummaryPill(
+                      icon: Icons.radio_button_unchecked,
+                      label: '미응답',
+                      value: '$unansweredCount',
+                      color: AppColors.textSecondary,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                FilledButton.icon(
+                  onPressed: widget.onRestart,
+                  icon: const Icon(Icons.list_alt_outlined),
+                  label: const Text('다른 모의고사 선택하기'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 18),
+        Row(
+          children: [
+            const Icon(Icons.rate_review_outlined, color: AppColors.mintDark),
+            const SizedBox(width: 8),
+            Text(
+              '문제별 리뷰',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _FilterChipButton(
+                label: '전체 ${reviewItems.length}',
+                selected: _filter == _ReviewFilter.all,
+                onTap: () => setState(() => _filter = _ReviewFilter.all),
+              ),
+              _FilterChipButton(
+                label: '정답 ${summary.correctCount}',
+                selected: _filter == _ReviewFilter.correct,
+                onTap: () => setState(() => _filter = _ReviewFilter.correct),
+              ),
+              _FilterChipButton(
+                label: '오답 ${summary.incorrectCount}',
+                selected: _filter == _ReviewFilter.incorrect,
+                onTap: () => setState(() => _filter = _ReviewFilter.incorrect),
+              ),
+              _FilterChipButton(
+                label: '미응답 $unansweredCount',
+                selected: _filter == _ReviewFilter.unanswered,
+                onTap: () => setState(() => _filter = _ReviewFilter.unanswered),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (filteredItems.isEmpty)
+          const _InfoCard(
+            title: '리뷰할 문제가 없습니다',
+            message: '선택한 필터에 해당하는 문제가 없습니다.',
+          )
+        else
+          for (final item in filteredItems) ...[
+            _ReviewQuestionCard(item: item),
+            const SizedBox(height: 12),
+          ],
+      ],
+    );
+  }
+
+  List<_ReviewItem> _buildReviewItems(MockExamResult result) {
+    final answersByQuestionId = {
+      for (final answer in result.answers) answer.questionId: answer,
+    };
+
+    if (result.questions.isNotEmpty) {
+      return [
+        for (final question in result.questions)
+          _ReviewItem(
+            question: question,
+            answer: answersByQuestionId[question.id],
+          ),
+      ];
+    }
+
+    return [
+      for (final answer in result.answers)
+        _ReviewItem(question: null, answer: answer),
+    ];
+  }
+}
+
+class _SummaryPill extends StatelessWidget {
+  const _SummaryPill({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(color: color, fontWeight: FontWeight.w900),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterChipButton extends StatelessWidget {
+  const _FilterChipButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: selected,
+        onSelected: (_) => onTap(),
+        selectedColor: AppColors.mint.withValues(alpha: 0.18),
+        backgroundColor: Colors.white.withValues(alpha: 0.9),
+        side: BorderSide(
+          color: selected
+              ? AppColors.mint.withValues(alpha: 0.45)
+              : Colors.white,
+        ),
+        labelStyle: TextStyle(
+          color: selected ? AppColors.mintDark : AppColors.textSecondary,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _ReviewItem {
+  const _ReviewItem({required this.question, required this.answer});
+
+  final Question? question;
+  final MockExamAnswer? answer;
+
+  bool get isAnswered {
+    return (answer?.selectedAnswer?.trim().isNotEmpty ?? false) ||
+        (answer?.textAnswer?.trim().isNotEmpty ?? false);
+  }
+
+  bool get isCorrect {
+    if (!isAnswered) return false;
+    if (answer?.isCorrect != null) return answer!.isCorrect == 1;
+    final selected = answer?.selectedAnswer?.trim();
+    final correct = question?.correctAnswer?.trim();
+    return selected != null &&
+        selected.isNotEmpty &&
+        correct != null &&
+        correct.isNotEmpty &&
+        selected == correct;
+  }
+}
+
+class _ReviewQuestionCard extends StatelessWidget {
+  const _ReviewQuestionCard({required this.item});
+
+  final _ReviewItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final question = item.question;
+    final selectedAnswer = item.answer?.selectedAnswer?.trim();
+    final correctAnswer = question?.correctAnswer?.trim();
+    final selectedOption = _optionText(question, selectedAnswer);
+    final correctOption = _optionText(question, correctAnswer);
+    final statusColor = item.isCorrect
+        ? const Color(0xFF198754)
+        : item.isAnswered
+        ? const Color(0xFFE14D4D)
+        : AppColors.textSecondary;
+    final statusIcon = item.isCorrect
+        ? Icons.check_circle_outline
+        : item.isAnswered
+        ? Icons.cancel_outlined
+        : Icons.radio_button_unchecked;
+    final statusLabel = item.isCorrect
+        ? '정답'
+        : item.isAnswered
+        ? '오답'
+        : '미응답';
+    final title = question == null
+        ? '문제'
+        : '${question.section.toLowerCase() == 'listening' ? '듣기' : '읽기'} ${question.questionNumber}번';
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('결과', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 12),
-            Text('점수: ${summary.scorePercent}%'),
-            Text('정답: ${summary.correctCount} / ${summary.totalQuestions}'),
-            Text('응답: ${summary.answeredCount}개'),
-            Text('오답: ${summary.incorrectCount}개'),
-            const SizedBox(height: 16),
-            FilledButton(onPressed: onRestart, child: const Text('다시 선택하기')),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(statusIcon, size: 16, color: statusColor),
+                      const SizedBox(width: 4),
+                      Text(
+                        statusLabel,
+                        style: TextStyle(
+                          color: statusColor,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (question?.passageText?.trim().isNotEmpty ?? false) ...[
+              const SizedBox(height: 12),
+              _PassageBox(text: question!.passageText!),
+            ],
+            if (question?.prompt.trim().isNotEmpty ?? false) ...[
+              const SizedBox(height: 12),
+              Text(
+                question!.prompt,
+                style: const TextStyle(
+                  height: 1.45,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+            const SizedBox(height: 14),
+            _AnswerLine(
+              label: '내 답',
+              value: selectedOption ?? selectedAnswer ?? '미응답',
+              color: item.isAnswered
+                  ? AppColors.textPrimary
+                  : AppColors.textSecondary,
+            ),
+            const SizedBox(height: 8),
+            _AnswerLine(
+              label: '정답',
+              value: correctOption ?? correctAnswer ?? '정답 정보 없음',
+              color: const Color(0xFF198754),
+            ),
+            if (question?.explanation?.trim().isNotEmpty ?? false) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF8EA),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '해설',
+                      style: TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      question!.explanation!,
+                      style: const TextStyle(height: 1.45),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            if (question != null) ...[
+              const SizedBox(height: 10),
+              _QuestionExplanationVideoButton(question: question),
+            ],
           ],
         ),
       ),
+    );
+  }
+
+  String? _optionText(Question? question, String? answer) {
+    if (question == null || answer == null || answer.isEmpty) return null;
+    for (final option in question.options) {
+      if (option.label == answer) {
+        return '${option.label}. ${option.text}';
+      }
+    }
+    return null;
+  }
+}
+
+class _AnswerLine extends StatelessWidget {
+  const _AnswerLine({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 48,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              color: color,
+              height: 1.35,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

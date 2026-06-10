@@ -11,8 +11,9 @@ String? resolvedPracticeSetId({
   int? level,
 }) {
   final target = section.toLowerCase();
-  var candidates =
-      sets.where((s) => s.section.toLowerCase() == target).toList();
+  var candidates = sets
+      .where((s) => s.section.toLowerCase() == target)
+      .toList();
 
   if (level != null) {
     final byLevel = candidates.where((s) => s.level == level).toList();
@@ -25,7 +26,8 @@ String? resolvedPracticeSetId({
   if (candidates.isEmpty) return fallbackId;
   int score(QuestionSet s) {
     final n = s.questionCount ?? s.questions.length;
-    return n;
+    final isPractice = s.examKind == 'practice';
+    return n + (isPractice ? 1000 : 0);
   }
 
   candidates.sort((a, b) => score(b).compareTo(score(a)));
@@ -39,7 +41,9 @@ String? readResolvedPracticeSetId(
   required String? fallbackId,
   int? level,
 }) {
-  return ref.read(questionSetsProvider).maybeWhen(
+  return ref
+      .read(questionSetsProvider)
+      .maybeWhen(
         data: (sets) => resolvedPracticeSetId(
           sets: sets,
           section: section,
