@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/exam_schedule/data/exam_schedule_repository.dart';
@@ -226,85 +227,144 @@ class _NextExamCard extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(
+        child: Column(
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '다음 시험 일정',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.mintDark,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    schedule.title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '시험일: $examDate',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  if (registrationPeriod != null &&
-                      registrationPeriod.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      '접수기간: $registrationPeriod',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '다음 시험 일정',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.mintDark,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                  ],
-                  if (resultDate != null && resultDate.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      '결과발표: $resultDate',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
+                      const SizedBox(height: 4),
+                      Text(
+                        schedule.title,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
-                  ],
-                  if (schedule.location?.isNotEmpty ?? false) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      schedule.location!,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
+                      const SizedBox(height: 2),
+                      Text(
+                        '시험일: $examDate',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            Container(
-              width: 74,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppColors.mintDark,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Text(
-                dDay,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 16,
+                      if (registrationPeriod != null &&
+                          registrationPeriod.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          '접수기간: $registrationPeriod',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                      if (resultDate != null && resultDate.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          '결과발표: $resultDate',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                      if (schedule.feeLabel != null &&
+                          schedule.feeLabel!.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          '응시료: ${schedule.feeLabel}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                      if (schedule.location?.isNotEmpty ?? false) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          schedule.location!,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-                textAlign: TextAlign.center,
+                Container(
+                  width: 74,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppColors.mintDark,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Text(
+                    dDay,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            InkWell(
+              onTap: () async {
+                final url = Uri.parse(
+                  schedule.registrationUrl ?? 'https://www.topik.go.kr',
+                );
+                if (await canLaunchUrl(url)) {
+                  await launchUrl(url, mode: LaunchMode.externalApplication);
+                }
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 11),
+                decoration: BoxDecoration(
+                  color: AppColors.mint.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.mint.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '접수 페이지 이동',
+                      style: TextStyle(
+                        color: AppColors.mintDark,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                    SizedBox(width: 6),
+                    Icon(
+                      Icons.open_in_new_rounded,
+                      size: 16,
+                      color: AppColors.mintDark,
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
