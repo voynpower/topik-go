@@ -1765,6 +1765,34 @@ class _ReviewQuestionCard extends StatelessWidget {
                 ),
               ),
             ],
+            if (question?.aiExplanation?.trim().isNotEmpty ?? false) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAF1FF),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'AI 해설',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF2E6BD9),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      question!.aiExplanation!,
+                      style: const TextStyle(height: 1.45),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             if (question != null) ...[
               const SizedBox(height: 10),
               _QuestionExplanationVideoButton(question: question),

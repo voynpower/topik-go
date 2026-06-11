@@ -197,11 +197,11 @@ class Question {
           : null,
       correctAnswer:
           json['correct_answer']?.toString() ?? json['answer']?.toString(),
-      explanation: _nonEmpty([
+      explanation: _cleanExplanation(_nonEmpty([
         json['explanation']?.toString(),
         json['sample_answer']?.toString(),
-      ]),
-      aiExplanation: json['ai_explanation']?.toString(),
+      ])),
+      aiExplanation: _cleanExplanation(json['ai_explanation']?.toString()),
       difficulty: QuestionSet._asInt(json['difficulty']),
       timeLimitSeconds: QuestionSet._asInt(json['time_limit_seconds']),
       passageText: passageText,
@@ -214,6 +214,30 @@ String? _nonEmpty(List<String?> candidates) {
     if (s != null && s.trim().isNotEmpty) return s.trim();
   }
   return null;
+}
+
+String? _cleanExplanation(String? text) {
+  if (text == null) return null;
+
+  var normalized = text.trim();
+  if (normalized.isEmpty) return null;
+
+  // List of markers that indicate the start of boilerplate/meta text
+  final markers = [
+    '원문 문제지는',
+    '정답표:',
+    'question_media',
+    'PDF를 확인하십시오',
+  ];
+
+  for (final marker in markers) {
+    final index = normalized.indexOf(marker);
+    if (index >= 0) {
+      normalized = normalized.substring(0, index).trimRight();
+    }
+  }
+
+  return normalized.isEmpty ? null : normalized;
 }
 
 String _scopedQuestionText(
