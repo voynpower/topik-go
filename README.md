@@ -74,10 +74,12 @@ Run with your real provider credentials. Kakao needs a Dart define at runtime; A
 ```bash
 flutter run \
   --dart-define=GOOGLE_CLIENT_ID=your_google_client_id \
-  --dart-define=GOOGLE_SERVER_CLIENT_ID=90307596930-qt1h0vrsqg2p97vmngejvopr4fc30prs.apps.googleusercontent.com \
+  --dart-define=GOOGLE_SERVER_CLIENT_ID=your_google_server_client_id \
   --dart-define=KAKAO_NATIVE_APP_KEY=your_kakao_native_app_key \
   --dart-define=KAKAO_CUSTOM_SCHEME=kakaoYourKakaoNativeAppKey
 ```
+
+`GOOGLE_SERVER_CLIENT_ID` must be the Web client ID from the same Google OAuth project as the Android app.
 
 For iOS, replace the placeholder values in:
 

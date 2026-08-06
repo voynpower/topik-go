@@ -9,7 +9,7 @@ class SocialLoginService {
   Future<String> getGoogleIdToken() async {
     final signIn = GoogleSignIn(
       clientId: SocialLoginConfig.googleClientIdOrNull,
-      serverClientId: SocialLoginConfig.googleServerClientIdOrNull,
+      serverClientId: SocialLoginConfig.googleServerClientIdRequired,
       scopes: const ['email', 'profile'],
     );
 

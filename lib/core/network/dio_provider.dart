@@ -6,6 +6,7 @@ import 'package:topik_go/core/auth/session_store.dart';
 const _apiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
 const _backendTeamIp = '172.30.1.79';
 const _previousBackendIp = '10.188.191.214';
+const _localhostApiBaseUrl = 'http://localhost:3000';
 const _physicalDeviceApiBaseUrl = 'http://$_backendTeamIp:3000';
 const _previousPhysicalDeviceApiBaseUrl = 'http://$_previousBackendIp:3000';
 const _androidEmulatorApiBaseUrl = 'http://10.0.2.2:3000';
@@ -15,6 +16,7 @@ Future<String>? _apiBaseUrlResolution;
 
 String get resolvedApiBaseUrl {
   if (_apiBaseUrl.isNotEmpty) return _apiBaseUrl;
+  if (kIsWeb) return _localhostApiBaseUrl;
   return _runtimeApiBaseUrl ?? _physicalDeviceApiBaseUrl;
 }
 
@@ -72,6 +74,7 @@ Future<String> _resolveApiBaseUrl() {
 
 Future<String> _findReachableApiBaseUrl() async {
   final candidates = <String>[
+    if (kIsWeb) _localhostApiBaseUrl,
     if (defaultTargetPlatform == TargetPlatform.android && !kIsWeb)
       _androidEmulatorApiBaseUrl,
     _physicalDeviceApiBaseUrl,
