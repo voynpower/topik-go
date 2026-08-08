@@ -1,13 +1,9 @@
 class SocialLoginConfig {
   const SocialLoginConfig._();
 
-  static const defaultGoogleServerClientId =
-      '90307596930-qt1h0vrsqg2p97vmngejvopr4fc30prs.apps.googleusercontent.com';
-
   static const googleClientId = String.fromEnvironment('GOOGLE_CLIENT_ID');
   static const googleServerClientId = String.fromEnvironment(
     'GOOGLE_SERVER_CLIENT_ID',
-    defaultValue: defaultGoogleServerClientId,
   );
   static const kakaoNativeAppKey = String.fromEnvironment(
     'KAKAO_NATIVE_APP_KEY',
@@ -22,6 +18,16 @@ class SocialLoginConfig {
   static String? get googleClientIdOrNull => _emptyToNull(googleClientId);
   static String? get googleServerClientIdOrNull =>
       _emptyToNull(googleServerClientId);
+
+  static String get googleServerClientIdRequired {
+    final value = googleServerClientIdOrNull;
+    if (value == null) {
+      throw StateError(
+        'Missing GOOGLE_SERVER_CLIENT_ID. Pass the Web client ID from the same Google OAuth project.',
+      );
+    }
+    return value;
+  }
   static String? get kakaoJavaScriptAppKeyOrNull =>
       _emptyToNull(kakaoJavaScriptAppKey);
 

@@ -44,7 +44,15 @@ class HomePage extends ConsumerWidget {
               nextExam.when(
                 data: (schedule) {
                   debugPrint('HomePage nextExam data: $schedule');
-                  if (schedule == null) return const SizedBox.shrink();
+                  if (schedule == null) {
+                    return const _StatusPanel(
+                      icon: Icons.event_available_outlined,
+                      iconColor: Color(0xFF1B7A7A),
+                      backgroundColor: Color(0xFFE8F8F6),
+                      title: '시험 일정',
+                      subtitle: '예정된 시험이 없습니다.',
+                    );
+                  }
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -60,11 +68,23 @@ class HomePage extends ConsumerWidget {
                 },
                 loading: () {
                   debugPrint('HomePage nextExam: loading');
-                  return const SizedBox.shrink();
+                  return const _StatusPanel(
+                    icon: Icons.event_available_outlined,
+                    iconColor: Color(0xFF1B7A7A),
+                    backgroundColor: Color(0xFFE8F8F6),
+                    title: '시험 일정',
+                    subtitle: '시험 일정을 불러오는 중...',
+                  );
                 },
                 error: (err, stack) {
-                  debugPrint('HomePage nextExam: error $err');
-                  return const SizedBox.shrink();
+                  debugPrint('HomePage nextExam: error $err, stack: $stack');
+                  return _StatusPanel(
+                    icon: Icons.error_outline_rounded,
+                    iconColor: const Color(0xFFD32F2F),
+                    backgroundColor: const Color(0xFFFFEBEE),
+                    title: '시험 일정',
+                    subtitle: '시험 일정을 불러오지 못했습니다.\n$err',
+                  );
                 },
               ),
               const SizedBox(height: 12),
