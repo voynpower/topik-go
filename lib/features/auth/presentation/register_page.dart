@@ -49,7 +49,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   bool get _isFormValid {
     return _nicknameController.text.isNotEmpty &&
         _emailController.text.isNotEmpty &&
-        _passwordController.text.isNotEmpty &&
+        _passwordController.text.length >= 8 &&
         _confirmPasswordController.text.isNotEmpty &&
         _passwordController.text == _confirmPasswordController.text &&
         _agreeTerms &&
@@ -172,6 +172,15 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   padding: EdgeInsets.only(top: 8),
                   child: Text(
                     '비밀번호가 일치하지 않습니다.',
+                    style: TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ),
+              if (_passwordController.text.isNotEmpty &&
+                  _passwordController.text.length < 8)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Text(
+                    '비밀번호는 8자 이상이어야 합니다.',
                     style: TextStyle(color: Colors.red, fontSize: 12),
                   ),
                 ),
