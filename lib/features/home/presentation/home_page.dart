@@ -15,7 +15,7 @@ class HomePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(userProfileProvider);
     final bookmarkSummary = ref.watch(bookmarkSummaryProvider);
-    final nextExam = ref.watch(nextExamScheduleProvider);
+    final examSchedules = ref.watch(examSchedulesProvider);
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -41,10 +41,19 @@ class HomePage extends ConsumerWidget {
                 error: (_, _) => const _HomeHero(),
               ),
               const SizedBox(height: 22),
-              nextExam.when(
-                data: (schedule) {
-                  debugPrint('HomePage nextExam data: $schedule');
-                  if (schedule == null) return const SizedBox.shrink();
+              examSchedules.when(
+                data: (schedules) {
+                  final upcoming = schedules
+                      .where(
+                        (schedule) => schedule.examDate.isAfter(DateTime.now()),
+                      )
+                      .toList()
+                    ..sort(
+                      (left, right) =>
+                          left.examDate.compareTo(right.examDate),
+                    );
+                  final schedule = upcoming.isNotEmpty ? upcoming.first : null;
+
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -53,19 +62,18 @@ class HomePage extends ConsumerWidget {
                         title: '시험 일정',
                       ),
                       const SizedBox(height: 10),
-                      _NextExamCard(schedule: schedule),
+                      if (schedule == null)
+                        const _EmptyExamScheduleCard()
+                      else
+                        _NextExamCard(schedule: schedule),
                       const SizedBox(height: 20),
                     ],
                   );
                 },
-                loading: () {
-                  debugPrint('HomePage nextExam: loading');
-                  return const SizedBox.shrink();
-                },
-                error: (err, stack) {
-                  debugPrint('HomePage nextExam: error $err');
-                  return const SizedBox.shrink();
-                },
+                loading: () => const _ExamScheduleLoadingCard(),
+                error: (error, _) => _ExamScheduleErrorCard(
+                  onRetry: () => ref.invalidate(examSchedulesProvider),
+                ),
               ),
               const SizedBox(height: 12),
               bookmarkSummary.when(
@@ -369,6 +377,82 @@ class _NextExamCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _EmptyExamScheduleCard extends StatelessWidget {
+  const _EmptyExamScheduleCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _ExamScheduleMessageCard(
+      icon: Icons.event_busy_outlined,
+      message: '등록된 시험 일정이 없습니다.',
+    );
+  }
+}
+
+class _ExamScheduleLoadingCard extends StatelessWidget {
+  const _ExamScheduleLoadingCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _ExamScheduleMessageCard(
+      icon: Icons.hourglass_empty,
+      message: '시험 일정을 불러오는 중입니다.',
+    );
+  }
+}
+
+class _ExamScheduleErrorCard extends StatelessWidget {
+  const _ExamScheduleErrorCard({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ExamScheduleMessageCard(
+      icon: Icons.error_outline,
+      message: '시험 일정을 불러오지 못했습니다.',
+      onRetry: onRetry,
+    );
+  }
+}
+
+class _ExamScheduleMessageCard extends StatelessWidget {
+  const _ExamScheduleMessageCard({
+    required this.icon,
+    required this.message,
+    this.onRetry,
+  });
+
+  final IconData icon;
+  final String message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: AppColors.mintDark),
+          const SizedBox(width: 10),
+          Expanded(child: Text(message)),
+          if (onRetry != null)
+            IconButton(
+              tooltip: '다시 시도',
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+            ),
+        ],
       ),
     );
   }
