@@ -14,7 +14,21 @@ class TopikGoApp extends ConsumerWidget {
       title: 'TOPIK GO',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
+      scrollBehavior: const _TopikScrollBehavior(),
       routerConfig: router,
     );
+  }
+}
+
+class _TopikScrollBehavior extends MaterialScrollBehavior {
+  const _TopikScrollBehavior();
+
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return child;
   }
 }
