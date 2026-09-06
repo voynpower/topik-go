@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/features/auth/application/auth_controller.dart';
+import 'package:topik_go/features/users/data/user_repository.dart';
 
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
@@ -68,6 +69,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         .register(email, password, nickname);
 
     if (success && mounted) {
+      ref.invalidate(userProfileProvider);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('회원가입 성공!')));

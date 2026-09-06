@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/features/auth/application/auth_controller.dart';
+import 'package:topik_go/features/users/data/user_repository.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -38,6 +39,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         .login(email, password);
 
     if (success && mounted) {
+      ref.invalidate(userProfileProvider);
       context.go('/main/home');
     }
   }
@@ -49,6 +51,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         : await controller.loginWithKakao();
 
     if (success && mounted) {
+      ref.invalidate(userProfileProvider);
       context.go('/main/home');
     }
   }

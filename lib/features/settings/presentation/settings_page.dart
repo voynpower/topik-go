@@ -158,6 +158,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 value: '',
                 onTap: () async {
                   await ref.read(authRepositoryProvider).logout();
+                  ref.invalidate(userProfileProvider);
                   if (context.mounted) {
                     context.go('/auth/login');
                   }
