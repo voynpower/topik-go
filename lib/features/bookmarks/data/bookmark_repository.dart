@@ -41,7 +41,7 @@ class BookmarkedQuestion {
   final bool? isCorrect;
 
   factory BookmarkedQuestion.fromJson(Map<String, dynamic> json) {
-    final rawQuestion = json['question'];
+    final rawQuestion = json['question'] ?? json['questions'];
 
     return BookmarkedQuestion(
       id: json['id']?.toString() ?? '',
@@ -50,7 +50,7 @@ class BookmarkedQuestion {
           : Question.fromJson(json),
       selectedAnswer: json['selected_answer']?.toString(),
       textAnswer: json['text_answer']?.toString(),
-      isCorrect: json['is_correct'] is bool ? json['is_correct'] as bool : null,
+      isCorrect: _asBoolOrNull(json['is_correct']),
     );
   }
 }
@@ -202,5 +202,15 @@ int? _asInt(Object? value) {
   if (value is int) return value;
   if (value is num) return value.toInt();
   if (value is String) return int.tryParse(value);
+  return null;
+}
+
+bool? _asBoolOrNull(Object? value) {
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  if (value is String) {
+    if (value == '1' || value.toLowerCase() == 'true') return true;
+    if (value == '0' || value.toLowerCase() == 'false') return false;
+  }
   return null;
 }

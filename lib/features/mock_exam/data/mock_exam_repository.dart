@@ -18,76 +18,46 @@ class MockExamCatalog {
   factory MockExamCatalog.fromJson(Map<String, dynamic> json) {
     final rawActive = json['active_session'];
     final rawTabs = json['tabs'];
-    final rawDifficulty = json['difficulty_levels'];
-
-    final allItems = <MockExamCatalogItem>[];
+    final tabs = <String, List<MockExamCatalogItem>>{};
+    var difficultyLevels = <int>[];
 
     if (rawTabs is Map) {
       for (final entry in rawTabs.entries) {
-        if (entry.value is List) {
-          final list = entry.value as List;
-          final items = list
-              .whereType<Map<String, dynamic>>()
-              .map(MockExamCatalogItem.fromJson)
+        if (entry.key.toString() == 'difficulty_levels' &&
+            entry.value is List) {
+          difficultyLevels = (entry.value as List)
+              .map(_asInt)
+              .whereType<int>()
               .toList();
-          allItems.addAll(items);
+          continue;
+        }
+
+        if (entry.value is List) {
+          tabs[entry.key.toString()] = (entry.value as List)
+              .whereType<Map>()
+              .map(
+                (item) => MockExamCatalogItem.fromJson(
+                  Map<String, dynamic>.from(item),
+                ),
+              )
+              .toList();
         }
       }
     }
 
-    final reading102 = _topik102Item(
-      items: allItems,
-      setId: 'topik2-102-reading',
-      title: '102회 TOPIK II 읽기',
-      section: 'reading',
-      durationSeconds: 4200,
-    );
-    final listening102 = _topik102Item(
-      items: allItems,
-      setId: 'topik2-102-listening',
-      title: '102회 TOPIK II 듣기',
-      section: 'listening',
-      durationSeconds: 3600,
-    );
+    final rawDifficulty = json['difficulty_levels'];
+    if (difficultyLevels.isEmpty && rawDifficulty is List) {
+      difficultyLevels = rawDifficulty.map(_asInt).whereType<int>().toList();
+    }
 
     return MockExamCatalog(
-      tabs: {
-        'reading_mock': [reading102],
-        'listening_mock': [listening102],
-      },
+      tabs: tabs,
       activeSession: rawActive is Map<String, dynamic>
           ? MockExamSession.fromJson(rawActive)
           : null,
-      difficultyLevels: rawDifficulty is List
-          ? rawDifficulty.whereType<int>().toList()
-          : [],
+      difficultyLevels: difficultyLevels,
     );
   }
-}
-
-MockExamCatalogItem _topik102Item({
-  required List<MockExamCatalogItem> items,
-  required String setId,
-  required String title,
-  required String section,
-  required int durationSeconds,
-}) {
-  for (final item in items) {
-    if (item.setId == setId) return item;
-  }
-
-  return MockExamCatalogItem(
-    setId: setId,
-    title: title,
-    section: section,
-    level: 3,
-    totalQuestions: 50,
-    durationSeconds: durationSeconds,
-    durationLabel: _formatSeconds(durationSeconds),
-    examKind: 'mock',
-    isFree: true,
-    priceLabel: 'free',
-  );
 }
 
 class MockExamCatalogItem {

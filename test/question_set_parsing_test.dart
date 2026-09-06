@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
+import 'package:topik_go/features/mock_exam/data/mock_exam_repository.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart';
 
 void main() {
@@ -67,6 +69,49 @@ void main() {
     });
 
     expect(question.options.single.text, '선풍기');
+  });
+
+  test('uses mock exam catalog items returned by the backend', () {
+    final catalog = MockExamCatalog.fromJson({
+      'active_session': null,
+      'tabs': {
+        'reading_mock': [
+          {
+            'id': 'server-reading-set',
+            'title': '서버 모의고사',
+            'section': 'reading',
+            'level': 4,
+            'total_questions': 45,
+            'duration_seconds': 3600,
+            'exam_kind': 'mock',
+            'is_free': true,
+          },
+        ],
+        'difficulty_levels': [3, 4, 5, 6],
+      },
+    });
+
+    expect(catalog.tabs['reading_mock']!.single.setId, 'server-reading-set');
+    expect(catalog.tabs['reading_mock']!.single.title, '서버 모의고사');
+    expect(catalog.difficultyLevels, [3, 4, 5, 6]);
+  });
+
+  test('parses backend nested question bookmark response', () {
+    final bookmark = BookmarkedQuestion.fromJson({
+      'id': 'bookmark-1',
+      'selected_answer': '2',
+      'is_correct': 1,
+      'questions': {
+        'id': 'question-1',
+        'section': 'reading',
+        'question_type': 'multiple_choice',
+        'question_number': 1,
+        'prompt': '문제입니다.',
+      },
+    });
+
+    expect(bookmark.question.id, 'question-1');
+    expect(bookmark.isCorrect, isTrue);
   });
 
   test(
