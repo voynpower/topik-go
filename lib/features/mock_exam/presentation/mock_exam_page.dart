@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:typed_data';
+import 'package:image/image.dart' as image;
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:pdfrx/pdfrx.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/core/network/api_error_message.dart';
 import 'package:topik_go/core/network/api_media_url.dart';
@@ -903,12 +905,12 @@ class _ExamPanel extends StatelessWidget {
                   for (final image in images) _QuestionImage(media: image),
                   const SizedBox(height: 14),
                 ],
-                if (documents.isNotEmpty) ...[
-                  for (final document in documents)
-                    _DocumentLink(
-                      media: document,
-                      isVisualChoice: _isVisualChoiceQuestion(question),
-                    ),
+                if (documents.isNotEmpty &&
+                    _isVisualChoiceQuestion(question)) ...[
+                  _DocumentPreview(
+                    media: documents.first,
+                    questionNumber: question.questionNumber,
+                  ),
                   const SizedBox(height: 14),
                 ],
                 _QuestionNumberLabel(question: question),
@@ -1193,22 +1195,122 @@ String _formatDuration(Duration duration) {
   return '$minutes:$seconds';
 }
 
-class _DocumentLink extends StatelessWidget {
-  const _DocumentLink({required this.media, required this.isVisualChoice});
+class _DocumentPreview extends StatefulWidget {
+  const _DocumentPreview({required this.media, required this.questionNumber});
 
   final QuestionMedia media;
-  final bool isVisualChoice;
+  final int questionNumber;
+
+  @override
+  State<_DocumentPreview> createState() => _DocumentPreviewState();
+}
+
+class _DocumentPreviewState extends State<_DocumentPreview> {
+  late Future<Uint8List> _imageFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _imageFuture = _loadCroppedImage();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DocumentPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.media.url != widget.media.url ||
+        oldWidget.questionNumber != widget.questionNumber) {
+      _imageFuture = _loadCroppedImage();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: OutlinedButton.icon(
-        onPressed: () => launchUrl(Uri.parse(resolveApiMediaUrl(media.url))),
-        icon: const Icon(Icons.picture_as_pdf_outlined),
-        label: Text(isVisualChoice ? '보기 자료 열기' : 'PDF 원문 열기'),
-      ),
+    return FutureBuilder<Uint8List>(
+      future: _imageFuture,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const _InfoCard(
+            title: '자료를 불러오지 못했습니다',
+            message: '문제에 연결된 그림 자료를 표시할 수 없습니다.',
+          );
+        }
+        if (!snapshot.hasData) {
+          return const SizedBox(
+            height: 260,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: Image.memory(
+            snapshot.data!,
+            width: double.infinity,
+            height: 260,
+            fit: BoxFit.contain,
+          ),
+        );
+      },
     );
+  }
+
+  Future<Uint8List> _loadCroppedImage() async {
+    final response = await Dio().get<List<int>>(
+      resolveApiMediaUrl(widget.media.url),
+      options: Options(responseType: ResponseType.bytes),
+    );
+    final bytes = Uint8List.fromList(response.data ?? const <int>[]);
+    final document = await PdfDocument.openData(
+      bytes,
+      sourceName: 'mock-exam-${widget.questionNumber}-${widget.media.id}',
+    );
+
+    try {
+      final page = document.pages[_listeningPdfPage(widget.questionNumber) - 1];
+      final crop = _listeningCrop(widget.questionNumber);
+      final rendered = await page.render(
+        x: crop.$1,
+        y: crop.$2,
+        width: crop.$3,
+        height: crop.$4,
+        fullWidth: 1190,
+        fullHeight: 1684,
+      );
+      if (rendered == null) throw StateError('PDF crop rendering failed');
+
+      try {
+        final raster = image.Image.fromBytes(
+          width: rendered.width,
+          height: rendered.height,
+          bytes: rendered.pixels.buffer,
+          numChannels: 4,
+          order: image.ChannelOrder.bgra,
+        );
+        return Uint8List.fromList(image.encodePng(raster));
+      } finally {
+        rendered.dispose();
+      }
+    } finally {
+      await document.dispose();
+    }
+  }
+
+  int _listeningPdfPage(int questionNumber) {
+    if (questionNumber <= 3) return questionNumber;
+    if (questionNumber <= 6) return 4;
+    return ((questionNumber - 7) ~/ 2) + 5;
+  }
+
+  (int, int, int, int) _listeningCrop(int questionNumber) {
+    switch (questionNumber) {
+      case 1:
+        return (230, 500, 760, 520);
+      case 2:
+        return (230, 300, 760, 620);
+      case 3:
+        return (230, 400, 760, 700);
+      default:
+        return (180, 240, 830, 760);
+    }
   }
 }
 
