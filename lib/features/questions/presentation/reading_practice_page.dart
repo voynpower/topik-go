@@ -12,7 +12,7 @@ class ReadingPracticePage extends ConsumerStatefulWidget {
   const ReadingPracticePage({super.key, required this.level});
 
   /// TOPIK II 읽기 급수 (3–6).
-  final int level;
+  final int? level;
 
   @override
   ConsumerState<ReadingPracticePage> createState() =>
@@ -34,7 +34,9 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
             fallbackId: ReadingPracticeSet.id,
             level: level,
           ),
-          orElse: () => level == ReadingPracticeSet.level ? ReadingPracticeSet.id : null,
+            orElse: () => level == ReadingPracticeSet.level
+              ? ReadingPracticeSet.id
+              : null,
         );
     final questions = ref.watch(
       practiceQuestionsProvider(
@@ -48,7 +50,9 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F5F7),
-      appBar: AppBar(title: Text('읽기 연습 · $level급')),
+      appBar: AppBar(
+        title: Text(level == null ? 'TOPIK II 읽기' : '읽기 연습 · $level급'),
+      ),
       body: questions.when(
         data: (page) {
           if (page.items.isEmpty) {
@@ -239,7 +243,7 @@ class _ProgressHeader extends ConsumerWidget {
   final int current;
   final int total;
   final Question question;
-  final int practiceLevel;
+  final int? practiceLevel;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -258,7 +262,9 @@ class _ProgressHeader extends ConsumerWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'TOPIK II 읽기 · $practiceLevel급',
+                    practiceLevel == null
+                      ? 'TOPIK II 읽기'
+                      : 'TOPIK II 읽기 · $practiceLevel급',
                     style: const TextStyle(fontWeight: FontWeight.w700),
                     overflow: TextOverflow.ellipsis,
                   ),

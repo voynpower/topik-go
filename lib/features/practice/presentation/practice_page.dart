@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
-import 'package:topik_go/features/questions/data/listening_practice_set.dart';
-import 'package:topik_go/features/questions/data/reading_practice_set.dart';
 import 'package:topik_go/features/questions/data/writing_practice_set.dart';
 
 class PracticePage extends ConsumerWidget {
@@ -41,7 +39,7 @@ class PracticePage extends ConsumerWidget {
                 iconColor: const Color(0xFF1D8F86),
                 backgroundColor: const Color(0xFFE8F8F3),
                 title: '읽기 문제',
-                subtitle: '급수 선택 후 연습 · 최대 ${ReadingPracticeSet.total}문항',
+                subtitle: 'TOPIK II 유형별 문제 바로 풀기',
                 onTap: () => context.push('/reading-practice'),
               ),
               _MenuTile(
@@ -49,7 +47,7 @@ class PracticePage extends ConsumerWidget {
                 iconColor: const Color(0xFF2E6BD9),
                 backgroundColor: const Color(0xFFEAF1FF),
                 title: '듣기 문제',
-                subtitle: '급수 선택 후 연습 · 최대 ${ListeningPracticeSet.total}문항',
+                subtitle: 'TOPIK II 유형별 문제 바로 풀기',
                 onTap: () => context.push('/listening-practice'),
               ),
               _MenuTile(

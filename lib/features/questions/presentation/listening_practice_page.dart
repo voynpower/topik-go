@@ -15,7 +15,7 @@ class ListeningPracticePage extends ConsumerStatefulWidget {
   const ListeningPracticePage({super.key, required this.level});
 
   /// TOPIK II 듣기 급수 (3–6).
-  final int level;
+  final int? level;
 
   @override
   ConsumerState<ListeningPracticePage> createState() =>
@@ -55,7 +55,9 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F5F7),
-      appBar: AppBar(title: Text('듣기 연습 · $level급')),
+      appBar: AppBar(
+        title: Text(level == null ? 'TOPIK II 듣기' : '듣기 연습 · $level급'),
+      ),
       body: questions.when(
         data: (page) {
           if (page.items.isEmpty) {
@@ -267,7 +269,7 @@ class _ProgressHeader extends ConsumerWidget {
   final int current;
   final int total;
   final Question question;
-  final int practiceLevel;
+  final int? practiceLevel;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -286,7 +288,9 @@ class _ProgressHeader extends ConsumerWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'TOPIK II 듣기 · $practiceLevel급',
+                    practiceLevel == null
+                      ? 'TOPIK II 듣기'
+                      : 'TOPIK II 듣기 · $practiceLevel급',
                     style: const TextStyle(fontWeight: FontWeight.w700),
                     overflow: TextOverflow.ellipsis,
                   ),
