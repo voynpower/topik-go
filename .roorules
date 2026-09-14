@@ -1,0 +1,15 @@
+# Flutter & Dart Roo Code Rules
+
+## Code Style & Architecture
+1. Flutter Best Practices: Write clean, null-safe Dart code using standard naming conventions (snake_case for files, PascalCase for classes).
+2. Widget Optimization: Always use `const` constructors wherever possible to optimize render performance and avoid unnecessary rebuilds.
+3. Code Structure: Keep UI widgets separated from business logic (place all source code neatly under `lib/`).
+
+## Token & Cost Reduction
+1. Targeted Diffs: Modify only the specific lines or widgets required. Never rewrite unchanged entire files or comments.
+2. Concise Responses: Omit conversational intro/outro text. Provide direct, brief code modifications and tool actions.
+3. File Scope: Inspect files strictly within `lib/` and `pubspec.yaml`. Do not scan native platform directories (`android/`, `ios/`, `web/`, etc.) unless specifically instructed.
+
+## Terminal & Command Guidelines
+1. Minimal Execution: Do not run `flutter pub get` or `flutter analyze` repeatedly after minor UI changes. Only run them when `pubspec.yaml` is modified or explicitly requested.
+2. Efficient Debugging: Analyze the exact Dart error trace first before modifying code or re-running failed commands.
