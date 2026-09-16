@@ -16,7 +16,10 @@ class AuthRepository {
       data: {'email': email, 'password': password},
     );
     final session = AuthSession.fromJson(response.data as Map<String, dynamic>);
-    await _sessionStore.saveToken(session.accessToken);
+    await _sessionStore.saveTokens(
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
+    );
     return session;
   }
 
@@ -29,7 +32,10 @@ class AuthRepository {
       data: {'provider': provider, 'token': token},
     );
     final session = AuthSession.fromJson(response.data as Map<String, dynamic>);
-    await _sessionStore.saveToken(session.accessToken);
+    await _sessionStore.saveTokens(
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
+    );
     return session;
   }
 
@@ -47,8 +53,33 @@ class AuthRepository {
       },
     );
     final session = AuthSession.fromJson(response.data as Map<String, dynamic>);
-    await _sessionStore.saveToken(session.accessToken);
+    await _sessionStore.saveTokens(
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
+    );
     return session;
+  }
+
+  Future<AuthSession?> refreshToken() async {
+    final currentRefreshToken = await _sessionStore.readRefreshToken();
+    if (currentRefreshToken == null || currentRefreshToken.isEmpty) {
+      return null;
+    }
+    try {
+      final response = await _dio.post(
+        '/auth/refresh',
+        data: {'refreshToken': currentRefreshToken},
+      );
+      final session = AuthSession.fromJson(response.data as Map<String, dynamic>);
+      await _sessionStore.saveTokens(
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+      );
+      return session;
+    } catch (_) {
+      await _sessionStore.clearAllTokens();
+      return null;
+    }
   }
 
   Future<void> changePassword({
@@ -62,12 +93,15 @@ class AuthRepository {
   }
 
   Future<void> logout() async {
+    final currentRefreshToken = await _sessionStore.readRefreshToken();
     try {
-      await _dio.post('/auth/logout');
+      await _dio.post('/auth/logout', data: {
+        if (currentRefreshToken != null) 'refreshToken': currentRefreshToken,
+      });
     } on DioException {
       // Logout is stateless on the backend, so local cleanup is still enough.
     } finally {
-      await _sessionStore.clearToken();
+      await _sessionStore.clearAllTokens();
     }
   }
 

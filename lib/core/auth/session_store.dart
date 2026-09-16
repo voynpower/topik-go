@@ -27,13 +27,32 @@ class SessionStore {
     return null;
   }
 
-  Future<void> saveToken(String token) async {
-    await _secureStorage.write(key: PrefsKeys.accessToken, value: token);
-    await _removeLegacyToken();
+  Future<String?> readRefreshToken() async {
+    return _secureStorage.read(key: PrefsKeys.refreshToken);
+  }
+
+  Future<void> saveRefreshToken(String token) async {
+    await _secureStorage.write(key: PrefsKeys.refreshToken, value: token);
+  }
+
+  Future<void> saveTokens({
+    required String accessToken,
+    String? refreshToken,
+  }) async {
+    await saveToken(accessToken);
+    if (refreshToken != null && refreshToken.isNotEmpty) {
+      await saveRefreshToken(refreshToken);
+    }
   }
 
   Future<void> clearToken() async {
     await _secureStorage.delete(key: PrefsKeys.accessToken);
+    await _removeLegacyToken();
+  }
+
+  Future<void> clearAllTokens() async {
+    await _secureStorage.delete(key: PrefsKeys.accessToken);
+    await _secureStorage.delete(key: PrefsKeys.refreshToken);
     await _removeLegacyToken();
   }
 

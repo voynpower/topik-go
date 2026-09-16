@@ -46,8 +46,46 @@ final dioProvider = Provider<Dio>((ref) {
         handler.next(options);
       },
       onError: (error, handler) async {
-        if (error.response?.statusCode == 401) {
-          await sessionStore.clearToken();
+        if (error.response?.statusCode == 401 &&
+            !error.requestOptions.path.contains('/auth/refresh') &&
+            !error.requestOptions.path.contains('/auth/login')) {
+          final refreshToken = await sessionStore.readRefreshToken();
+          if (refreshToken != null && refreshToken.isNotEmpty) {
+            try {
+              final baseUrl = await _resolveApiBaseUrl();
+              final refreshDio = Dio(
+                BaseOptions(
+                  baseUrl: baseUrl,
+                  contentType: 'application/json',
+                ),
+              );
+              final response = await refreshDio.post(
+                '/auth/refresh',
+                data: {'refreshToken': refreshToken},
+              );
+
+              final data = response.data as Map<String, dynamic>?;
+              final newAccessToken = data?['access_token'] as String?;
+              final newRefreshToken = data?['refresh_token'] as String?;
+
+              if (newAccessToken != null && newAccessToken.isNotEmpty) {
+                await sessionStore.saveTokens(
+                  accessToken: newAccessToken,
+                  refreshToken: newRefreshToken,
+                );
+
+                final options = error.requestOptions;
+                options.headers['Authorization'] = 'Bearer $newAccessToken';
+
+                final retryResponse = await dio.fetch(options);
+                return handler.resolve(retryResponse);
+              }
+            } catch (_) {
+              await sessionStore.clearAllTokens();
+            }
+          } else {
+            await sessionStore.clearAllTokens();
+          }
         }
         handler.next(error);
       },

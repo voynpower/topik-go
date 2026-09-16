@@ -1,7 +1,11 @@
 class AuthSession {
-  const AuthSession({required this.accessToken});
+  const AuthSession({
+    required this.accessToken,
+    this.refreshToken,
+  });
 
   final String accessToken;
+  final String? refreshToken;
 
   factory AuthSession.fromJson(Map<String, dynamic> json) {
     final token = json['access_token'];
@@ -9,6 +13,11 @@ class AuthSession {
       throw const FormatException('Missing access token');
     }
 
-    return AuthSession(accessToken: token);
+    final refreshToken = json['refresh_token'] as String?;
+
+    return AuthSession(
+      accessToken: token,
+      refreshToken: refreshToken,
+    );
   }
 }

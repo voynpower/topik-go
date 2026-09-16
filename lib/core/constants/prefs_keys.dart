@@ -5,4 +5,5 @@ class PrefsKeys {
   static const targetTopikLevel = 'target_topik_level';
   static const onboardingCompleted = 'onboarding_completed';
   static const accessToken = 'access_token';
+  static const refreshToken = 'refresh_token';
 }
