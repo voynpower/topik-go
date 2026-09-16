@@ -151,15 +151,9 @@ class QuestionRepository {
     int pageSize = 30,
     int maxItems = 50,
   }) async {
-    // If no setId AND no level, we can't fetch anything specific enough for practice.
-    if ((setId == null || setId.isEmpty) && level == null) {
-      return const QuestionPage(items: [], page: 1, limit: 0, total: 0);
-    }
-
     final merged = <Question>[];
     var page = 1;
 
-    // Continue fetching until we have enough items or no more pages.
     while (merged.length < maxItems) {
       final chunk = await getQuestions(
         QuestionQuery(
@@ -171,22 +165,40 @@ class QuestionRepository {
         ),
       );
 
-      if (chunk.items.isEmpty) break;
+      if (chunk.items.isEmpty) {
+        if (merged.isEmpty && (setId != null || level != null)) {
+          // Fallback: try querying by section only if specific setId or level filter returned empty
+          final fallbackChunk = await getQuestions(
+            QuestionQuery(
+              section: section,
+              page: page,
+              limit: pageSize,
+            ),
+          );
+          if (fallbackChunk.items.isNotEmpty) {
+            merged.addAll(fallbackChunk.items);
+          }
+        }
+        break;
+      }
 
       merged.addAll(chunk.items);
 
-      // Stop if we got a short page (end of data) or reached maxItems
       if (chunk.items.length < pageSize || merged.length >= maxItems) {
         break;
       }
 
       page++;
-      if (page > 10) break; // Safety break
+      if (page > 10) break;
     }
 
-    // Strictly cap at maxItems
     if (merged.length > maxItems) {
       merged.removeRange(maxItems, merged.length);
+    }
+
+    // Shuffle Reading & Listening questions across levels 3-6 for a mixed practice experience
+    if (section != 'writing' && merged.isNotEmpty) {
+      merged.shuffle();
     }
 
     return QuestionPage(

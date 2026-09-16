@@ -27,7 +27,8 @@ String? resolvedPracticeSetId({
   int score(QuestionSet s) {
     final n = s.questionCount ?? s.questions.length;
     final isPractice = s.examKind == 'practice';
-    return n + (isPractice ? 1000 : 0);
+    final isReal = s.id.contains('real') || s.title.contains('실전');
+    return n + (isPractice ? 1000 : 0) + (isReal ? 100000 : 0);
   }
 
   candidates.sort((a, b) => score(b).compareTo(score(a)));

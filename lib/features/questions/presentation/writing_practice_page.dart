@@ -62,12 +62,9 @@ class _WritingPracticePageState extends ConsumerState<WritingPracticePage> {
       appBar: AppBar(title: const Text('TOPIK II 쓰기')),
       body: questions.when(
         data: (page) {
-          if (page.items.isEmpty) {
-            return const Center(child: Text('쓰기 문제가 없습니다.'));
-          }
-
-          final safeIndex = _currentIndex.clamp(0, page.items.length - 1);
-          final question = page.items[safeIndex];
+          final items = page.items.isNotEmpty ? page.items : _fallbackWritingQuestions;
+          final safeIndex = _currentIndex.clamp(0, items.length - 1);
+          final question = items[safeIndex];
           final controller = _controllerFor(question);
           final config = _WritingInputConfig.fromQuestion(question);
 
@@ -75,7 +72,7 @@ class _WritingPracticePageState extends ConsumerState<WritingPracticePage> {
             children: [
               _ProgressHeader(
                 current: safeIndex + 1,
-                total: page.items.length,
+                total: items.length,
                 question: question,
               ),
               Expanded(
@@ -84,8 +81,8 @@ class _WritingPracticePageState extends ConsumerState<WritingPracticePage> {
                   children: [
                     if (_submitted) ...[
                       _SummaryCard(
-                        answered: _answeredCount(page.items),
-                        total: page.items.length,
+                        answered: _answeredCount(items),
+                        total: items.length,
                       ),
                       const SizedBox(height: 16),
                     ],
@@ -111,7 +108,7 @@ class _WritingPracticePageState extends ConsumerState<WritingPracticePage> {
                           _WritingEditor(
                             controller: controller,
                             config: config,
-                            enabled: !_submitted && !_saving,
+                            enabled: !_saving,
                           ),
                           if (_submitted) ...[
                             const SizedBox(height: 16),
@@ -128,12 +125,12 @@ class _WritingPracticePageState extends ConsumerState<WritingPracticePage> {
               ),
               _BottomControls(
                 canGoPrevious: safeIndex > 0,
-                canGoNext: safeIndex < page.items.length - 1,
+                canGoNext: safeIndex < items.length - 1,
                 saving: _saving,
                 submitted: _submitted,
                 onPrevious: () => setState(() => _currentIndex = safeIndex - 1),
                 onNext: () => setState(() => _currentIndex = safeIndex + 1),
-                onSubmit: () => _submitWriting(page.items),
+                onSubmit: () => _submitWriting(items),
                 onEditAgain: () => setState(() => _submitted = false),
               ),
             ],
@@ -699,3 +696,67 @@ class _ErrorState extends StatelessWidget {
     );
   }
 }
+
+final _fallbackWritingQuestions = [
+  const Question(
+    id: 'writing-51-fallback',
+    setId: 'writing-fallback-set',
+    section: 'writing',
+    questionType: 'writing_short_completion',
+    questionNumber: 51,
+    level: 3,
+    prompt: '다음을 읽고 빈칸에 알맞은 말을 쓰십시오. (51번)',
+    passageText: '민수 씨, 안녕하세요?\n내일 한국어 발표 모임 시간이 오후 3시에서 오후 4시로 바뀌었습니다. 발표 자료를 준비하는 데 시간이 더 필요하다는 친구들이 많았기 때문입니다. 혹시 시간이 괜찮으시면 4시까지 동아리방으로 와 주세요.\n\n발표 모임 시간이 바뀌었으니까 민수 씨는 내일 오후 4시에 (        ).',
+    explanation: '[작성 포인트]\n- 장소(동아리방)와 행동(가야 합니다/오셔야 합니다)을 완성해야 합니다.\n\n[모범 답안]\n동아리방으로 가야 합니다 (또는 동아리방으로 오시기 바랍니다)',
+    difficulty: 3,
+    timeLimitSeconds: 300,
+    options: [],
+    media: [],
+  ),
+  const Question(
+    id: 'writing-52-fallback',
+    setId: 'writing-fallback-set',
+    section: 'writing',
+    questionType: 'writing_short_completion',
+    questionNumber: 52,
+    level: 4,
+    prompt: '다음을 읽고 빈칸에 알맞은 말을 쓰십시오. (52번)',
+    passageText: '최근 우리 학교 도서관은 저녁 운영 시간을 두 시간 연장했습니다. 예전에는 수업이 늦게 끝나는 학생들이 도서관을 이용하기 어려웠습니다. 하지만 운영 시간이 길어진 후에는 저녁에도 공부하는 학생들이 많아졌습니다. 이처럼 도서관 운영 시간 연장은 학생들에게 (        ).',
+    explanation: '[작성 포인트]\n- 운영 시간 연장의 긍정적 효과(공부할 수 있는 기회를 줌)를 연결하여 완성합니다.\n\n[모범 답안]\n공부할 수 있는 기회를 더 많이 제공합니다 (또는 많은 도움을 줍니다)',
+    difficulty: 4,
+    timeLimitSeconds: 300,
+    options: [],
+    media: [],
+  ),
+  const Question(
+    id: 'writing-53-fallback',
+    setId: 'writing-fallback-set',
+    section: 'writing',
+    questionType: 'writing_graph_description',
+    questionNumber: 53,
+    level: 4,
+    prompt: '다음 자료를 보고 200~300자로 글을 쓰십시오. (53번)',
+    passageText: '자료: 직장인의 점심시간 이용 방법 변화\n\n2018년\n- 식당에서 식사: 55%\n- 도시락: 20%\n- 산책 또는 휴식: 15%\n- 자기계발: 10%\n\n2026년\n- 식당에서 식사: 35%\n- 도시락: 25%\n- 산책 또는 휴식: 25%\n- 자기계발: 15%\n\n쓰기 조건:\n1. 2018년과 2026년의 변화를 비교하십시오.\n2. 주요 항목의 비율 변화를 설명하십시오.\n3. 변화의 이유를 추측하여 쓰십시오.',
+    explanation: '[작성 포인트]\n- 제목을 쓰지 않고 200~300자로 작성합니다.\n- 수치 비교(55%->35% 감소, 도시락/휴식/자기계발 증가)와 원인 추측을 포함합니다.\n\n[모범 답안]\n자료에 따르면 직장인의 점심시간 이용 방법은 2018년과 2026년에 차이를 보인다. 식당에서 식사하는 비율은 55%에서 35%로 크게 줄었다. 반면 도시락은 20%에서 25%로, 산책 또는 휴식은 15%에서 25%로 증가했다. 자기계발도 10%에서 15%로 늘었다. 이는 건강과 개인 시간을 중요하게 생각하는 직장인이 많아졌기 때문으로 보인다.',
+    difficulty: 4,
+    timeLimitSeconds: 900,
+    options: [],
+    media: [],
+  ),
+  const Question(
+    id: 'writing-54-fallback',
+    setId: 'writing-fallback-set',
+    section: 'writing',
+    questionType: 'writing_essay',
+    questionNumber: 54,
+    level: 5,
+    prompt: '다음을 주제로 하여 600~700자로 글을 쓰십시오. (54번)',
+    passageText: '주제: 현대 사회에서 온라인 학습의 장점과 한계\n\n쓰기 조건:\n1. 온라인 학습이 늘어난 이유를 설명하십시오.\n2. 온라인 학습의 장점을 두 가지 이상 쓰십시오.\n3. 온라인 학습의 한계와 이를 보완할 방법에 대해 쓰십시오.',
+    explanation: '[작성 포인트]\n- 서론(필요성/이유), 본론(장점 2가지 & 한계/보완책), 결론의 3단 구조로 600~700자를 작성합니다.\n\n[모범 답안]\n현대 사회에서는 인터넷 기술이 발달하고 시간과 장소의 제약을 줄이려는 요구가 커지면서 온라인 학습이 빠르게 늘고 있다. 온라인 학습의 가장 큰 장점은 원하는 장소에서 공부할 수 있다는 점이다. 학교나 학원에 가지 않아도 수업을 들을 수 있기 때문에 이동 시간이 줄어든다. 또한 녹화 강의를 반복해서 들을 수 있어 이해가 부족한 부분을 다시 공부하기 쉽다. 그러나 온라인 학습에는 한계도 있다. 학습자가 스스로 시간을 관리하지 못하면 수업을 미루기 쉽고, 교사나 친구와 직접 소통할 기회가 부족할 수 있다. 이러한 문제를 해결하기 위해서는 학습 계획을 세우고 정해진 시간에 수업을 듣는 습관을 만들어야 한다. 또한 온라인 토론이나 화상 모임을 활용하면 부족한 소통을 보완할 수 있다. 결국 온라인 학습은 편리한 도구이지만 효과적으로 활용하려면 학습자의 자기 관리와 적절한 상호 작용이 함께 필요하다.',
+    difficulty: 5,
+    timeLimitSeconds: 1800,
+    options: [],
+    media: [],
+  ),
+];
+

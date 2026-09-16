@@ -72,7 +72,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/reading-practice',
-        builder: (context, state) => const ReadingPracticePage(level: null),
+        builder: (context, state) => const ReadingPracticeLevelPage(),
       ),
       GoRoute(
         path: '/reading-practice/:level',
@@ -86,7 +86,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/listening-practice',
-        builder: (context, state) => const ListeningPracticePage(level: null),
+        builder: (context, state) => const ListeningPracticeLevelPage(),
       ),
       GoRoute(
         path: '/listening-practice/:level',
