@@ -92,8 +92,17 @@ class OfflineRepository {
     return [];
   }
 
-  Future<void> syncOfflineItems() async {
-    await _dio.post('/offline/sync');
+  Future<void> syncOfflineItems({
+    List<Map<String, dynamic>> items = const [],
+    bool replace = false,
+  }) async {
+    await _dio.post(
+      '/offline/sync',
+      data: {
+        'items': items,
+        'replace': replace,
+      },
+    );
   }
 
   Future<OfflineSyncStatus> getSyncStatus() async {
