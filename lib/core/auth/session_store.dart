@@ -1,21 +1,47 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:topik_go/core/constants/prefs_keys.dart';
 
+/// Stores the JWT access token in platform secure storage
+/// (iOS/macOS Keychain, Android Keystore-backed encrypted storage).
 class SessionStore {
+  final FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+
   Future<String?> readToken() async {
+    final secureToken = await _secureStorage.read(key: PrefsKeys.accessToken);
+    if (secureToken != null && secureToken.isNotEmpty) {
+      return secureToken;
+    }
+
+    // One-time migration: move a legacy plaintext token out of
+    // SharedPreferences into secure storage, then delete the plaintext copy.
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(PrefsKeys.accessToken);
+    final legacyToken = prefs.getString(PrefsKeys.accessToken);
+    if (legacyToken != null && legacyToken.isNotEmpty) {
+      await _secureStorage.write(key: PrefsKeys.accessToken, value: legacyToken);
+      await prefs.remove(PrefsKeys.accessToken);
+      return legacyToken;
+    }
+
+    return null;
   }
 
   Future<void> saveToken(String token) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(PrefsKeys.accessToken, token);
+    await _secureStorage.write(key: PrefsKeys.accessToken, value: token);
+    await _removeLegacyToken();
   }
 
   Future<void> clearToken() async {
+    await _secureStorage.delete(key: PrefsKeys.accessToken);
+    await _removeLegacyToken();
+  }
+
+  Future<void> _removeLegacyToken() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(PrefsKeys.accessToken);
+    if (prefs.containsKey(PrefsKeys.accessToken)) {
+      await prefs.remove(PrefsKeys.accessToken);
+    }
   }
 }
 
