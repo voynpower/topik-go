@@ -1265,8 +1265,10 @@ class _DocumentPreviewState extends State<_DocumentPreview> {
     );
 
     try {
-      final page = document.pages[_listeningPdfPage(widget.questionNumber) - 1];
-      final crop = _listeningCrop(widget.questionNumber);
+      final pageCount = document.pages.length;
+      final crop = _listeningCrop(widget.questionNumber, pageCount);
+      final page = document
+          .pages[_listeningPdfPage(widget.questionNumber, pageCount) - 1];
       final rendered = await page.render(
         x: crop.$1,
         y: crop.$2,
@@ -1294,13 +1296,43 @@ class _DocumentPreviewState extends State<_DocumentPreview> {
     }
   }
 
-  int _listeningPdfPage(int questionNumber) {
+  int _listeningPdfPage(int questionNumber, int pageCount) {
+    // 102회 PDF(3페이지: 듣기 통합)는 1번=1p, 2번=2p, 3번=3p.
+    if (pageCount <= 3 && questionNumber >= 1 && questionNumber <= 3) {
+      return questionNumber;
+    }
+    // 83회 PDF(듣기+쓰기 통합)는 1~2번이 5페이지, 3번이 6페이지에 있음.
+    if (pageCount >= 6 && questionNumber >= 1 && questionNumber <= 3) {
+      return questionNumber <= 2 ? 5 : 6;
+    }
     if (questionNumber <= 3) return questionNumber;
     if (questionNumber <= 6) return 4;
     return ((questionNumber - 7) ~/ 2) + 5;
   }
 
-  (int, int, int, int) _listeningCrop(int questionNumber) {
+  (int, int, int, int) _listeningCrop(int questionNumber, int pageCount) {
+    // 102회 PDF용 크롭.
+    if (pageCount <= 3) {
+      switch (questionNumber) {
+        case 1:
+          return (150, 505, 880, 495);
+        case 2:
+          return (150, 355, 880, 495);
+        case 3:
+          return (150, 450, 880, 635);
+      }
+    }
+    // 83회 PDF용 크롭.
+    if (pageCount >= 6) {
+      switch (questionNumber) {
+        case 1:
+          return (185, 315, 850, 490);
+        case 2:
+          return (185, 890, 850, 495);
+        case 3:
+          return (180, 240, 855, 620);
+      }
+    }
     switch (questionNumber) {
       case 1:
         return (230, 500, 760, 520);

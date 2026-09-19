@@ -10,6 +10,7 @@ import 'package:topik_go/features/question_sets/data/question_set_repository.dar
 import 'package:topik_go/features/questions/data/listening_practice_set.dart';
 import 'package:topik_go/features/questions/data/practice_set_resolution.dart';
 import 'package:topik_go/features/questions/data/question_repository.dart';
+import 'package:topik_go/features/questions/presentation/question_media_view.dart';
 
 class ListeningPracticePage extends ConsumerStatefulWidget {
   const ListeningPracticePage({super.key, required this.level});
@@ -71,6 +72,13 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
           final audio = _audioMedia(question);
           final audioUrl = audio == null ? '' : resolveApiMediaUrl(audio.url);
           final audioTranscript = audio?.transcript ?? question.passageText ?? question.prompt;
+          final imageMedia = question.media.where(isImageMedia).toList();
+          final documentMedia = question.media.where(isDocumentMedia).toList();
+          // Some listening sets attach the exam paper PDF to a single question,
+          // so fall back to the first document available in the loaded set.
+          final examPaperDocument = documentMedia.isNotEmpty
+              ? documentMedia.first
+              : _firstExamPaperDocument(page.items);
 
           return Column(
             children: [
@@ -100,6 +108,24 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
                             transcript: audioTranscript,
                           ),
                           const SizedBox(height: 18),
+                          if (imageMedia.isNotEmpty) ...[
+                            for (final media in imageMedia)
+                              QuestionImage(media: media),
+                          ],
+                          if (examPaperDocument != null &&
+                              (isVisualChoiceQuestion(question) ||
+                                  isListeningPictureQuestion(question))) ...[
+                            ExamPaperDocumentPreview(
+                              key: ValueKey(
+                                'doc|${question.id}|'
+                                '${examPaperDocument.id}|'
+                                '${question.questionNumber}',
+                              ),
+                              media: examPaperDocument,
+                              questionNumber: question.questionNumber,
+                            ),
+                            const SizedBox(height: 18),
+                          ],
                           Text(
                             question.prompt,
                             style: Theme.of(context).textTheme.titleMedium
@@ -181,6 +207,16 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
       (m) => m.mediaType.toLowerCase().contains('audio'),
       orElse: () => question.media.first,
     );
+  }
+
+  /// Returns the first exam paper (PDF) media found in the loaded practice set.
+  QuestionMedia? _firstExamPaperDocument(List<Question> questions) {
+    for (final question in questions) {
+      for (final media in question.media) {
+        if (isDocumentMedia(media)) return media;
+      }
+    }
+    return null;
   }
 
   void _submitTest(List<Question> questions) {

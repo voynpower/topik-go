@@ -167,13 +167,25 @@ class QuestionRepository {
 
       if (chunk.items.isEmpty) {
         if (merged.isEmpty && (setId != null || level != null)) {
-          // Fallback: try querying by section only if specific setId or level filter returned empty
+          // If a selected set has no matching rows for the grade, keep the
+          // grade filter when looking for section-level data.
+          if (setId != null && level != null) {
+            final levelFallbackChunk = await getQuestions(
+              QuestionQuery(
+                section: section,
+                level: level,
+                page: page,
+                limit: pageSize,
+              ),
+            );
+            if (levelFallbackChunk.items.isNotEmpty) {
+              merged.addAll(levelFallbackChunk.items);
+            }
+          }
+        }
+        if (merged.isEmpty && setId != null && level == null) {
           final fallbackChunk = await getQuestions(
-            QuestionQuery(
-              section: section,
-              page: page,
-              limit: pageSize,
-            ),
+            QuestionQuery(section: section, page: page, limit: pageSize),
           );
           if (fallbackChunk.items.isNotEmpty) {
             merged.addAll(fallbackChunk.items);
@@ -192,20 +204,18 @@ class QuestionRepository {
       if (page > 10) break;
     }
 
-    if (merged.length > maxItems) {
-      merged.removeRange(maxItems, merged.length);
-    }
-
-    // Shuffle Reading & Listening questions across levels 3-6 for a mixed practice experience
-    if (section != 'writing' && merged.isNotEmpty) {
-      merged.shuffle();
+    // Keep the practice set in exam order (문항 번호 오름차순) instead of a
+    // shuffled mix so learners solve question 1 → 2 → 3 ... in sequence.
+    final ordered = orderedByExamSequence(merged);
+    if (ordered.length > maxItems) {
+      ordered.removeRange(maxItems, ordered.length);
     }
 
     return QuestionPage(
-      items: merged,
+      items: ordered,
       page: 1,
-      limit: merged.length,
-      total: merged.length,
+      limit: ordered.length,
+      total: ordered.length,
     );
   }
 
@@ -222,6 +232,44 @@ class QuestionRepository {
     await _dio.delete('/questions/$id/download');
   }
 }
+
+/// Orders practice questions by exam sequence: questions are grouped by their
+/// question set (in first-seen order) and sorted by `questionNumber` inside each
+/// group. Questions without a known number keep the server order and are pushed
+/// to the end of their group.
+List<Question> orderedByExamSequence(List<Question> questions) {
+  if (questions.length < 2) return List<Question>.of(questions);
+
+  final setOrder = <String, int>{};
+  for (final question in questions) {
+    setOrder.putIfAbsent(question.setId ?? '', () => setOrder.length);
+  }
+
+  final indexed = <({int index, Question question})>[
+    for (var index = 0; index < questions.length; index++)
+      (index: index, question: questions[index]),
+  ];
+
+  indexed.sort((a, b) {
+    final groupA = setOrder[a.question.setId ?? ''] ?? 0;
+    final groupB = setOrder[b.question.setId ?? ''] ?? 0;
+    if (groupA != groupB) return groupA.compareTo(groupB);
+
+    final numberA = _sequenceNumber(a.question);
+    final numberB = _sequenceNumber(b.question);
+    if (numberA != numberB) return numberA.compareTo(numberB);
+
+    return a.index.compareTo(b.index);
+  });
+
+  return [for (final entry in indexed) entry.question];
+}
+
+const _unknownSequenceNumber = 1 << 30;
+
+int _sequenceNumber(Question question) => question.questionNumber > 0
+    ? question.questionNumber
+    : _unknownSequenceNumber;
 
 final questionRepositoryProvider = Provider<QuestionRepository>((ref) {
   return QuestionRepository(ref.watch(dioProvider));

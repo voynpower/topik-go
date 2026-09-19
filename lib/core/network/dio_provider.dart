@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:topik_go/core/auth/session_store.dart';
 
 const _apiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
+const _localApiBaseUrl = 'http://localhost:3000';
 const _backendTeamIp = '172.30.1.79';
 const _previousBackendIp = '10.188.191.214';
 const _physicalDeviceApiBaseUrl = 'http://$_backendTeamIp:3000';
@@ -15,7 +16,7 @@ Future<String>? _apiBaseUrlResolution;
 
 String get resolvedApiBaseUrl {
   if (_apiBaseUrl.isNotEmpty) return _apiBaseUrl;
-  return _runtimeApiBaseUrl ?? _physicalDeviceApiBaseUrl;
+  return _runtimeApiBaseUrl ?? _localApiBaseUrl;
 }
 
 final dioProvider = Provider<Dio>((ref) {
@@ -54,10 +55,7 @@ final dioProvider = Provider<Dio>((ref) {
             try {
               final baseUrl = await _resolveApiBaseUrl();
               final refreshDio = Dio(
-                BaseOptions(
-                  baseUrl: baseUrl,
-                  contentType: 'application/json',
-                ),
+                BaseOptions(baseUrl: baseUrl, contentType: 'application/json'),
               );
               final response = await refreshDio.post(
                 '/auth/refresh',
@@ -112,6 +110,7 @@ Future<String> _findReachableApiBaseUrl() async {
   final candidates = <String>[
     if (defaultTargetPlatform == TargetPlatform.android && !kIsWeb)
       _androidEmulatorApiBaseUrl,
+    _localApiBaseUrl,
     _physicalDeviceApiBaseUrl,
     _previousPhysicalDeviceApiBaseUrl,
   ];
@@ -124,8 +123,8 @@ Future<String> _findReachableApiBaseUrl() async {
     }
   }
 
-  _runtimeApiBaseUrl = _physicalDeviceApiBaseUrl;
-  return _physicalDeviceApiBaseUrl;
+  _runtimeApiBaseUrl = _localApiBaseUrl;
+  return _localApiBaseUrl;
 }
 
 Future<String?> _probeApiBaseUrl(String baseUrl) async {
