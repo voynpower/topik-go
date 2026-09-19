@@ -12,6 +12,8 @@ class GrammarItem {
     required this.examples,
     required this.tags,
     required this.isDownloaded,
+    required this.isBookmarked,
+    this.level,
   });
 
   final String id;
@@ -20,15 +22,21 @@ class GrammarItem {
   final List<String> examples;
   final List<String> tags;
   final bool isDownloaded;
+  final bool isBookmarked;
+  final int? level;
 
   factory GrammarItem.fromJson(Map<String, dynamic> json) {
     return GrammarItem(
       id: json['id']?.toString() ?? '',
-      pattern: json['pattern']?.toString() ?? '',
-      description: json['description']?.toString() ?? '',
-      examples: _stringList(json['examples_json']),
-      tags: _stringList(json['tags_json']),
+      pattern: _firstString(json, const ['pattern', 'title', 'grammar']) ?? '',
+      description:
+          _firstString(json, const ['description', 'meaning', 'explanation']) ??
+          '',
+      examples: _stringList(json['examples_json'] ?? json['examples']),
+      tags: _stringList(json['tags_json'] ?? json['tags']),
       isDownloaded: _asBool(json['is_downloaded']),
+      isBookmarked: _asBool(json['is_bookmarked'] ?? json['bookmarked']),
+      level: _asInt(json['level']),
     );
   }
 }
@@ -64,14 +72,16 @@ class GrammarPage {
 }
 
 class GrammarQuery {
-  const GrammarQuery({this.q, this.page = 1, this.limit = 20});
+  const GrammarQuery({this.level, this.q, this.page = 1, this.limit = 20});
 
+  final int? level;
   final String? q;
   final int page;
   final int limit;
 
   Map<String, Object> toQueryParameters() {
     return {
+      'level': ?level,
       if (q != null && q!.trim().isNotEmpty) 'q': q!.trim(),
       'page': page,
       'limit': limit,
@@ -82,13 +92,14 @@ class GrammarQuery {
   bool operator ==(Object other) {
     return identical(this, other) ||
         other is GrammarQuery &&
+            other.level == level &&
             other.q == q &&
             other.page == page &&
             other.limit == limit;
   }
 
   @override
-  int get hashCode => Object.hash(q, page, limit);
+  int get hashCode => Object.hash(level, q, page, limit);
 }
 
 class GrammarRepository {
@@ -111,6 +122,16 @@ class GrammarRepository {
 
   Future<void> bookmarkGrammar(String id) async {
     await _dio.patch('/grammar/$id/bookmark');
+  }
+
+  Future<void> setGrammarBookmark({
+    required String id,
+    required bool bookmarked,
+  }) async {
+    await _dio.patch(
+      '/bookmarks/grammar/$id',
+      data: {'bookmarked': bookmarked},
+    );
   }
 
   Future<GrammarItem> downloadGrammar(String id) async {
@@ -231,4 +252,12 @@ String _stringListItem(Object? item) {
     return item.values.map((value) => value.toString()).join('\n');
   }
   return item?.toString() ?? '';
+}
+
+String? _firstString(Map<String, dynamic> json, List<String> keys) {
+  for (final key in keys) {
+    final value = json[key]?.toString().trim();
+    if (value != null && value.isNotEmpty) return value;
+  }
+  return null;
 }

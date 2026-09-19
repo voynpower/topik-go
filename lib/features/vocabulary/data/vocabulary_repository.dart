@@ -9,8 +9,12 @@ class VocabularyItem {
     required this.meaningKo,
     required this.level,
     required this.isDownloaded,
+    required this.isBookmarked,
     this.meaningUserLang,
     this.ttsUrl,
+    this.partOfSpeech,
+    this.example,
+    this.exampleMeaning,
   });
 
   final String id;
@@ -18,18 +22,52 @@ class VocabularyItem {
   final String meaningKo;
   final int level;
   final bool isDownloaded;
+  final bool isBookmarked;
   final String? meaningUserLang;
   final String? ttsUrl;
+  final String? partOfSpeech;
+  final String? example;
+  final String? exampleMeaning;
 
   factory VocabularyItem.fromJson(Map<String, dynamic> json) {
     return VocabularyItem(
       id: json['id']?.toString() ?? '',
       word: json['word']?.toString() ?? '',
-      meaningKo: json['meaning_ko']?.toString() ?? '',
-      meaningUserLang: json['meaning_user_lang']?.toString(),
+      meaningKo:
+          _firstString(json, const [
+            'meaning_ko',
+            'meaning',
+            'definition',
+            'translation',
+          ]) ??
+          '',
+      meaningUserLang: _firstString(json, const [
+        'meaning_user_lang',
+        'meaning_en',
+        'meaning_uz',
+        'user_lang_meaning',
+      ]),
       level: _asInt(json['level']) ?? 0,
-      ttsUrl: json['tts_url']?.toString(),
+      ttsUrl: _firstString(json, const ['tts_url', 'audio_url']),
       isDownloaded: _asBool(json['is_downloaded']),
+      isBookmarked: _asBool(json['is_bookmarked'] ?? json['bookmarked']),
+      partOfSpeech: _firstString(json, const [
+        'part_of_speech',
+        'pos',
+        'word_class',
+      ]),
+      example: _firstString(json, const [
+        'example',
+        'example_sentence',
+        'sentence',
+        'example_ko',
+      ]),
+      exampleMeaning: _firstString(json, const [
+        'example_meaning',
+        'example_translation',
+        'example_user_lang',
+        'example_en',
+      ]),
     );
   }
 }
@@ -117,6 +155,16 @@ class VocabularyRepository {
     await _dio.patch('/vocabulary/$id/bookmark');
   }
 
+  Future<void> setVocabularyBookmark({
+    required String id,
+    required bool bookmarked,
+  }) async {
+    await _dio.patch(
+      '/bookmarks/vocabulary/$id',
+      data: {'bookmarked': bookmarked},
+    );
+  }
+
   Future<VocabularyItem> downloadVocabulary(String id) async {
     final response = await _dio.post('/vocabulary/$id/download');
     return VocabularyItem.fromJson(response.data as Map<String, dynamic>);
@@ -202,4 +250,12 @@ bool _asBool(Object? value) {
   if (value is num) return value.toInt() == 1;
   if (value is String) return value == '1' || value.toLowerCase() == 'true';
   return false;
+}
+
+String? _firstString(Map<String, dynamic> json, List<String> keys) {
+  for (final key in keys) {
+    final value = json[key]?.toString().trim();
+    if (value != null && value.isNotEmpty) return value;
+  }
+  return null;
 }
