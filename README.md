@@ -136,16 +136,33 @@ lib/
 $ flutter pub get
 ```
 
-### 2. 기본 앱 실행
+### 2. 기본 앱 실행 (배포 서버 접속)
+앱은 기본적으로 배포된 백엔드 API 및 CloudFront CDN을 사용하도록 설정되어 있습니다.
+- **백엔드 API**: `https://topik-api.duckdns.org`
+- **미디어 CDN**: `https://damqug77a9y1r.cloudfront.net`
+
 ```bash
-$ flutter run
+# 단축 실행 스크립트 (Android Pixel 9 에뮬레이터 자동 실행)
+$ ./scripts/run_aws.sh
+# 또는 터미널 단축 명령어
+$ topik-run-aws
 ```
 
-### 3. 소셜 로그인 (Google / Kakao) 설정 후 실행
-구글 및 카카오 네이티브 SDK 연동을 위해 실행 시 아래 환경 변수를 전달합니다:
+### 3. 로컬 백엔드 접속 실행
+로컬 개발 서버(`http://10.0.2.2:3000`)에 접속하여 실행할 때:
 
 ```bash
-$ flutter run \
+# 단축 실행 스크립트
+$ ./scripts/run_local.sh
+# 또는 터미널 단축 명령어
+$ topik-run-local
+```
+
+### 4. 소셜 로그인 등 커스텀 플래그 전달 실행
+```bash
+$ flutter run -d android \
+  --dart-define=API_BASE_URL=https://topik-api.duckdns.org \
+  --dart-define=MEDIA_BASE_URL=https://damqug77a9y1r.cloudfront.net \
   --dart-define=GOOGLE_CLIENT_ID=your_google_client_id \
   --dart-define=GOOGLE_SERVER_CLIENT_ID=your_google_server_client_id \
   --dart-define=KAKAO_NATIVE_APP_KEY=your_kakao_native_app_key \

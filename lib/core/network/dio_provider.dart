@@ -3,7 +3,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:topik_go/core/auth/session_store.dart';
 
-const _apiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
+const _productionApiBaseUrl = 'https://topik-api.duckdns.org';
+const _apiBaseUrl = String.fromEnvironment(
+  'API_BASE_URL',
+  defaultValue: _productionApiBaseUrl,
+);
 const _localApiBaseUrl = 'http://localhost:3000';
 const _backendTeamIp = '172.30.1.79';
 const _previousBackendIp = '10.188.191.214';
@@ -16,7 +20,7 @@ Future<String>? _apiBaseUrlResolution;
 
 String get resolvedApiBaseUrl {
   if (_apiBaseUrl.isNotEmpty) return _apiBaseUrl;
-  return _runtimeApiBaseUrl ?? _localApiBaseUrl;
+  return _runtimeApiBaseUrl ?? _productionApiBaseUrl;
 }
 
 final dioProvider = Provider<Dio>((ref) {
@@ -108,6 +112,7 @@ Future<String> _resolveApiBaseUrl() {
 
 Future<String> _findReachableApiBaseUrl() async {
   final candidates = <String>[
+    _productionApiBaseUrl,
     if (defaultTargetPlatform == TargetPlatform.android && !kIsWeb)
       _androidEmulatorApiBaseUrl,
     _localApiBaseUrl,
@@ -123,8 +128,8 @@ Future<String> _findReachableApiBaseUrl() async {
     }
   }
 
-  _runtimeApiBaseUrl = _localApiBaseUrl;
-  return _localApiBaseUrl;
+  _runtimeApiBaseUrl = _productionApiBaseUrl;
+  return _productionApiBaseUrl;
 }
 
 Future<String?> _probeApiBaseUrl(String baseUrl) async {
