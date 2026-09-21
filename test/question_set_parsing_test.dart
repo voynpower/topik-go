@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/mock_exam/data/mock_exam_repository.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart';
+import 'package:topik_go/features/questions/data/practice_set_resolution.dart';
+import 'package:topik_go/features/questions/data/question_repository.dart';
 
 void main() {
   test('cleans repeated reading passage for one question', () {
@@ -142,5 +144,124 @@ void main() {
       expect(question.passageText, contains('낚싯대'));
       expect(question.passageText, isNot(contains('소포')));
     },
+  );
+
+  test('orders practice questions by exam sequence', () {
+    final ordered = orderedByExamSequence([
+      _question(id: 'q3', number: 3),
+      _question(id: 'q1', number: 1),
+      _question(id: 'q2', number: 2),
+    ]);
+
+    expect(ordered.map((question) => question.id).toList(), ['q1', 'q2', 'q3']);
+  });
+
+  test('keeps each set consecutive and pushes unknown numbers to the end', () {
+    // Set groups keep their first-seen order (set-b appears first here), and
+    // questions without a number fall to the end of their own group.
+    final ordered = orderedByExamSequence([
+      _question(id: 'b2', number: 2, setId: 'set-b'),
+      _question(id: 'a2', number: 2, setId: 'set-a'),
+      _question(id: 'a1', number: 1, setId: 'set-a'),
+      _question(id: 'b0', number: 0, setId: 'set-b'),
+    ]);
+
+    expect(ordered.map((question) => question.id).toList(), [
+      'b2',
+      'b0',
+      'a1',
+      'a2',
+    ]);
+  });
+
+  test('prefers TOPIK 83 actual reading set over practice set', () {
+    final resolved = resolvedPracticeSetId(
+      sets: [
+        _set(
+          id: 'reading-practice',
+          title: 'TOPIK II Reading Practice Set 1',
+          section: 'reading',
+          level: 3,
+          questionCount: 50,
+          examKind: 'practice',
+        ),
+        _set(
+          id: 'topik-83-reading',
+          title: 'TOPIK 83회 읽기 기출문제',
+          section: 'reading',
+          level: 3,
+          questionCount: 50,
+          examKind: 'past',
+        ),
+      ],
+      section: 'reading',
+      fallbackId: 'fallback',
+      level: 3,
+    );
+
+    expect(resolved, 'topik-83-reading');
+  });
+
+  test(
+    'keeps TOPIK 83 eligible when selected grade differs from set level',
+    () {
+      final resolved = resolvedPracticeSetId(
+        sets: [
+          _set(
+            id: 'listening-grade-5-practice',
+            title: 'TOPIK II Listening Practice Set 5',
+            section: 'listening',
+            level: 5,
+            questionCount: 50,
+            examKind: 'practice',
+          ),
+          _set(
+            id: 'topik-83-listening',
+            title: 'TOPIK 83회 듣기 기출문제',
+            section: 'listening',
+            level: 3,
+            questionCount: 50,
+            examKind: 'actual',
+          ),
+        ],
+        section: 'listening',
+        fallbackId: 'fallback',
+        level: 5,
+      );
+
+      expect(resolved, 'topik-83-listening');
+    },
+  );
+}
+
+Question _question({required String id, required int number, String? setId}) {
+  return Question(
+    id: id,
+    questionNumber: number,
+    section: 'listening',
+    questionType: 'multiple_choice',
+    prompt: '문제 $id',
+    options: const [],
+    media: const [],
+    setId: setId,
+  );
+}
+
+QuestionSet _set({
+  required String id,
+  required String title,
+  required String section,
+  required int level,
+  required int questionCount,
+  required String examKind,
+}) {
+  return QuestionSet(
+    id: id,
+    title: title,
+    section: section,
+    level: level,
+    questions: const [],
+    questionCount: questionCount,
+    examKind: examKind,
   );
 }

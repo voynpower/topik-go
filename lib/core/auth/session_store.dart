@@ -39,7 +39,7 @@ class SessionStore {
     required String accessToken,
     String? refreshToken,
   }) async {
-    await saveToken(accessToken);
+    await _secureStorage.write(key: PrefsKeys.accessToken, value: accessToken);
     if (refreshToken != null && refreshToken.isNotEmpty) {
       await saveRefreshToken(refreshToken);
     }

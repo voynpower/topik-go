@@ -62,7 +62,7 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
           final safeIndex = _currentIndex.clamp(0, page.items.length - 1);
           final question = page.items[safeIndex];
           final selectedAnswer = _selectedAnswers[question.id];
-          final showAnswer = _summary != null;
+          final showAnswer = _summary != null || selectedAnswer != null;
 
           return Column(
             children: [
@@ -108,12 +108,10 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
                                 selected: option.label == selectedAnswer,
                                 showAnswer: showAnswer,
                                 correct: option.label == question.correctAnswer,
-                                onTap: showAnswer
+                                onTap: selectedAnswer != null
                                     ? null
                                     : () => setState(() {
-                                        _selectedAnswers[question.id] =
-                                            option.label;
-                                        _summary = null;
+                                        _selectedAnswers[question.id] = option.label;
                                       }),
                               ),
                             ),

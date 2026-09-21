@@ -151,15 +151,9 @@ class QuestionRepository {
     int pageSize = 30,
     int maxItems = 50,
   }) async {
-    // If no setId AND no level, we can't fetch anything specific enough for practice.
-    if ((setId == null || setId.isEmpty) && level == null) {
-      return const QuestionPage(items: [], page: 1, limit: 0, total: 0);
-    }
-
     final merged = <Question>[];
     var page = 1;
 
-    // Continue fetching until we have enough items or no more pages.
     while (merged.length < maxItems) {
       final chunk = await getQuestions(
         QuestionQuery(
@@ -171,29 +165,57 @@ class QuestionRepository {
         ),
       );
 
-      if (chunk.items.isEmpty) break;
+      if (chunk.items.isEmpty) {
+        if (merged.isEmpty && (setId != null || level != null)) {
+          // If a selected set has no matching rows for the grade, keep the
+          // grade filter when looking for section-level data.
+          if (setId != null && level != null) {
+            final levelFallbackChunk = await getQuestions(
+              QuestionQuery(
+                section: section,
+                level: level,
+                page: page,
+                limit: pageSize,
+              ),
+            );
+            if (levelFallbackChunk.items.isNotEmpty) {
+              merged.addAll(levelFallbackChunk.items);
+            }
+          }
+        }
+        if (merged.isEmpty && setId != null && level == null) {
+          final fallbackChunk = await getQuestions(
+            QuestionQuery(section: section, page: page, limit: pageSize),
+          );
+          if (fallbackChunk.items.isNotEmpty) {
+            merged.addAll(fallbackChunk.items);
+          }
+        }
+        break;
+      }
 
       merged.addAll(chunk.items);
 
-      // Stop if we got a short page (end of data) or reached maxItems
       if (chunk.items.length < pageSize || merged.length >= maxItems) {
         break;
       }
 
       page++;
-      if (page > 10) break; // Safety break
+      if (page > 10) break;
     }
 
-    // Strictly cap at maxItems
-    if (merged.length > maxItems) {
-      merged.removeRange(maxItems, merged.length);
+    // Keep the practice set in exam order (문항 번호 오름차순) instead of a
+    // shuffled mix so learners solve question 1 → 2 → 3 ... in sequence.
+    final ordered = orderedByExamSequence(merged);
+    if (ordered.length > maxItems) {
+      ordered.removeRange(maxItems, ordered.length);
     }
 
     return QuestionPage(
-      items: merged,
+      items: ordered,
       page: 1,
-      limit: merged.length,
-      total: merged.length,
+      limit: ordered.length,
+      total: ordered.length,
     );
   }
 
@@ -210,6 +232,44 @@ class QuestionRepository {
     await _dio.delete('/questions/$id/download');
   }
 }
+
+/// Orders practice questions by exam sequence: questions are grouped by their
+/// question set (in first-seen order) and sorted by `questionNumber` inside each
+/// group. Questions without a known number keep the server order and are pushed
+/// to the end of their group.
+List<Question> orderedByExamSequence(List<Question> questions) {
+  if (questions.length < 2) return List<Question>.of(questions);
+
+  final setOrder = <String, int>{};
+  for (final question in questions) {
+    setOrder.putIfAbsent(question.setId ?? '', () => setOrder.length);
+  }
+
+  final indexed = <({int index, Question question})>[
+    for (var index = 0; index < questions.length; index++)
+      (index: index, question: questions[index]),
+  ];
+
+  indexed.sort((a, b) {
+    final groupA = setOrder[a.question.setId ?? ''] ?? 0;
+    final groupB = setOrder[b.question.setId ?? ''] ?? 0;
+    if (groupA != groupB) return groupA.compareTo(groupB);
+
+    final numberA = _sequenceNumber(a.question);
+    final numberB = _sequenceNumber(b.question);
+    if (numberA != numberB) return numberA.compareTo(numberB);
+
+    return a.index.compareTo(b.index);
+  });
+
+  return [for (final entry in indexed) entry.question];
+}
+
+const _unknownSequenceNumber = 1 << 30;
+
+int _sequenceNumber(Question question) => question.questionNumber > 0
+    ? question.questionNumber
+    : _unknownSequenceNumber;
 
 final questionRepositoryProvider = Provider<QuestionRepository>((ref) {
   return QuestionRepository(ref.watch(dioProvider));

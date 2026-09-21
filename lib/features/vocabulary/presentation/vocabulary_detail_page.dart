@@ -44,7 +44,9 @@ class _VocabularyDetailPageState extends ConsumerState<VocabularyDetailPage> {
                           ),
                         ),
                         Text(
-                          '${vocabulary.level}급',
+                          vocabulary.level > 0
+                              ? '${vocabulary.level}급'
+                              : 'TOPIK',
                           style: TextStyle(
                             color: AppColors.mintDark,
                             fontWeight: FontWeight.w700,
@@ -53,27 +55,71 @@ class _VocabularyDetailPageState extends ConsumerState<VocabularyDetailPage> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    Text(vocabulary.meaningKo),
+                    Text(
+                      vocabulary.meaningKo,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        height: 1.45,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (vocabulary.partOfSpeech?.isNotEmpty ?? false) ...[
+                      const SizedBox(height: 10),
+                      Chip(label: Text(vocabulary.partOfSpeech!)),
+                    ],
                     if (vocabulary.meaningUserLang?.isNotEmpty ?? false) ...[
                       const SizedBox(height: 8),
-                      Text(vocabulary.meaningUserLang!),
-                    ],
-                    if (vocabulary.ttsUrl?.isNotEmpty ?? false) ...[
-                      const SizedBox(height: 12),
                       Text(
-                        vocabulary.ttsUrl!,
-                        style: Theme.of(context).textTheme.bodyMedium,
+                        vocabulary.meaningUserLang!,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ],
                   ],
                 ),
               ),
             ),
+            if (vocabulary.example?.isNotEmpty ?? false) ...[
+              const SizedBox(height: 16),
+              _StudyCard(
+                title: '예문',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      vocabulary.example!,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.titleMedium?.copyWith(height: 1.45),
+                    ),
+                    if (vocabulary.exampleMeaning?.isNotEmpty ?? false) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        vocabulary.exampleMeaning!,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textSecondary,
+                          height: 1.45,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             FilledButton.icon(
-              onPressed: _saving ? null : () => _bookmark(vocabulary.id),
-              icon: const Icon(Icons.bookmark_add_outlined),
-              label: const Text('북마크 저장'),
+              onPressed: _saving
+                  ? null
+                  : () => _toggleBookmark(
+                      vocabulary.id,
+                      bookmarked: !vocabulary.isBookmarked,
+                    ),
+              icon: Icon(
+                vocabulary.isBookmarked
+                    ? Icons.bookmark
+                    : Icons.bookmark_add_outlined,
+              ),
+              label: Text(vocabulary.isBookmarked ? '북마크 해제' : '북마크 저장'),
             ),
             const SizedBox(height: 10),
             OutlinedButton.icon(
@@ -90,11 +136,6 @@ class _VocabularyDetailPageState extends ConsumerState<VocabularyDetailPage> {
               ),
               label: Text(vocabulary.isDownloaded ? '다운로드 해제' : '오프라인 저장'),
             ),
-            const SizedBox(height: 8),
-            Text(
-              '현재 다운로드 상태는 backend DB의 global field를 사용합니다.',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
           ],
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -109,12 +150,16 @@ class _VocabularyDetailPageState extends ConsumerState<VocabularyDetailPage> {
     );
   }
 
-  Future<void> _bookmark(String id) async {
+  Future<void> _toggleBookmark(String id, {required bool bookmarked}) async {
     setState(() => _saving = true);
     try {
-      await ref.read(vocabularyRepositoryProvider).bookmarkVocabulary(id);
+      await ref
+          .read(vocabularyRepositoryProvider)
+          .setVocabularyBookmark(id: id, bookmarked: bookmarked);
       ref.invalidate(bookmarkSummaryProvider);
-      _showMessage('북마크에 저장되었습니다.');
+      ref.invalidate(bookmarkedVocabularyProvider);
+      ref.invalidate(vocabularyItemProvider(widget.id));
+      _showMessage(bookmarked ? '북마크에 저장되었습니다.' : '북마크가 해제되었습니다.');
     } catch (error) {
       _showMessage(apiErrorMessage(error));
     } finally {
@@ -149,6 +194,30 @@ class _VocabularyDetailPageState extends ConsumerState<VocabularyDetailPage> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+class _StudyCard extends StatelessWidget {
+  const _StudyCard({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            child,
+          ],
+        ),
+      ),
+    );
   }
 }
 

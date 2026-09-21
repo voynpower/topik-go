@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/core/network/api_error_message.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/grammar/data/grammar_repository.dart';
@@ -38,7 +37,12 @@ class _GrammarDetailPageState extends ConsumerState<GrammarDetailPage> {
                       style: Theme.of(context).textTheme.headlineMedium,
                     ),
                     const SizedBox(height: 16),
-                    Text(grammar.description),
+                    Text(
+                      grammar.description,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.titleMedium?.copyWith(height: 1.45),
+                    ),
                     if (grammar.tags.isNotEmpty) ...[
                       const SizedBox(height: 16),
                       Wrap(
@@ -69,9 +73,18 @@ class _GrammarDetailPageState extends ConsumerState<GrammarDetailPage> {
             ],
             const SizedBox(height: 16),
             FilledButton.icon(
-              onPressed: _saving ? null : () => _bookmark(grammar.id),
-              icon: const Icon(Icons.bookmark_add_outlined),
-              label: const Text('북마크 저장'),
+              onPressed: _saving
+                  ? null
+                  : () => _toggleBookmark(
+                      grammar.id,
+                      bookmarked: !grammar.isBookmarked,
+                    ),
+              icon: Icon(
+                grammar.isBookmarked
+                    ? Icons.bookmark
+                    : Icons.bookmark_add_outlined,
+              ),
+              label: Text(grammar.isBookmarked ? '북마크 해제' : '북마크 저장'),
             ),
             const SizedBox(height: 10),
             OutlinedButton.icon(
@@ -88,13 +101,6 @@ class _GrammarDetailPageState extends ConsumerState<GrammarDetailPage> {
               ),
               label: Text(grammar.isDownloaded ? '다운로드 해제' : '오프라인 저장'),
             ),
-            const SizedBox(height: 8),
-            Text(
-              '현재 다운로드 상태는 backend DB의 global field를 사용합니다.',
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
-            ),
           ],
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -109,13 +115,16 @@ class _GrammarDetailPageState extends ConsumerState<GrammarDetailPage> {
     );
   }
 
-  Future<void> _bookmark(String id) async {
+  Future<void> _toggleBookmark(String id, {required bool bookmarked}) async {
     setState(() => _saving = true);
     try {
-      await ref.read(grammarRepositoryProvider).bookmarkGrammar(id);
+      await ref
+          .read(grammarRepositoryProvider)
+          .setGrammarBookmark(id: id, bookmarked: bookmarked);
       ref.invalidate(bookmarkSummaryProvider);
       ref.invalidate(bookmarkedGrammarProvider);
-      _showMessage('북마크에 저장되었습니다.');
+      ref.invalidate(grammarItemProvider(widget.id));
+      _showMessage(bookmarked ? '북마크에 저장되었습니다.' : '북마크가 해제되었습니다.');
     } catch (error) {
       _showMessage(apiErrorMessage(error));
     } finally {

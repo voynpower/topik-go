@@ -10,6 +10,7 @@ import 'package:topik_go/features/question_sets/data/question_set_repository.dar
 import 'package:topik_go/features/questions/data/listening_practice_set.dart';
 import 'package:topik_go/features/questions/data/practice_set_resolution.dart';
 import 'package:topik_go/features/questions/data/question_repository.dart';
+import 'package:topik_go/features/questions/presentation/question_media_view.dart';
 
 class ListeningPracticePage extends ConsumerStatefulWidget {
   const ListeningPracticePage({super.key, required this.level});
@@ -67,8 +68,17 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
           final safeIndex = _currentIndex.clamp(0, page.items.length - 1);
           final question = page.items[safeIndex];
           final selectedAnswer = _selectedAnswers[question.id];
-          final showAnswer = _summary != null;
+          final showAnswer = _summary != null || selectedAnswer != null;
           final audio = _audioMedia(question);
+          final audioUrl = audio == null ? '' : resolveApiMediaUrl(audio.url);
+          final audioTranscript = audio?.transcript ?? question.passageText ?? question.prompt;
+          final imageMedia = question.media.where(isImageMedia).toList();
+          final documentMedia = question.media.where(isDocumentMedia).toList();
+          // Some listening sets attach the exam paper PDF to a single question,
+          // so fall back to the first document available in the loaded set.
+          final examPaperDocument = documentMedia.isNotEmpty
+              ? documentMedia.first
+              : _firstExamPaperDocument(page.items);
 
           return Column(
             children: [
@@ -92,18 +102,30 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
                         children: [
                           _ExamInstruction(question: question),
                           const SizedBox(height: 14),
-                          if (audio == null)
-                            const Text('이 문제에는 오디오가 없습니다.')
-                          else
-                            _AudioPlayerCard(
-                              key: ValueKey(
-                                '${question.id}|'
-                                '${audio.url.trim().isEmpty ? 'tts' : resolveApiMediaUrl(audio.url)}',
-                              ),
-                              url: resolveApiMediaUrl(audio.url),
-                              transcript: audio.transcript,
-                            ),
+                          _AudioPlayerCard(
+                            key: ValueKey('${question.id}|$audioUrl|$audioTranscript'),
+                            url: audioUrl,
+                            transcript: audioTranscript,
+                          ),
                           const SizedBox(height: 18),
+                          if (imageMedia.isNotEmpty) ...[
+                            for (final media in imageMedia)
+                              QuestionImage(media: media),
+                          ],
+                          if (examPaperDocument != null &&
+                              (isVisualChoiceQuestion(question) ||
+                                  isListeningPictureQuestion(question))) ...[
+                            ExamPaperDocumentPreview(
+                              key: ValueKey(
+                                'doc|${question.id}|'
+                                '${examPaperDocument.id}|'
+                                '${question.questionNumber}',
+                              ),
+                              media: examPaperDocument,
+                              questionNumber: question.questionNumber,
+                            ),
+                            const SizedBox(height: 18),
+                          ],
                           Text(
                             question.prompt,
                             style: Theme.of(context).textTheme.titleMedium
@@ -122,12 +144,10 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
                                 selected: option.label == selectedAnswer,
                                 showAnswer: showAnswer,
                                 correct: option.label == question.correctAnswer,
-                                onTap: showAnswer
+                                onTap: selectedAnswer != null
                                     ? null
                                     : () => setState(() {
-                                        _selectedAnswers[question.id] =
-                                            option.label;
-                                        _summary = null;
+                                        _selectedAnswers[question.id] = option.label;
                                       }),
                               ),
                             ),
@@ -138,9 +158,9 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
                               correctAnswer: question.correctAnswer,
                               explanation: question.explanation,
                             ),
-                            if (audio?.transcript?.isNotEmpty ?? false) ...[
+                            if (audioTranscript.isNotEmpty) ...[
                               const SizedBox(height: 12),
-                              _TranscriptCard(text: audio!.transcript!),
+                              _TranscriptCard(text: audioTranscript),
                             ],
                           ],
                         ],
@@ -187,6 +207,16 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
       (m) => m.mediaType.toLowerCase().contains('audio'),
       orElse: () => question.media.first,
     );
+  }
+
+  /// Returns the first exam paper (PDF) media found in the loaded practice set.
+  QuestionMedia? _firstExamPaperDocument(List<Question> questions) {
+    for (final question in questions) {
+      for (final media in question.media) {
+        if (isDocumentMedia(media)) return media;
+      }
+    }
+    return null;
   }
 
   void _submitTest(List<Question> questions) {
@@ -422,6 +452,8 @@ class _AudioPlayerCardState extends State<_AudioPlayerCard> {
   late FlutterTts _tts;
   bool _isPlaying = false;
   bool _ttsPlaying = false;
+  bool _fallbackToTts = false;
+  double _speechRate = 0.45;
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
 
@@ -431,14 +463,22 @@ class _AudioPlayerCardState extends State<_AudioPlayerCard> {
     _player = AudioPlayer();
     _tts = FlutterTts();
     _tts.setLanguage('ko-KR');
-    _tts.setSpeechRate(0.45);
+    _tts.setSpeechRate(_speechRate);
     _tts.setCompletionHandler(() {
       if (mounted) setState(() => _ttsPlaying = false);
     });
 
-    if (widget.url.isNotEmpty) {
-      _player.setUrl(widget.url).catchError((e) {
+    final url = widget.url.trim();
+    if (url.isEmpty || url.contains('example.com')) {
+      _fallbackToTts = true;
+    } else {
+      _player.setUrl(url).catchError((e) {
         debugPrint('Audio loading error: $e');
+        if (mounted) {
+          setState(() {
+            _fallbackToTts = true;
+          });
+        }
         return null;
       });
     }
@@ -469,8 +509,7 @@ class _AudioPlayerCardState extends State<_AudioPlayerCard> {
 
   @override
   Widget build(BuildContext context) {
-    final useTts =
-        widget.url.isEmpty && (widget.transcript?.isNotEmpty ?? false);
+    final useTts = _fallbackToTts || widget.url.isEmpty;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -501,7 +540,7 @@ class _AudioPlayerCardState extends State<_AudioPlayerCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      useTts ? '기계음 재생 (대본 기반)' : '오디오 재생',
+                      useTts ? '음성 재생 (TTS)' : '오디오 재생',
                       style: const TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
@@ -533,9 +572,33 @@ class _AudioPlayerCardState extends State<_AudioPlayerCard> {
                           ),
                         ],
                       ),
+                    ] else ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        _ttsPlaying ? '듣기 대본을 읽는 중입니다...' : '재생 버튼을 눌러 음성을 들으세요.',
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                      ),
                     ],
                   ],
                 ),
+              ),
+              PopupMenuButton<double>(
+                icon: const Icon(Icons.speed, size: 20),
+                tooltip: '재생 속도',
+                onSelected: (rate) {
+                  setState(() {
+                    _speechRate = rate;
+                  });
+                  _tts.setSpeechRate(rate);
+                  if (!useTts) {
+                    _player.setSpeed(rate * 2);
+                  }
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 0.35, child: Text('0.8x (느리게)')),
+                  PopupMenuItem(value: 0.45, child: Text('1.0x (보통)')),
+                  PopupMenuItem(value: 0.55, child: Text('1.2x (빠르게)')),
+                ],
               ),
             ],
           ),

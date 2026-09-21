@@ -17,17 +17,28 @@ String? resolvedPracticeSetId({
 
   if (level != null) {
     final byLevel = candidates.where((s) => s.level == level).toList();
-    // If we want a specific level, we MUST find a set for that level.
-    // Otherwise, return null so we can fallback to querying by level only.
-    if (byLevel.isEmpty) return null;
-    candidates = byLevel;
+    final actualTopik83 = candidates.where(_isTopik83ActualSet).toList();
+    // Actual TOPIK II sets can contain questions for multiple grades while the
+    // set itself has one representative level. Keep TOPIK 83 eligible and let
+    // the questions endpoint apply the selected grade filter.
+    if (byLevel.isEmpty && actualTopik83.isEmpty) return null;
+    final byId = <String, QuestionSet>{
+      for (final set in byLevel) set.id: set,
+      for (final set in actualTopik83) set.id: set,
+    };
+    candidates = byId.values.toList();
   }
 
   if (candidates.isEmpty) return fallbackId;
   int score(QuestionSet s) {
     final n = s.questionCount ?? s.questions.length;
     final isPractice = s.examKind == 'practice';
-    return n + (isPractice ? 1000 : 0);
+    final isReal = _isActualSet(s);
+    final isTopik83 = _isTopik83ActualSet(s);
+    return n +
+        (isPractice ? 1000 : 0) +
+        (isReal ? 100000 : 0) +
+        (isTopik83 ? 1000000 : 0);
   }
 
   candidates.sort((a, b) => score(b).compareTo(score(a)));
@@ -52,4 +63,24 @@ String? readResolvedPracticeSetId(
         ),
         orElse: () => fallbackId,
       );
+}
+
+bool _isActualSet(QuestionSet set) {
+  final examKind = set.examKind?.toLowerCase() ?? '';
+  final haystack = '${set.id} ${set.title}'.toLowerCase();
+  return examKind == 'actual' ||
+      examKind == 'past' ||
+      examKind == 'real' ||
+      haystack.contains('actual') ||
+      haystack.contains('past') ||
+      haystack.contains('real') ||
+      haystack.contains('기출') ||
+      haystack.contains('실전') ||
+      haystack.contains('회');
+}
+
+bool _isTopik83ActualSet(QuestionSet set) {
+  final haystack = '${set.id} ${set.title}'.toLowerCase();
+  final has83 = RegExp(r'(^|[^0-9])83([^0-9]|$)').hasMatch(haystack);
+  return has83 && haystack.contains('topik') && _isActualSet(set);
 }

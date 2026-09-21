@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/core/network/api_error_message.dart';
+import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/vocabulary/data/vocabulary_repository.dart';
 
 class VocabularyListPage extends ConsumerStatefulWidget {
@@ -97,6 +98,8 @@ class _VocabularyListPageState extends ConsumerState<VocabularyListPage> {
             child: vocabulary.when(
               data: (page) => _VocabularyList(
                 page: page,
+                ref: ref,
+                query: _query,
                 onPrevious: page.page > 1
                     ? () => setState(() => _page = _page - 1)
                     : null,
@@ -147,11 +150,15 @@ class _LevelChip extends StatelessWidget {
 class _VocabularyList extends StatelessWidget {
   const _VocabularyList({
     required this.page,
+    required this.ref,
+    required this.query,
     required this.onPrevious,
     required this.onNext,
   });
 
   final VocabularyPage page;
+  final WidgetRef ref;
+  final VocabularyQuery query;
   final VoidCallback? onPrevious;
   final VoidCallback? onNext;
 
@@ -164,9 +171,11 @@ class _VocabularyList extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        Text('총 ${page.total}개', style: Theme.of(context).textTheme.bodyLarge),
+        _ListSummary(total: page.total, page: page.page),
         const SizedBox(height: 12),
-        ...page.items.map((item) => _VocabularyTile(item: item)),
+        ...page.items.map(
+          (item) => _VocabularyTile(item: item, ref: ref, query: query),
+        ),
         const SizedBox(height: 8),
         Row(
           children: [
@@ -190,28 +199,163 @@ class _VocabularyList extends StatelessWidget {
   }
 }
 
-class _VocabularyTile extends StatelessWidget {
-  const _VocabularyTile({required this.item});
+class _ListSummary extends StatelessWidget {
+  const _ListSummary({required this.total, required this.page});
 
-  final VocabularyItem item;
+  final int total;
+  final int page;
 
   @override
   Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            '총 $total개',
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+        ),
+        Text(
+          '$page 페이지',
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+        ),
+      ],
+    );
+  }
+}
+
+class _VocabularyTile extends ConsumerStatefulWidget {
+  const _VocabularyTile({
+    required this.item,
+    required this.ref,
+    required this.query,
+  });
+
+  final VocabularyItem item;
+  final WidgetRef ref;
+  final VocabularyQuery query;
+
+  @override
+  ConsumerState<_VocabularyTile> createState() => _VocabularyTileState();
+}
+
+class _VocabularyTileState extends ConsumerState<_VocabularyTile> {
+  bool _savingBookmark = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.item;
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        title: Text(
-          item.word,
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Text('${item.level}급 / ${item.meaningKo}'),
-        ),
-        trailing: Icon(
-          item.isDownloaded ? Icons.download_done : Icons.chevron_right,
-        ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
         onTap: () => context.push('/vocabulary/${item.id}'),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item.word,
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        _SmallBadge(
+                          text: item.level > 0 ? '${item.level}급' : 'TOPIK',
+                        ),
+                        if (item.partOfSpeech?.isNotEmpty ?? false) ...[
+                          const SizedBox(width: 6),
+                          _SmallBadge(text: item.partOfSpeech!),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      item.meaningKo,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    if (item.example?.isNotEmpty ?? false) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        item.example!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: item.isBookmarked ? '북마크 해제' : '북마크',
+                onPressed: _savingBookmark ? null : () => _toggleBookmark(item),
+                icon: Icon(
+                  item.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                  color: item.isBookmarked ? Colors.orange : Colors.grey,
+                ),
+              ),
+              Icon(
+                item.isDownloaded ? Icons.download_done : Icons.chevron_right,
+                color: item.isDownloaded ? AppColors.mintDark : Colors.grey,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _toggleBookmark(VocabularyItem item) async {
+    setState(() => _savingBookmark = true);
+    try {
+      await ref
+          .read(vocabularyRepositoryProvider)
+          .setVocabularyBookmark(id: item.id, bookmarked: !item.isBookmarked);
+      widget.ref.invalidate(vocabularyProvider(widget.query));
+      widget.ref.invalidate(bookmarkSummaryProvider);
+      widget.ref.invalidate(bookmarkedVocabularyProvider);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(apiErrorMessage(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _savingBookmark = false);
+    }
+  }
+}
+
+class _SmallBadge extends StatelessWidget {
+  const _SmallBadge({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.mint.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: AppColors.mintDark,
+        ),
       ),
     );
   }
