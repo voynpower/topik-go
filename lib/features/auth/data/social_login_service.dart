@@ -8,9 +8,7 @@ class SocialLoginService {
 
   Future<String> getGoogleIdToken() async {
     final signIn = GoogleSignIn(
-      clientId: SocialLoginConfig.googleClientIdOrNull,
-      serverClientId: SocialLoginConfig.googleServerClientIdOrNull,
-      scopes: const ['email', 'profile'],
+      serverClientId: '203906474945-1j57o558eqd8en9dhu3mg58ivsq8f2e9.apps.googleusercontent.com',
     );
 
     await signIn.signOut();
