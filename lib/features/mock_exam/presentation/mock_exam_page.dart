@@ -1,12 +1,8 @@
 import 'dart:async';
-import 'dart:typed_data';
-import 'package:image/image.dart' as image;
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:pdfrx/pdfrx.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/core/network/api_error_message.dart';
 import 'package:topik_go/core/network/api_media_url.dart';
@@ -34,6 +30,22 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
   int _syncCounter = 0;
   DateTime? _examStartTime;
 
+  // Single shared audio player for all listening questions
+  AudioPlayer? _audioPlayer;
+  String? _playingQuestionId;
+  Duration _audioPosition = Duration.zero;
+  Duration _audioDuration = Duration.zero;
+  bool _isAudioPlaying = false;
+  StreamSubscription? _playerStateSub;
+  StreamSubscription? _positionSub;
+  StreamSubscription? _durationSub;
+  StreamSubscription? _currentIndexSub;
+  List<String> _playlistQuestionIds = [];
+
+  final Map<String, GlobalKey> _questionKeys = {};
+  final ScrollController _scrollController = ScrollController();
+  final Map<String, Timer> _answerDebounceTimers = {};
+
   Map<String, String> get _selectedAnswers {
     final answers = _detail?.answers ?? const <MockExamAnswer>[];
     return {
@@ -46,7 +58,183 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
   @override
   void dispose() {
     _timer?.cancel();
+    for (final debounce in _answerDebounceTimers.values) {
+      debounce.cancel();
+    }
+    _scrollController.dispose();
+    _stopAndDisposeAudio();
     super.dispose();
+  }
+
+  void _initAudioPlayer() {
+    if (_audioPlayer != null) return;
+    final player = AudioPlayer();
+    _audioPlayer = player;
+
+    _playerStateSub = player.playerStateStream.listen((state) {
+      if (!mounted) return;
+      final isPlaying =
+          state.playing && state.processingState != ProcessingState.completed;
+      setState(() {
+        _isAudioPlaying = isPlaying;
+      });
+      if (state.processingState == ProcessingState.completed) {
+        setState(() {
+          _isAudioPlaying = false;
+          _playingQuestionId = null;
+          _audioPosition = Duration.zero;
+          _audioDuration = Duration.zero;
+        });
+      }
+    });
+
+    _currentIndexSub = player.currentIndexStream.listen((index) {
+      if (!mounted || index == null) return;
+      if (index >= 0 && index < _playlistQuestionIds.length) {
+        final currentId = _playlistQuestionIds[index];
+        if (_playingQuestionId != currentId) {
+          setState(() {
+            _playingQuestionId = currentId;
+            _audioPosition = Duration.zero;
+            _audioDuration = Duration.zero;
+          });
+          _scrollToQuestion(currentId);
+        }
+      }
+    });
+
+    _positionSub = player.positionStream.listen((pos) {
+      if (mounted) setState(() => _audioPosition = pos);
+    });
+
+    _durationSub = player.durationStream.listen((dur) {
+      if (mounted) setState(() => _audioDuration = dur ?? Duration.zero);
+    });
+  }
+
+  Future<void> _setupAndStartListeningPlaylist(
+    List<Question> questions, {
+    int initialIndex = 0,
+  }) async {
+    _initAudioPlayer();
+    final player = _audioPlayer;
+    if (player == null) return;
+
+    final listeningQuestions = questions.where((q) {
+      if (q.section.toLowerCase() != 'listening') return false;
+      final audio = _firstMedia(q.media, 'audio');
+      return audio != null && audio.url.trim().isNotEmpty;
+    }).toList();
+
+    if (listeningQuestions.isEmpty) return;
+
+    _playlistQuestionIds = listeningQuestions.map((q) => q.id).toList();
+
+    final audioSources = listeningQuestions.map((q) {
+      final audio = _firstMedia(q.media, 'audio')!;
+      final resolvedUrl = resolveApiMediaUrl(audio.url.trim());
+      return AudioSource.uri(
+        Uri.parse(resolvedUrl),
+        tag: q.id,
+      );
+    }).toList();
+
+    try {
+      final safeIndex = initialIndex.clamp(0, audioSources.length - 1);
+      setState(() {
+        _playingQuestionId = _playlistQuestionIds[safeIndex];
+        _isAudioPlaying = true;
+        _audioPosition = Duration.zero;
+        _audioDuration = Duration.zero;
+      });
+
+      await player.setAudioSources(
+        audioSources,
+        initialIndex: safeIndex,
+        preload: true,
+      );
+      await player.play();
+    } catch (e) {
+      debugPrint('Continuous listening playlist playback error: $e');
+    }
+  }
+
+  Future<void> _toggleAudioForQuestion(String questionId, String url) async {
+    _initAudioPlayer();
+    final player = _audioPlayer;
+    if (player == null) return;
+
+    if (_playlistQuestionIds.isEmpty && _detail != null) {
+      await _setupAndStartListeningPlaylist(_detail!.questions, initialIndex: 0);
+    }
+
+    final targetIndex = _playlistQuestionIds.indexOf(questionId);
+
+    if (_playingQuestionId == questionId) {
+      if (_isAudioPlaying) {
+        await player.pause();
+      } else {
+        await player.play();
+      }
+    } else if (targetIndex != -1) {
+      try {
+        setState(() {
+          _playingQuestionId = questionId;
+          _isAudioPlaying = true;
+          _audioPosition = Duration.zero;
+          _audioDuration = Duration.zero;
+        });
+        await player.seek(Duration.zero, index: targetIndex);
+        await player.play();
+      } catch (e) {
+        debugPrint('Seek error for question $questionId: $e');
+      }
+    } else {
+      try {
+        setState(() {
+          _playingQuestionId = questionId;
+          _isAudioPlaying = true;
+          _audioPosition = Duration.zero;
+          _audioDuration = Duration.zero;
+        });
+        await player.stop();
+        await player.setUrl(resolveApiMediaUrl(url));
+        await player.play();
+      } catch (e) {
+        debugPrint('Fallback audio error for $questionId: $e');
+      }
+    }
+  }
+
+  void _stopAndDisposeAudio() {
+    _playerStateSub?.cancel();
+    _playerStateSub = null;
+    _currentIndexSub?.cancel();
+    _currentIndexSub = null;
+    _positionSub?.cancel();
+    _positionSub = null;
+    _durationSub?.cancel();
+    _durationSub = null;
+    _playlistQuestionIds = [];
+    _audioPlayer?.stop();
+    _audioPlayer?.dispose();
+    _audioPlayer = null;
+    _playingQuestionId = null;
+    _isAudioPlaying = false;
+    _audioPosition = Duration.zero;
+    _audioDuration = Duration.zero;
+  }
+
+  void _scrollToQuestion(String questionId) {
+    final key = _questionKeys[questionId];
+    if (key?.currentContext != null) {
+      Scrollable.ensureVisible(
+        key!.currentContext!,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+        alignment: 0.05,
+      );
+    }
   }
 
   void _startTimer() {
@@ -107,7 +295,9 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
         backgroundColor: const Color(0xFFF7F8F9),
         appBar: AppBar(
           title: Text(_detail!.session.title ?? 'TOPIK II 실전 모의고사'),
-          backgroundColor: Colors.transparent,
+          backgroundColor: Colors.white,
+          foregroundColor: AppColors.textPrimary,
+          elevation: 0.5,
           leading: IconButton(
             icon: const Icon(Icons.close),
             onPressed: () {
@@ -115,7 +305,9 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
                 context: context,
                 builder: (ctx) => AlertDialog(
                   title: const Text('시험 중단'),
-                  content: const Text('시험을 중단하고 나가시겠습니까?\n진행 상황은 저장되지 않습니다.'),
+                  content: const Text(
+                    '시험을 중단하고 나가시겠습니까?\n진행 상황은 저장되지 않습니다.',
+                  ),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.of(ctx).pop(),
@@ -133,27 +325,56 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
               );
             },
           ),
-        ),
-        body: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-          children: [
-            _ExamPanel(
-              detail: _detail!,
-              currentIndex: _currentIndex,
-              remainingSeconds: _remainingSeconds,
-              selectedAnswers: _selectedAnswers,
-              loading: _loading,
-              onAnswer: _saveAnswer,
-              onPrevious: _currentIndex > 0
-                  ? () => _moveToQuestion(_currentIndex - 1)
-                  : null,
-              onNext: _currentIndex < (_detail!.questions.length - 1)
-                  ? () => _moveToQuestion(_currentIndex + 1)
-                  : null,
-              onSubmit: () => _confirmSubmit(context),
-              onJumpTo: _moveToQuestion,
+          actions: [
+            Container(
+              margin: const EdgeInsets.only(right: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4AC4B2).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.timer_outlined,
+                    size: 16,
+                    color: Color(0xFF1D8F86),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _formatExamDuration(_remainingSeconds),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF1D8F86),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
+        ),
+        body: _ExamPanel(
+          detail: _detail!,
+          scrollController: _scrollController,
+          questionKeys: _questionKeys,
+          selectedAnswers: _selectedAnswers,
+          loading: _loading,
+          playingQuestionId: _playingQuestionId,
+          isAudioPlaying: _isAudioPlaying,
+          audioPosition: _audioPosition,
+          audioDuration: _audioDuration,
+          onToggleAudio: _toggleAudioForQuestion,
+          onAnswer: _saveAnswer,
+          onSubmit: () => _confirmSubmit(context),
+          onScrollToQuestion: _scrollToQuestion,
+        ),
+        bottomNavigationBar: _ExamBottomBar(
+          detail: _detail!,
+          selectedAnswers: _selectedAnswers,
+          remainingSeconds: _remainingSeconds,
+          onOpenQuestionGrid: () => _showQuestionGridSheet(context),
+          onSubmit: () => _confirmSubmit(context),
         ),
       );
     }
@@ -273,6 +494,7 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
 
   Future<void> _startExam(String round) async {
     await _run(() async {
+      _stopAndDisposeAudio();
       _examStartTime = DateTime.now();
       final repository = ref.read(mockExamRepositoryProvider);
       final detail = await repository.loadFullTopikExam(
@@ -288,27 +510,16 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
         _remainingSeconds = detail.session.remainingSeconds;
       });
       _startTimer();
+
+      // Auto-play the continuous listening playlist immediately on exam start
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _detail != null) {
+          _setupAndStartListeningPlaylist(detail.questions, initialIndex: 0);
+        }
+      });
     });
   }
 
-  Future<void> _moveToQuestion(int index) async {
-    final detail = _detail;
-    if (detail == null) return;
-
-    setState(() {
-      _currentIndex = index;
-    });
-
-    try {
-      await ref.read(mockExamRepositoryProvider).updateProgress(
-            sessionId: detail.session.id,
-            currentIndex: index,
-            remainingSeconds: _remainingSeconds,
-          );
-    } catch (e) {
-      debugPrint('updateProgress error: $e');
-    }
-  }
 
   Future<void> _saveAnswer(String questionId, String answer) async {
     final detail = _detail;
@@ -342,20 +553,26 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
       );
     });
 
-    try {
-      await ref.read(mockExamRepositoryProvider).saveAnswer(
-            sessionId: detail.session.id,
-            questionId: questionId,
-            selectedAnswer: answer,
-          );
-    } catch (e) {
-      debugPrint('saveAnswer sync error: $e');
-    }
+    _answerDebounceTimers[questionId]?.cancel();
+    _answerDebounceTimers[questionId] =
+        Timer(const Duration(milliseconds: 500), () async {
+      try {
+        await ref.read(mockExamRepositoryProvider).saveAnswer(
+              sessionId: detail.session.id,
+              questionId: questionId,
+              selectedAnswer: answer,
+            );
+      } catch (e) {
+        debugPrint('saveAnswer sync error: $e');
+      }
+    });
   }
 
   Future<void> _submit({bool isAutoSubmit = false}) async {
     final detail = _detail;
     if (detail == null) return;
+
+    _stopAndDisposeAudio();
 
     await _run(() async {
       _timer?.cancel();
@@ -368,25 +585,30 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
       } catch (e) {
         final questions = detail.questions;
         int correctCount = 0;
+        int objectiveTotal = 0;
         for (final q in questions) {
-          final sel = _selectedAnswers[q.id];
-          if (sel != null &&
-              sel.isNotEmpty &&
-              q.correctAnswer != null &&
-              sel == q.correctAnswer) {
-            correctCount++;
+          if (q.section.toLowerCase() != 'writing') {
+            objectiveTotal++;
+            final sel = _selectedAnswers[q.id];
+            if (sel != null &&
+                sel.isNotEmpty &&
+                q.correctAnswer != null &&
+                sel == q.correctAnswer) {
+              correctCount++;
+            }
           }
         }
         final total = questions.length;
         final answered = _selectedAnswers.length;
-        final percent = total > 0 ? (correctCount * 100 ~/ total) : 0;
+        final percent =
+            objectiveTotal > 0 ? (correctCount * 100 ~/ objectiveTotal) : 0;
         result = MockExamResult(
           session: detail.session,
           summary: MockExamSummary(
             totalQuestions: total,
             answeredCount: answered,
             correctCount: correctCount,
-            incorrectCount: answered - correctCount,
+            incorrectCount: (objectiveTotal - correctCount).clamp(0, total),
             scorePercent: percent,
           ),
           answers: [
@@ -442,12 +664,191 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
 
   void _reset() {
     _timer?.cancel();
+    _stopAndDisposeAudio();
     setState(() {
       _detail = null;
       _result = null;
       _currentIndex = 0;
       _remainingSeconds = 0;
     });
+  }
+
+  void _showQuestionGridSheet(BuildContext context) {
+    final detail = _detail;
+    if (detail == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.75,
+          maxChildSize: 0.92,
+          minChildSize: 0.4,
+          expand: false,
+          builder: (_, scrollController) {
+            final listeningQuestions = detail.questions
+                .where((q) => q.section.toLowerCase() == 'listening')
+                .toList();
+            final writingQuestions = detail.questions
+                .where((q) => q.section.toLowerCase() == 'writing')
+                .toList();
+            final readingQuestions = detail.questions
+                .where((q) => q.section.toLowerCase() == 'reading')
+                .toList();
+
+            return Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      const Text(
+                        '전체 문항 목록',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '완료: ${_selectedAnswers.length}/${detail.questions.length}',
+                        style: const TextStyle(
+                          color: Color(0xFF4AC4B2),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: ListView(
+                    controller: scrollController,
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      if (listeningQuestions.isNotEmpty) ...[
+                        _buildSectionGrid(
+                          title: '🎧 듣기 (1~50번)',
+                          questions: listeningQuestions,
+                          onTapQuestion: (q) {
+                            Navigator.of(ctx).pop();
+                            _scrollToQuestion(q.id);
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                      if (writingQuestions.isNotEmpty) ...[
+                        _buildSectionGrid(
+                          title: '✍️ 쓰기 (51~54번)',
+                          questions: writingQuestions,
+                          onTapQuestion: (q) {
+                            Navigator.of(ctx).pop();
+                            _scrollToQuestion(q.id);
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                      if (readingQuestions.isNotEmpty) ...[
+                        _buildSectionGrid(
+                          title: '📖 읽기 (1~50번)',
+                          questions: readingQuestions,
+                          onTapQuestion: (q) {
+                            Navigator.of(ctx).pop();
+                            _scrollToQuestion(q.id);
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildSectionGrid({
+    required String title,
+    required List<Question> questions,
+    required void Function(Question question) onTapQuestion,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF374151),
+          ),
+        ),
+        const SizedBox(height: 10),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 5,
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+            childAspectRatio: 1.25,
+          ),
+          itemCount: questions.length,
+          itemBuilder: (context, index) {
+            final q = questions[index];
+            final ans = _selectedAnswers[q.id];
+            final isAnswered = ans != null && ans.trim().isNotEmpty;
+
+            return InkWell(
+              onTap: () => onTapQuestion(q),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isAnswered
+                      ? const Color(0xFFE8F8F5)
+                      : const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isAnswered
+                        ? const Color(0xFF4AC4B2)
+                        : const Color(0xFFE5E7EB),
+                    width: isAnswered ? 1.5 : 1,
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '${q.questionNumber}',
+                  style: TextStyle(
+                    color: isAnswered
+                        ? const Color(0xFF1D8F86)
+                        : const Color(0xFF4B5563),
+                    fontWeight:
+                        isAnswered ? FontWeight.w800 : FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
   }
 
   Future<void> _run(Future<void> Function() action) async {
@@ -1138,31 +1539,498 @@ class _ExamHistoryCard extends StatelessWidget {
   }
 }
 
+QuestionMedia? _firstMedia(List<QuestionMedia> media, String type) {
+  for (final item in media) {
+    if (item.mediaType.toLowerCase().contains(type)) return item;
+  }
+  return null;
+}
+
+bool _isImageMedia(QuestionMedia media) {
+  final type = media.mediaType.toLowerCase();
+  final url = media.url.toLowerCase();
+  return type.contains('image') ||
+      url.endsWith('.png') ||
+      url.endsWith('.jpg') ||
+      url.endsWith('.jpeg') ||
+      url.endsWith('.webp');
+}
+
+class _SectionHeaderBanner extends StatelessWidget {
+  const _SectionHeaderBanner({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.badgeColor,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color badgeColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 8, bottom: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: badgeColor.withValues(alpha: 0.3),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: badgeColor.withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: badgeColor.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: badgeColor, size: 24),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: badgeColor,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WritingShortAnswerInput extends StatefulWidget {
+  const _WritingShortAnswerInput({
+    super.key,
+    required this.questionId,
+    this.initialAnswer,
+    required this.onAnswer,
+  });
+
+  final String questionId;
+  final String? initialAnswer;
+  final void Function(String questionId, String answer) onAnswer;
+
+  @override
+  State<_WritingShortAnswerInput> createState() =>
+      _WritingShortAnswerInputState();
+}
+
+class _WritingShortAnswerInputState extends State<_WritingShortAnswerInput> {
+  late TextEditingController _controllerA;
+  late TextEditingController _controllerB;
+
+  @override
+  void initState() {
+    super.initState();
+    String a = '';
+    String b = '';
+    if (widget.initialAnswer != null) {
+      final parts = widget.initialAnswer!.split('/');
+      for (final p in parts) {
+        final trimmed = p.trim();
+        if (trimmed.startsWith('㉠')) {
+          a = trimmed.replaceFirst('㉠', '').trim();
+        } else if (trimmed.startsWith('㉡')) {
+          b = trimmed.replaceFirst('㉡', '').trim();
+        } else if (a.isEmpty) {
+          a = trimmed;
+        } else {
+          b = trimmed;
+        }
+      }
+    }
+    _controllerA = TextEditingController(text: a);
+    _controllerB = TextEditingController(text: b);
+  }
+
+  @override
+  void didUpdateWidget(covariant _WritingShortAnswerInput oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialAnswer != widget.initialAnswer &&
+        widget.initialAnswer == null) {
+      _controllerA.clear();
+      _controllerB.clear();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controllerA.dispose();
+    _controllerB.dispose();
+    super.dispose();
+  }
+
+  void _notifyChange() {
+    final a = _controllerA.text.trim();
+    final b = _controllerB.text.trim();
+    if (a.isEmpty && b.isEmpty) {
+      widget.onAnswer(widget.questionId, '');
+    } else {
+      widget.onAnswer(widget.questionId, '㉠ $a / ㉡ $b');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '답안 작성',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 14,
+            color: Color(0xFF374151),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF9FAFB),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4AC4B2).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  '㉠',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1D8F86),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: _controllerA,
+                  onChanged: (_) => _notifyChange(),
+                  decoration: const InputDecoration(
+                    hintText: '㉠에 들어갈 알맞은 말을 쓰시오',
+                    border: InputBorder.none,
+                    isDense: true,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF9FAFB),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4AC4B2).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  '㉡',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1D8F86),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: _controllerB,
+                  onChanged: (_) => _notifyChange(),
+                  decoration: const InputDecoration(
+                    hintText: '㉡에 들어갈 알맞은 말을 쓰시오',
+                    border: InputBorder.none,
+                    isDense: true,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WritingEssayInput extends StatefulWidget {
+  const _WritingEssayInput({
+    super.key,
+    required this.questionId,
+    required this.targetMin,
+    required this.targetMax,
+    required this.hintText,
+    this.initialAnswer,
+    required this.onAnswer,
+  });
+
+  final String questionId;
+  final int targetMin;
+  final int targetMax;
+  final String hintText;
+  final String? initialAnswer;
+  final void Function(String questionId, String answer) onAnswer;
+
+  @override
+  State<_WritingEssayInput> createState() => _WritingEssayInputState();
+}
+
+class _WritingEssayInputState extends State<_WritingEssayInput> {
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialAnswer ?? '');
+  }
+
+  @override
+  void didUpdateWidget(covariant _WritingEssayInput oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialAnswer != widget.initialAnswer &&
+        widget.initialAnswer == null) {
+      _controller.clear();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final count = _controller.text.length;
+    Color countColor = const Color(0xFF6B7280);
+    if (count > 0 && count < widget.targetMin) {
+      countColor = Colors.orange;
+    } else if (count >= widget.targetMin && count <= widget.targetMax) {
+      countColor = const Color(0xFF198754);
+    } else if (count > widget.targetMax) {
+      countColor = Colors.red;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              '원고지 서술 작성',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+                color: Color(0xFF374151),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: countColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                '$count / ${widget.targetMax}자 (기준: ${widget.targetMin}~${widget.targetMax}자)',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: countColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: _controller,
+          onChanged: (text) {
+            setState(() {});
+            widget.onAnswer(widget.questionId, text);
+          },
+          maxLines: widget.targetMax > 400 ? 12 : 7,
+          minLines: widget.targetMax > 400 ? 8 : 5,
+          decoration: InputDecoration(
+            hintText: widget.hintText,
+            hintStyle:
+                const TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
+            filled: true,
+            fillColor: const Color(0xFFF9FAFB),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide:
+                  const BorderSide(color: Color(0xFF4AC4B2), width: 1.5),
+            ),
+            contentPadding: const EdgeInsets.all(14),
+          ),
+          style: const TextStyle(height: 1.5, fontSize: 14),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExamBottomBar extends StatelessWidget {
+  const _ExamBottomBar({
+    required this.detail,
+    required this.selectedAnswers,
+    required this.remainingSeconds,
+    required this.onOpenQuestionGrid,
+    required this.onSubmit,
+  });
+
+  final MockExamDetail detail;
+  final Map<String, String> selectedAnswers;
+  final int remainingSeconds;
+  final VoidCallback onOpenQuestionGrid;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = detail.questions.length;
+    final answered = selectedAnswers.length;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, -3),
+          ),
+        ],
+      ),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        10,
+        16,
+        10 + MediaQuery.of(context).padding.bottom,
+      ),
+      child: Row(
+        children: [
+          OutlinedButton.icon(
+            onPressed: onOpenQuestionGrid,
+            icon: const Icon(Icons.grid_view_rounded, size: 18),
+            label: Text('$answered / $total 문항'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.textPrimary,
+              side: const BorderSide(color: Color(0xFFD1D5DB)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: FilledButton.icon(
+              onPressed: onSubmit,
+              icon: const Icon(Icons.check_circle_outline, size: 20),
+              label: const Text(
+                '시험 제출하기',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF4AC4B2),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ExamPanel extends StatelessWidget {
   const _ExamPanel({
     super.key,
     required this.detail,
-    required this.currentIndex,
-    required this.remainingSeconds,
+    required this.scrollController,
+    required this.questionKeys,
     required this.selectedAnswers,
     required this.loading,
+    required this.playingQuestionId,
+    required this.isAudioPlaying,
+    required this.audioPosition,
+    required this.audioDuration,
+    required this.onToggleAudio,
     required this.onAnswer,
-    required this.onPrevious,
-    required this.onNext,
     required this.onSubmit,
-    this.onJumpTo,
+    required this.onScrollToQuestion,
   });
 
   final MockExamDetail detail;
-  final int currentIndex;
-  final int remainingSeconds;
+  final ScrollController scrollController;
+  final Map<String, GlobalKey> questionKeys;
   final Map<String, String> selectedAnswers;
   final bool loading;
+  final String? playingQuestionId;
+  final bool isAudioPlaying;
+  final Duration audioPosition;
+  final Duration audioDuration;
+  final void Function(String questionId, String audioUrl) onToggleAudio;
   final void Function(String questionId, String answer) onAnswer;
-  final VoidCallback? onPrevious;
-  final VoidCallback? onNext;
   final VoidCallback onSubmit;
-  final void Function(int index)? onJumpTo;
+  final void Function(String questionId) onScrollToQuestion;
 
   @override
   Widget build(BuildContext context) {
@@ -1171,295 +2039,338 @@ class _ExamPanel extends StatelessWidget {
       return const _InfoCard(title: '문제가 없습니다', message: '이 세트에 문제가 없습니다.');
     }
 
-    final question = questions[currentIndex.clamp(0, questions.length - 1)];
-    final selectedAnswer = selectedAnswers[question.id];
-    final audio = _firstMedia(question.media, 'audio');
-    final images = question.media.where(_isImageMedia).toList();
-    final documents = question.media.where((media) {
-      final type = media.mediaType.toLowerCase();
-      final url = media.url.toLowerCase();
-      return type.contains('document') ||
-          type.contains('pdf') ||
-          url.endsWith('.pdf');
-    }).toList();
+    final listening = questions
+        .where((q) => q.section.toLowerCase() == 'listening')
+        .toList();
+    final writing = questions
+        .where((q) => q.section.toLowerCase() == 'writing')
+        .toList();
+    final reading = questions
+        .where((q) => q.section.toLowerCase() == 'reading')
+        .toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return ListView(
+      controller: scrollController,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
       children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${currentIndex + 1} / ${questions.length}',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                  ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF4AC4B2).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.timer_outlined,
-                        size: 16,
-                        color: Color(0xFF1D8F86),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        _formatExamDuration(remainingSeconds),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF1D8F86),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  tooltip: '문항 목록',
-                  icon: const Icon(Icons.grid_view_rounded),
-                  color: AppColors.textSecondary,
-                  onPressed: () => _showQuestionGridSheet(context),
-                ),
-              ],
-            ),
+        if (listening.isNotEmpty) ...[
+          const _SectionHeaderBanner(
+            title: '제1교시 · 듣기 영역 (1~50번)',
+            subtitle: '문제를 잘 듣고 질문에 맞는 답을 고르십시오. (각 2점)',
+            icon: Icons.headphones_rounded,
+            badgeColor: Color(0xFF2E6BD9),
           ),
-        ),
-        const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (audio != null) ...[
-                  _MockAudioCard(media: audio),
-                  const SizedBox(height: 14),
-                ],
-                if (images.isNotEmpty) ...[
-                  for (final image in images) _QuestionImage(media: image),
-                  const SizedBox(height: 14),
-                ],
-                if (documents.isNotEmpty &&
-                    _isVisualChoiceQuestion(question)) ...[
-                  _DocumentPreview(
-                    media: documents.first,
-                    questionNumber: question.questionNumber,
-                  ),
-                  const SizedBox(height: 14),
-                ],
-                _QuestionNumberLabel(question: question),
-                const SizedBox(height: 12),
-                if (question.passageText?.isNotEmpty ?? false) ...[
-                  _PassageBox(text: question.passageText!),
-                  const SizedBox(height: 14),
-                ],
-                if (question.prompt.trim().isNotEmpty) ...[
-                  Text(
-                    question.prompt,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          height: 1.45,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                for (final option in question.options)
-                  _OptionTile(
-                    option: option,
-                    selected: selectedAnswer == option.label,
-                    enabled: !loading && option.label.isNotEmpty,
-                    onTap: () => onAnswer(question.id, option.label),
-                  ),
-                const SizedBox(height: 8),
-                _QuestionExplanationVideoButton(question: question),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: loading ? null : onPrevious,
-                child: const Text('이전'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: OutlinedButton(
-                onPressed: loading ? null : onNext,
-                child: const Text('다음'),
-              ),
-            ),
+          for (final q in listening) ...[
+            _buildListeningQuestionCard(context, q),
+            const SizedBox(height: 14),
           ],
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: FilledButton.icon(
-            onPressed: loading ? null : onSubmit,
-            icon: const Icon(Icons.check),
-            label: const Text('제출하기'),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF4AC4B2),
-            ),
+        ],
+        if (writing.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          const _SectionHeaderBanner(
+            title: '제1교시 · 쓰기 영역 (51~54번)',
+            subtitle: '문제를 읽고 질문에 맞는 글을 작성하십시오. (총 100점)',
+            icon: Icons.edit_note_rounded,
+            badgeColor: Color(0xFF6366F1),
           ),
-        ),
+          for (final q in writing) ...[
+            _buildWritingQuestionCard(context, q),
+            const SizedBox(height: 14),
+          ],
+        ],
+        if (reading.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          const _SectionHeaderBanner(
+            title: '제2교시 · 읽기 영역 (1~50번)',
+            subtitle: '다음 글을 읽고 알맞은 것을 고르십시오. (각 2점)',
+            icon: Icons.menu_book_rounded,
+            badgeColor: Color(0xFF0D9488),
+          ),
+          for (final q in reading) ...[
+            _buildReadingQuestionCard(context, q),
+            const SizedBox(height: 14),
+          ],
+        ],
+        const SizedBox(height: 24),
+        _buildCompletionSummaryCard(context),
+        const SizedBox(height: 60),
       ],
     );
   }
 
-  void _showQuestionGridSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.65,
-          maxChildSize: 0.9,
-          minChildSize: 0.4,
-          expand: false,
-          builder: (_, scrollController) {
-            return Column(
-              children: [
-                const SizedBox(height: 12),
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      const Text(
-                        '전체 문항 목록',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        '답변 완료: ${selectedAnswers.length}/${detail.questions.length}',
-                        style: const TextStyle(
-                          color: Color(0xFF4AC4B2),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1),
-                Expanded(
-                  child: GridView.builder(
-                    controller: scrollController,
-                    padding: const EdgeInsets.all(16),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 5,
-                      mainAxisSpacing: 10,
-                      crossAxisSpacing: 10,
-                      childAspectRatio: 1.2,
-                    ),
-                    itemCount: detail.questions.length,
-                    itemBuilder: (context, index) {
-                      final q = detail.questions[index];
-                      final isAnswered = selectedAnswers.containsKey(q.id);
-                      final isCurrent = index == currentIndex;
+  Widget _buildListeningQuestionCard(BuildContext context, Question question) {
+    final key = questionKeys.putIfAbsent(question.id, () => GlobalKey());
+    final audio = _firstMedia(question.media, 'audio');
+    final images = question.media.where(_isImageMedia).toList();
+    final selectedAnswer = selectedAnswers[question.id];
 
-                      return InkWell(
-                        onTap: () {
-                          Navigator.of(ctx).pop();
-                          onJumpTo?.call(index);
-                        },
-                        borderRadius: BorderRadius.circular(10),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: isCurrent
-                                ? const Color(0xFF4AC4B2)
-                                : (isAnswered
-                                    ? const Color(0xFFE8F8F5)
-                                    : const Color(0xFFF3F4F6)),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: isCurrent
-                                  ? const Color(0xFF4AC4B2)
-                                  : (isAnswered
-                                      ? const Color(0xFF4AC4B2)
-                                          .withValues(alpha: 0.4)
-                                      : const Color(0xFFE5E7EB)),
-                            ),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            '${index + 1}',
-                            style: TextStyle(
-                              color: isCurrent
-                                  ? Colors.white
-                                  : (isAnswered
-                                      ? const Color(0xFF1D8F86)
-                                      : const Color(0xFF4B5563)),
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
+    return Card(
+      key: key,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: selectedAnswer != null
+              ? const Color(0xFF4AC4B2).withValues(alpha: 0.4)
+              : const Color(0xFFE5E7EB),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _QuestionNumberLabel(question: question),
+            const SizedBox(height: 12),
+            if (audio != null && audio.url.isNotEmpty) ...[
+              _MockSharedAudioBar(
+                questionId: question.id,
+                audioUrl: audio.url,
+                questionNumber: question.questionNumber,
+                isPlaying:
+                    isAudioPlaying && playingQuestionId == question.id,
+                position: playingQuestionId == question.id
+                    ? audioPosition
+                    : Duration.zero,
+                duration: playingQuestionId == question.id
+                    ? audioDuration
+                    : Duration.zero,
+                onToggle: onToggleAudio,
+              ),
+              const SizedBox(height: 14),
+            ],
+            if (question.prompt.trim().isNotEmpty) ...[
+              Text(
+                question.prompt,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      height: 1.45,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 14),
+            ],
+            if (images.isNotEmpty) ...[
+              for (final image in images) ...[
+                _QuestionImage(media: image),
+                const SizedBox(height: 14),
               ],
-            );
-          },
-        );
-      },
+            ],
+            for (final option in question.options)
+              _OptionTile(
+                option: option,
+                selected: selectedAnswer == option.label,
+                enabled: !loading && option.label.isNotEmpty,
+                onTap: () => onAnswer(question.id, option.label),
+              ),
+            const SizedBox(height: 4),
+            _QuestionExplanationVideoButton(question: question),
+          ],
+        ),
+      ),
     );
   }
 
-  QuestionMedia? _firstMedia(List<QuestionMedia> media, String type) {
-    for (final item in media) {
-      if (item.mediaType.toLowerCase().contains(type)) return item;
-    }
-    return null;
+  Widget _buildWritingQuestionCard(BuildContext context, Question question) {
+    final key = questionKeys.putIfAbsent(question.id, () => GlobalKey());
+    final images = question.media.where(_isImageMedia).toList();
+    final currentAnswer = selectedAnswers[question.id];
+    final isAnswered =
+        currentAnswer != null && currentAnswer.trim().isNotEmpty;
+
+    return Card(
+      key: key,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: isAnswered
+              ? const Color(0xFF6366F1).withValues(alpha: 0.4)
+              : const Color(0xFFE5E7EB),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _QuestionNumberLabel(question: question),
+            const SizedBox(height: 12),
+            if (question.prompt.trim().isNotEmpty) ...[
+              Text(
+                question.prompt,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      height: 1.45,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 14),
+            ],
+            if (images.isNotEmpty) ...[
+              for (final image in images) ...[
+                _QuestionImage(media: image),
+                const SizedBox(height: 14),
+              ],
+            ],
+            if (question.passageText?.trim().isNotEmpty ?? false) ...[
+              _PassageBox(text: question.passageText!.trim()),
+              const SizedBox(height: 16),
+            ],
+            if (question.questionNumber <= 52)
+              _WritingShortAnswerInput(
+                questionId: question.id,
+                initialAnswer: currentAnswer,
+                onAnswer: onAnswer,
+              )
+            else if (question.questionNumber == 53)
+              _WritingEssayInput(
+                questionId: question.id,
+                targetMin: 200,
+                targetMax: 300,
+                hintText: '200~300자로 작성하십시오. (단, 글의 제목은 쓰지 마시오)',
+                initialAnswer: currentAnswer,
+                onAnswer: onAnswer,
+              )
+            else
+              _WritingEssayInput(
+                questionId: question.id,
+                targetMin: 600,
+                targetMax: 700,
+                hintText: '600~700자로 글을 쓰십시오.',
+                initialAnswer: currentAnswer,
+                onAnswer: onAnswer,
+              ),
+            const SizedBox(height: 4),
+            _QuestionExplanationVideoButton(question: question),
+          ],
+        ),
+      ),
+    );
   }
 
-  bool _isImageMedia(QuestionMedia media) {
-    final type = media.mediaType.toLowerCase();
-    final url = media.url.toLowerCase();
-    return type.contains('image') ||
-        url.endsWith('.png') ||
-        url.endsWith('.jpg') ||
-        url.endsWith('.jpeg') ||
-        url.endsWith('.webp');
+  Widget _buildReadingQuestionCard(BuildContext context, Question question) {
+    final key = questionKeys.putIfAbsent(question.id, () => GlobalKey());
+    final images = question.media.where(_isImageMedia).toList();
+    final selectedAnswer = selectedAnswers[question.id];
+
+    return Card(
+      key: key,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: selectedAnswer != null
+              ? const Color(0xFF0D9488).withValues(alpha: 0.4)
+              : const Color(0xFFE5E7EB),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _QuestionNumberLabel(question: question),
+            const SizedBox(height: 12),
+            if (question.prompt.trim().isNotEmpty) ...[
+              Text(
+                question.prompt,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      height: 1.45,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 14),
+            ],
+            if (images.isNotEmpty) ...[
+              for (final image in images) ...[
+                _QuestionImage(media: image),
+                const SizedBox(height: 14),
+              ],
+            ],
+            if (question.passageText?.trim().isNotEmpty ?? false) ...[
+              _PassageBox(text: question.passageText!.trim()),
+              const SizedBox(height: 14),
+            ],
+            for (final option in question.options)
+              _OptionTile(
+                option: option,
+                selected: selectedAnswer == option.label,
+                enabled: !loading && option.label.isNotEmpty,
+                onTap: () => onAnswer(question.id, option.label),
+              ),
+            const SizedBox(height: 4),
+            _QuestionExplanationVideoButton(question: question),
+          ],
+        ),
+      ),
+    );
   }
 
-  bool _isVisualChoiceQuestion(Question question) {
-    final content = '${question.passageText ?? ''}\n${question.prompt}';
-    return content.contains('그림 또는 그래프') ||
-        content.contains('그림') ||
-        content.contains('그래프');
+  Widget _buildCompletionSummaryCard(BuildContext context) {
+    final total = detail.questions.length;
+    final answered = selectedAnswers.length;
+    final remaining = total - answered;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.assignment_turned_in_rounded,
+            size: 40,
+            color: Color(0xFF4AC4B2),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            '시험을 모두 확인하셨습니까?',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            remaining > 0
+                ? '총 $total문항 중 $answered문항 완료 ($remaining문항 미응답)'
+                : '총 $total문항 모두 완료되었습니다!',
+            style: TextStyle(
+              fontSize: 14,
+              color: remaining > 0
+                  ? Colors.orange[800]
+                  : const Color(0xFF198754),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: FilledButton.icon(
+              onPressed: loading ? null : onSubmit,
+              icon: const Icon(Icons.check),
+              label: const Text('시험 제출하기'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF4AC4B2),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -1646,76 +2557,57 @@ class _OptionTile extends StatelessWidget {
   }
 }
 
-class _MockAudioCard extends StatefulWidget {
-  const _MockAudioCard({super.key, required this.media});
+class _MockSharedAudioBar extends StatelessWidget {
+  const _MockSharedAudioBar({
+    required this.questionId,
+    required this.audioUrl,
+    required this.questionNumber,
+    required this.isPlaying,
+    required this.position,
+    required this.duration,
+    required this.onToggle,
+  });
 
-  final QuestionMedia media;
-
-  @override
-  State<_MockAudioCard> createState() => _MockAudioCardState();
-}
-
-class _MockAudioCardState extends State<_MockAudioCard> {
-  late final AudioPlayer _player;
-  bool _playing = false;
-  Duration _duration = Duration.zero;
-  Duration _position = Duration.zero;
-
-  @override
-  void initState() {
-    super.initState();
-    _player = AudioPlayer();
-    final url = resolveApiMediaUrl(widget.media.url);
-    if (url.isNotEmpty) {
-      _player.setUrl(url).catchError((error) {
-        debugPrint('Mock exam audio load failed: $error');
-        return null;
-      });
-    }
-    _player.playerStateStream.listen((state) {
-      if (mounted) setState(() => _playing = state.playing);
-    });
-    _player.durationStream.listen((duration) {
-      if (mounted) setState(() => _duration = duration ?? Duration.zero);
-    });
-    _player.positionStream.listen((position) {
-      if (mounted) setState(() => _position = position);
-    });
-  }
-
-  @override
-  void didUpdateWidget(covariant _MockAudioCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.media.url != widget.media.url) {
-      _player.setUrl(resolveApiMediaUrl(widget.media.url)).catchError((error) {
-        debugPrint('Mock exam audio reload failed: $error');
-        return null;
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _player.dispose();
-    super.dispose();
-  }
+  final String questionId;
+  final String audioUrl;
+  final int questionNumber;
+  final bool isPlaying;
+  final Duration position;
+  final Duration duration;
+  final void Function(String questionId, String audioUrl) onToggle;
 
   @override
   Widget build(BuildContext context) {
+    final hasDuration = duration.inMilliseconds > 0;
+    final progress = hasDuration
+        ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
+        : 0.0;
+
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFEAF1FF),
+        color: isPlaying ? const Color(0xFFE8F2FF) : const Color(0xFFF3F4F6),
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isPlaying
+              ? const Color(0xFF2E6BD9).withValues(alpha: 0.3)
+              : const Color(0xFFE5E7EB),
+        ),
       ),
       child: Row(
         children: [
           IconButton.filled(
-            onPressed: _toggle,
-            icon: Icon(_playing ? Icons.pause : Icons.play_arrow),
+            onPressed: () => onToggle(questionId, audioUrl),
+            icon: Icon(
+              isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+              size: 24,
+            ),
             style: IconButton.styleFrom(
-              backgroundColor: const Color(0xFF2E6BD9),
+              backgroundColor: isPlaying
+                  ? const Color(0xFF2E6BD9)
+                  : const Color(0xFF6B7280),
               foregroundColor: Colors.white,
+              padding: const EdgeInsets.all(8),
             ),
           ),
           const SizedBox(width: 12),
@@ -1723,24 +2615,42 @@ class _MockAudioCardState extends State<_MockAudioCard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  '듣기 오디오',
-                  style: TextStyle(fontWeight: FontWeight.w700),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '문제 $questionNumber번 듣기 음원',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        color: isPlaying
+                            ? const Color(0xFF1E40AF)
+                            : const Color(0xFF374151),
+                      ),
+                    ),
+                    if (isPlaying && hasDuration)
+                      Text(
+                        '${_formatDuration(position)} / ${_formatDuration(duration)}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF2E6BD9),
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 6),
-                LinearProgressIndicator(
-                  value: _duration.inMilliseconds > 0
-                      ? _position.inMilliseconds / _duration.inMilliseconds
-                      : 0,
-                  backgroundColor: Colors.white,
-                  valueColor: const AlwaysStoppedAnimation(Color(0xFF2E6BD9)),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${_formatDuration(_position)} / ${_formatDuration(_duration)}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: isPlaying ? progress : 0.0,
+                    minHeight: 5,
+                    backgroundColor: Colors.white,
+                    valueColor: AlwaysStoppedAnimation(
+                      isPlaying
+                          ? const Color(0xFF2E6BD9)
+                          : const Color(0xFFD1D5DB),
+                    ),
                   ),
                 ),
               ],
@@ -1750,169 +2660,12 @@ class _MockAudioCardState extends State<_MockAudioCard> {
       ),
     );
   }
-
-  void _toggle() {
-    if (_playing) {
-      _player.pause();
-    } else {
-      _player.play();
-    }
-  }
 }
 
 String _formatDuration(Duration duration) {
   final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
   final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
   return '$minutes:$seconds';
-}
-
-class _DocumentPreview extends StatefulWidget {
-  const _DocumentPreview({super.key, required this.media, required this.questionNumber});
-
-  final QuestionMedia media;
-  final int questionNumber;
-
-  @override
-  State<_DocumentPreview> createState() => _DocumentPreviewState();
-}
-
-class _DocumentPreviewState extends State<_DocumentPreview> {
-  late Future<Uint8List> _imageFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _imageFuture = _loadCroppedImage();
-  }
-
-  @override
-  void didUpdateWidget(covariant _DocumentPreview oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.media.url != widget.media.url ||
-        oldWidget.questionNumber != widget.questionNumber) {
-      _imageFuture = _loadCroppedImage();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<Uint8List>(
-      future: _imageFuture,
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return const _InfoCard(
-            title: '자료를 불러오지 못했습니다',
-            message: '문제에 연결된 그림 자료를 표시할 수 없습니다.',
-          );
-        }
-        if (!snapshot.hasData) {
-          return const SizedBox(
-            height: 260,
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: Image.memory(
-            snapshot.data!,
-            width: double.infinity,
-            height: 260,
-            fit: BoxFit.contain,
-          ),
-        );
-      },
-    );
-  }
-
-  Future<Uint8List> _loadCroppedImage() async {
-    final response = await Dio().get<List<int>>(
-      resolveApiMediaUrl(widget.media.url),
-      options: Options(responseType: ResponseType.bytes),
-    );
-    final bytes = Uint8List.fromList(response.data ?? const <int>[]);
-    final document = await PdfDocument.openData(
-      bytes,
-      sourceName: 'mock-exam-${widget.questionNumber}-${widget.media.id}',
-    );
-
-    try {
-      final pageCount = document.pages.length;
-      final crop = _listeningCrop(widget.questionNumber, pageCount);
-      final page = document
-          .pages[_listeningPdfPage(widget.questionNumber, pageCount) - 1];
-      final rendered = await page.render(
-        x: crop.$1,
-        y: crop.$2,
-        width: crop.$3,
-        height: crop.$4,
-        fullWidth: 1190,
-        fullHeight: 1684,
-      );
-      if (rendered == null) throw StateError('PDF crop rendering failed');
-
-      try {
-        final raster = image.Image.fromBytes(
-          width: rendered.width,
-          height: rendered.height,
-          bytes: rendered.pixels.buffer,
-          numChannels: 4,
-          order: image.ChannelOrder.bgra,
-        );
-        return Uint8List.fromList(image.encodePng(raster));
-      } finally {
-        rendered.dispose();
-      }
-    } finally {
-      await document.dispose();
-    }
-  }
-
-  int _listeningPdfPage(int questionNumber, int pageCount) {
-    // 102회 PDF(3페이지: 듣기 통합)는 1번=1p, 2번=2p, 3번=3p.
-    if (pageCount <= 3 && questionNumber >= 1 && questionNumber <= 3) {
-      return questionNumber;
-    }
-    // 83회 PDF(듣기+쓰기 통합)는 1~2번이 5페이지, 3번이 6페이지에 있음.
-    if (pageCount >= 6 && questionNumber >= 1 && questionNumber <= 3) {
-      return questionNumber <= 2 ? 5 : 6;
-    }
-    if (questionNumber <= 3) return questionNumber;
-    if (questionNumber <= 6) return 4;
-    return ((questionNumber - 7) ~/ 2) + 5;
-  }
-
-  (int, int, int, int) _listeningCrop(int questionNumber, int pageCount) {
-    if (pageCount <= 3) {
-      switch (questionNumber) {
-        case 1:
-          return (150, 505, 880, 495);
-        case 2:
-          return (150, 355, 880, 495);
-        case 3:
-          return (150, 450, 880, 635);
-      }
-    }
-    if (pageCount >= 6) {
-      switch (questionNumber) {
-        case 1:
-          return (185, 315, 850, 490);
-        case 2:
-          return (185, 890, 850, 495);
-        case 3:
-          return (180, 240, 855, 620);
-      }
-    }
-    switch (questionNumber) {
-      case 1:
-        return (230, 500, 760, 520);
-      case 2:
-        return (230, 300, 760, 620);
-      case 3:
-        return (230, 400, 760, 700);
-      default:
-        return (180, 240, 830, 760);
-    }
-  }
 }
 
 class _QuestionImage extends StatelessWidget {
@@ -1922,17 +2675,36 @@ class _QuestionImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: Image.network(
         resolveApiMediaUrl(media.url),
         width: double.infinity,
-        height: 220,
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) => const _InfoCard(
           title: '이미지 로드 실패',
           message: '문항 이미지를 불러올 수 없습니다.',
         ),
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            height: 180,
+            alignment: Alignment.center,
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                  : null,
+              color: const Color(0xFF4AC4B2),
+            ),
+          );
+        },
       ),
     );
   }
@@ -2264,6 +3036,9 @@ class _ReviewItem {
 
   bool get isCorrect {
     if (!isAnswered) return false;
+    if (question?.section.toLowerCase() == 'writing') {
+      return isAnswered;
+    }
     if (answer?.isCorrect != null) return answer!.isCorrect == 1;
     final selected = answer?.selectedAnswer?.trim();
     final correct = question?.correctAnswer?.trim();
@@ -2283,25 +3058,32 @@ class _ReviewQuestionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final question = item.question;
+    final isWriting = question?.section.toLowerCase() == 'writing';
     final selectedAnswer = item.answer?.selectedAnswer?.trim();
     final correctAnswer = question?.correctAnswer?.trim();
     final selectedOption = _optionText(question, selectedAnswer);
     final correctOption = _optionText(question, correctAnswer);
-    final statusColor = item.isCorrect
-        ? const Color(0xFF198754)
-        : item.isAnswered
-            ? const Color(0xFFE14D4D)
-            : AppColors.textSecondary;
-    final statusIcon = item.isCorrect
-        ? Icons.check_circle_outline
-        : item.isAnswered
-            ? Icons.cancel_outlined
-            : Icons.radio_button_unchecked;
-    final statusLabel = item.isCorrect
-        ? '정답'
-        : item.isAnswered
-            ? '오답'
-            : '미응답';
+    final statusColor = isWriting
+        ? const Color(0xFF6366F1)
+        : (item.isCorrect
+            ? const Color(0xFF198754)
+            : item.isAnswered
+                ? const Color(0xFFE14D4D)
+                : AppColors.textSecondary);
+    final statusIcon = isWriting
+        ? Icons.edit_note_rounded
+        : (item.isCorrect
+            ? Icons.check_circle_outline
+            : item.isAnswered
+                ? Icons.cancel_outlined
+                : Icons.radio_button_unchecked);
+    final statusLabel = isWriting
+        ? (item.isAnswered ? '서술형 작성' : '서술형 미응답')
+        : (item.isCorrect
+            ? '정답'
+            : item.isAnswered
+                ? '오답'
+                : '미응답');
     final sec = question?.section.toLowerCase() ?? '';
     final secLabel = sec == 'listening'
         ? '듣기'
@@ -2352,10 +3134,6 @@ class _ReviewQuestionCard extends StatelessWidget {
                 ),
               ],
             ),
-            if (question?.passageText?.trim().isNotEmpty ?? false) ...[
-              const SizedBox(height: 12),
-              _PassageBox(text: question!.passageText!),
-            ],
             if (question?.prompt.trim().isNotEmpty ?? false) ...[
               const SizedBox(height: 12),
               Text(
@@ -2365,6 +3143,23 @@ class _ReviewQuestionCard extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
+            ],
+            for (final img in (question?.media ?? const <QuestionMedia>[]).where((m) {
+              final type = m.mediaType.toLowerCase();
+              final url = m.url.toLowerCase();
+              return type.contains('image') ||
+                  url.endsWith('.png') ||
+                  url.endsWith('.jpg') ||
+                  url.endsWith('.jpeg') ||
+                  url.endsWith('.webp');
+            })) ...[
+              const SizedBox(height: 10),
+              _QuestionImage(media: img),
+            ],
+            if (question?.section.toLowerCase() != 'listening' &&
+                (question?.passageText?.trim().isNotEmpty ?? false)) ...[
+              const SizedBox(height: 12),
+              _PassageBox(text: question!.passageText!.trim()),
             ],
             const SizedBox(height: 14),
             _AnswerLine(
@@ -2376,9 +3171,13 @@ class _ReviewQuestionCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             _AnswerLine(
-              label: '정답',
-              value: correctOption ?? correctAnswer ?? '정답 정보 없음',
-              color: const Color(0xFF198754),
+              label: isWriting ? '모범답안' : '정답',
+              value: correctOption ??
+                  correctAnswer ??
+                  (isWriting ? '모범답안 정보' : '정답 정보 없음'),
+              color: isWriting
+                  ? const Color(0xFF6366F1)
+                  : const Color(0xFF198754),
             ),
             if (question?.explanation?.trim().isNotEmpty ?? false) ...[
               const SizedBox(height: 12),

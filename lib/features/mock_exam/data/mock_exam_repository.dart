@@ -404,21 +404,19 @@ class MockExamRepository {
       (s) => s != null && s.section.toLowerCase() == 'listening' && isMatch(s),
       orElse: () => null,
     );
-    final listeningSetId = listeningSet?.id ??
-        (round == '83' ? 'topik-83-listening' : 'topik2-102-listening');
+    final listeningSetId = listeningSet?.id ?? 'topik2-$round-listening';
 
     final writingSet = sets.cast<QuestionSet?>().firstWhere(
       (s) => s != null && s.section.toLowerCase() == 'writing' && isMatch(s),
       orElse: () => null,
     );
-    final writingSetId = writingSet?.id;
+    final writingSetId = writingSet?.id ?? 'topik2-$round-writing';
 
     final readingSet = sets.cast<QuestionSet?>().firstWhere(
       (s) => s != null && s.section.toLowerCase() == 'reading' && isMatch(s),
       orElse: () => null,
     );
-    final readingSetId = readingSet?.id ??
-        (round == '83' ? 'topik-83-reading' : 'topik2-102-reading');
+    final readingSetId = readingSet?.id ?? 'topik2-$round-reading';
 
     final responses = await Future.wait([
       questionRepo
@@ -435,30 +433,20 @@ class MockExamRepository {
               limit: 50,
             ),
           ),
-      if (writingSetId != null)
-        questionRepo
-            .getAllQuestionsForPracticeSet(
-              section: 'writing',
-              setId: writingSetId,
-              maxItems: 4,
-            )
-            .catchError(
-              (_) => const QuestionPage(
-                items: [],
-                total: 0,
-                page: 1,
-                limit: 4,
-              ),
-            )
-      else
-        Future.value(
-          const QuestionPage(
-            items: [],
-            total: 0,
-            page: 1,
-            limit: 4,
+      questionRepo
+          .getAllQuestionsForPracticeSet(
+            section: 'writing',
+            setId: writingSetId,
+            maxItems: 4,
+          )
+          .catchError(
+            (_) => const QuestionPage(
+              items: [],
+              total: 0,
+              page: 1,
+              limit: 4,
+            ),
           ),
-        ),
       questionRepo
           .getAllQuestionsForPracticeSet(
             section: 'reading',
