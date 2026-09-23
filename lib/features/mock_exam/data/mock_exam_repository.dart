@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:topik_go/core/network/dio_provider.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart';
+import 'package:topik_go/features/question_sets/data/question_set_repository.dart';
+import 'package:topik_go/features/questions/data/question_repository.dart';
 
 class MockExamCatalog {
   const MockExamCatalog({
@@ -381,6 +383,137 @@ class MockExamRepository {
   Future<MockExamResult> getResult(String sessionId) async {
     final response = await _dio.get('/mock-exams/sessions/$sessionId/result');
     return MockExamResult.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<MockExamDetail> loadFullTopikExam({
+    required WidgetRef ref,
+    required String round,
+    int totalDurationSeconds = 180 * 60,
+  }) async {
+    final sets = await ref
+        .read(questionSetsProvider.future)
+        .catchError((_) => <QuestionSet>[]);
+    final questionRepo = ref.read(questionRepositoryProvider);
+
+    bool isMatch(QuestionSet set) {
+      final haystack = '${set.id} ${set.title}'.toLowerCase();
+      return RegExp('(^|[^0-9])$round([^0-9]|\$)').hasMatch(haystack);
+    }
+
+    final listeningSet = sets.cast<QuestionSet?>().firstWhere(
+      (s) => s != null && s.section.toLowerCase() == 'listening' && isMatch(s),
+      orElse: () => null,
+    );
+    final listeningSetId = listeningSet?.id ??
+        (round == '83' ? 'topik-83-listening' : 'topik2-102-listening');
+
+    final writingSet = sets.cast<QuestionSet?>().firstWhere(
+      (s) => s != null && s.section.toLowerCase() == 'writing' && isMatch(s),
+      orElse: () => null,
+    );
+    final writingSetId = writingSet?.id;
+
+    final readingSet = sets.cast<QuestionSet?>().firstWhere(
+      (s) => s != null && s.section.toLowerCase() == 'reading' && isMatch(s),
+      orElse: () => null,
+    );
+    final readingSetId = readingSet?.id ??
+        (round == '83' ? 'topik-83-reading' : 'topik2-102-reading');
+
+    final responses = await Future.wait([
+      questionRepo
+          .getAllQuestionsForPracticeSet(
+            section: 'listening',
+            setId: listeningSetId,
+            maxItems: 50,
+          )
+          .catchError(
+            (_) => const QuestionPage(
+              items: [],
+              total: 0,
+              page: 1,
+              limit: 50,
+            ),
+          ),
+      if (writingSetId != null)
+        questionRepo
+            .getAllQuestionsForPracticeSet(
+              section: 'writing',
+              setId: writingSetId,
+              maxItems: 4,
+            )
+            .catchError(
+              (_) => const QuestionPage(
+                items: [],
+                total: 0,
+                page: 1,
+                limit: 4,
+              ),
+            )
+      else
+        Future.value(
+          const QuestionPage(
+            items: [],
+            total: 0,
+            page: 1,
+            limit: 4,
+          ),
+        ),
+      questionRepo
+          .getAllQuestionsForPracticeSet(
+            section: 'reading',
+            setId: readingSetId,
+            maxItems: 50,
+          )
+          .catchError(
+            (_) => const QuestionPage(
+              items: [],
+              total: 0,
+              page: 1,
+              limit: 50,
+            ),
+          ),
+    ]);
+
+    final listeningQuestions = List<Question>.from(responses[0].items)
+      ..sort((a, b) => a.questionNumber.compareTo(b.questionNumber));
+    final writingQuestions = List<Question>.from(responses[1].items)
+      ..sort((a, b) => a.questionNumber.compareTo(b.questionNumber));
+    final readingQuestions = List<Question>.from(responses[2].items)
+      ..sort((a, b) => a.questionNumber.compareTo(b.questionNumber));
+
+    final combinedQuestions = [
+      ...listeningQuestions,
+      ...writingQuestions,
+      ...readingQuestions,
+    ];
+
+    String sessionId = 'topik-$round-${DateTime.now().millisecondsSinceEpoch}';
+    try {
+      final remoteDetail = await createSession(
+        setId: listeningSetId,
+        remainingSeconds: totalDurationSeconds,
+      );
+      if (remoteDetail.session.id.isNotEmpty) {
+        sessionId = remoteDetail.session.id;
+      }
+    } catch (_) {}
+
+    final session = MockExamSession(
+      id: sessionId,
+      setId: 'topik-$round',
+      status: 'in_progress',
+      currentIndex: 0,
+      remainingSeconds: totalDurationSeconds,
+      totalQuestions: combinedQuestions.length,
+      title: 'TOPIK II · 제$round회',
+    );
+
+    return MockExamDetail(
+      session: session,
+      questions: combinedQuestions,
+      answers: const [],
+    );
   }
 }
 
