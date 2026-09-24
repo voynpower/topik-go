@@ -232,6 +232,71 @@ void main() {
       expect(resolved, 'topik-83-listening');
     },
   );
+
+  test('resolves dedicated level-specific practice set when mock packages are present', () {
+    final sets = [
+      _set(
+        id: 'topik2-83-reading',
+        title: '제83회 TOPIK II 읽기 모의고사',
+        section: 'reading',
+        level: 4,
+        questionCount: 50,
+        examKind: 'mock',
+      ),
+      _set(
+        id: 'practice-reading-lvl3',
+        title: 'TOPIK II READING - Level 3',
+        section: 'reading',
+        level: 3,
+        questionCount: 30,
+        examKind: 'practice',
+      ),
+      _set(
+        id: 'practice-reading-lvl5',
+        title: 'TOPIK II READING - Level 5',
+        section: 'reading',
+        level: 5,
+        questionCount: 30,
+        examKind: 'practice',
+      ),
+      _set(
+        id: 'practice-reading-lvl6',
+        title: 'TOPIK II READING - Level 6',
+        section: 'reading',
+        level: 6,
+        questionCount: 30,
+        examKind: 'practice',
+      ),
+    ];
+
+    expect(
+      resolvedPracticeSetId(
+        sets: sets,
+        section: 'reading',
+        fallbackId: 'fallback',
+        level: 3,
+      ),
+      'practice-reading-lvl3',
+    );
+    expect(
+      resolvedPracticeSetId(
+        sets: sets,
+        section: 'reading',
+        fallbackId: 'fallback',
+        level: 5,
+      ),
+      'practice-reading-lvl5',
+    );
+    expect(
+      resolvedPracticeSetId(
+        sets: sets,
+        section: 'reading',
+        fallbackId: 'fallback',
+        level: 6,
+      ),
+      'practice-reading-lvl6',
+    );
+  });
 }
 
 Question _question({required String id, required int number, String? setId}) {

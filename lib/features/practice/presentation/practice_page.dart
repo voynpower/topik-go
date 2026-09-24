@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
-import 'package:topik_go/features/questions/data/writing_practice_set.dart';
 
 class PracticePage extends ConsumerWidget {
   const PracticePage({super.key});
@@ -38,25 +37,24 @@ class PracticePage extends ConsumerWidget {
                 icon: Icons.menu_book_outlined,
                 iconColor: const Color(0xFF1D8F86),
                 backgroundColor: const Color(0xFFE8F8F3),
-                title: '읽기 문제',
-                subtitle: 'TOPIK II 유형별 문제 바로 풀기',
+                title: '읽기 연습',
+                subtitle: '3~6급 급수별 집중 독해 (총 120문항)',
                 onTap: () => context.push('/reading-practice'),
               ),
               _MenuTile(
                 icon: Icons.headphones_outlined,
                 iconColor: const Color(0xFF2E6BD9),
                 backgroundColor: const Color(0xFFEAF1FF),
-                title: '듣기 문제',
-                subtitle: 'TOPIK II 유형별 문제 바로 풀기',
+                title: '듣기 연습',
+                subtitle: '3~6급 배속 제어 & 대본 학습 (총 120문항)',
                 onTap: () => context.push('/listening-practice'),
               ),
               _MenuTile(
                 icon: Icons.edit_note_outlined,
                 iconColor: const Color(0xFFD07A21),
                 backgroundColor: const Color(0xFFFFF1DC),
-                title: '쓰기 문제',
-                subtitle:
-                    '${WritingPracticeSet.level}급 / ${WritingPracticeSet.total}문항',
+                title: '쓰기 집중 훈련',
+                subtitle: '51~54번 유형별 훈련 & 기출 쓰기 (모범 답안 제공)',
                 onTap: () => context.push('/writing-practice'),
               ),
               const SizedBox(height: 18),

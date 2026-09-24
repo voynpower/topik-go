@@ -6,8 +6,6 @@ import 'package:topik_go/app/theme/app_colors.dart';
 class ListeningPracticeLevelPage extends StatelessWidget {
   const ListeningPracticeLevelPage({super.key});
 
-  static const _levels = [3, 4, 5, 6];
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -30,21 +28,95 @@ class ListeningPracticeLevelPage extends StatelessWidget {
             ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 24),
-          ..._levels.map(
-            (level) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Card(
-                child: ListTile(
-                  title: Text(
-                    '$level급',
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+          ..._levelData.map(
+            (data) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                child: InkWell(
+                  onTap: () => context.push('/listening-practice/${data.level}'),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.black12),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: data.color.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${data.level}급',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
+                                color: data.color,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    data.title,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF1F4F8),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Text(
+                                      '30문항',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.black54,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                data.desc,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                  height: 1.3,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          color: Colors.black38,
+                        ),
+                      ],
+                    ),
                   ),
-                  subtitle: const Padding(
-                    padding: EdgeInsets.only(top: 6),
-                    child: Text('TOPIK II'),
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/listening-practice/$level'),
                 ),
               ),
             ),
@@ -54,3 +126,44 @@ class ListeningPracticeLevelPage extends StatelessWidget {
     );
   }
 }
+
+class _LevelMeta {
+  const _LevelMeta({
+    required this.level,
+    required this.title,
+    required this.desc,
+    required this.color,
+  });
+
+  final int level;
+  final String title;
+  final String desc;
+  final Color color;
+}
+
+const _levelData = [
+  _LevelMeta(
+    level: 3,
+    title: '3급 초중급 듣기',
+    desc: '기본 일상 대화, 안내 방송 및 짧은 문답 청취',
+    color: Color(0xFF0F8C63),
+  ),
+  _LevelMeta(
+    level: 4,
+    title: '4급 중급 듣기',
+    desc: '사회적 주제, 직장 내 대화 및 라디오 설명 청취',
+    color: Color(0xFF2E6BD9),
+  ),
+  _LevelMeta(
+    level: 5,
+    title: '5급 중고급 듣기',
+    desc: '전문가 인터뷰, 강연 및 심층 시사 뉴스 청취',
+    color: Color(0xFF6E5BD8),
+  ),
+  _LevelMeta(
+    level: 6,
+    title: '6급 최고급 듣기',
+    desc: '학술 토론, 고급 강연 및 비유적 표현 추론',
+    color: Color(0xFFD07A21),
+  ),
+];
