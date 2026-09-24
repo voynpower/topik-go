@@ -35,8 +35,10 @@ String? resolvedPracticeSetId({
     final isPractice = s.examKind == 'practice';
     final isReal = _isActualSet(s);
     final isTopik83 = _isTopik83ActualSet(s);
+    final isLevelSpecificPractice = s.id.startsWith('practice-') && s.level == level;
     return n +
         (isPractice ? 1000 : 0) +
+        (isLevelSpecificPractice ? 500000 : 0) +
         (isReal ? 100000 : 0) +
         (isTopik83 ? 1000000 : 0);
   }
@@ -67,6 +69,8 @@ String? readResolvedPracticeSetId(
 
 bool _isActualSet(QuestionSet set) {
   final examKind = set.examKind?.toLowerCase() ?? '';
+  // Full mock exam packages belong to Mock Exam mode, not level-filtered practice!
+  if (examKind == 'mock') return false;
   final haystack = '${set.id} ${set.title}'.toLowerCase();
   return examKind == 'actual' ||
       examKind == 'past' ||

@@ -121,6 +121,7 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
                               selectedAnswer: selectedAnswer,
                               correctAnswer: question.correctAnswer,
                               explanation: question.explanation,
+                              options: question.options,
                             ),
                           ],
                         ],
@@ -390,13 +391,104 @@ class _PassageCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.black38),
+        color: const Color(0xFFFAFBFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.black26),
       ),
-      child: Text(text, style: const TextStyle(height: 1.55)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.mint.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  '지문',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.mintDark,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _highlightedPassage(text),
+        ],
+      ),
+    );
+  }
+
+  Widget _highlightedPassage(String content) {
+    final blankRegex = RegExp(r'(\(\s*[㉠㉡㉢㉣]\s*\)|\(\s{2,}\)|\[\s{2,}\])');
+    final matches = blankRegex.allMatches(content);
+
+    if (matches.isEmpty) {
+      return Text(
+        content,
+        style: const TextStyle(
+          height: 1.65,
+          fontSize: 15,
+          letterSpacing: -0.2,
+          color: Color(0xFF222222),
+        ),
+      );
+    }
+
+    final spans = <InlineSpan>[];
+    int lastEnd = 0;
+
+    for (final match in matches) {
+      if (match.start > lastEnd) {
+        spans.add(TextSpan(text: content.substring(lastEnd, match.start)));
+      }
+      final matchedText = match.group(0)!;
+      spans.add(
+        WidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: const Color(0xFF93C5FD)),
+            ),
+            child: Text(
+              matchedText,
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 14,
+                color: Color(0xFF1D4ED8),
+              ),
+            ),
+          ),
+        ),
+      );
+      lastEnd = match.end;
+    }
+
+    if (lastEnd < content.length) {
+      spans.add(TextSpan(text: content.substring(lastEnd)));
+    }
+
+    return Text.rich(
+      TextSpan(
+        children: spans,
+        style: const TextStyle(
+          height: 1.65,
+          fontSize: 15,
+          letterSpacing: -0.2,
+          color: Color(0xFF222222),
+        ),
+      ),
     );
   }
 }
@@ -489,45 +581,120 @@ class _AnswerResultCard extends StatelessWidget {
     required this.selectedAnswer,
     required this.correctAnswer,
     required this.explanation,
+    this.options = const [],
   });
 
   final String? selectedAnswer;
   final String? correctAnswer;
   final String? explanation;
+  final List<QuestionOption> options;
 
   @override
   Widget build(BuildContext context) {
     final isCorrect = selectedAnswer == correctAnswer;
+    String correctText = '';
+    if (correctAnswer != null && options.isNotEmpty) {
+      final opt = options.where((o) => o.label == correctAnswer).firstOrNull;
+      if (opt != null) {
+        correctText = opt.text;
+      }
+    }
 
-    return Card(
-      color: isCorrect
-          ? Colors.green.withValues(alpha: 0.08)
-          : Colors.red.withValues(alpha: 0.08),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: isCorrect ? Colors.green.shade600 : Colors.red.shade600,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isCorrect ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isCorrect ? const Color(0xFF86EFAC) : const Color(0xFFFECACA),
+          width: 1.2,
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isCorrect ? '정답입니다.' : '오답입니다.',
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            Text('정답: ${correctAnswer ?? '-'}'),
-            if (explanation?.isNotEmpty ?? false) ...[
-              const SizedBox(height: 12),
-              Text(explanation!),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isCorrect ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                color: isCorrect ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                size: 22,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isCorrect ? '정답입니다!' : '오답입니다.',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                  color: isCorrect ? const Color(0xFF15803D) : const Color(0xFFB91C1C),
+                ),
+              ),
             ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '정답: ',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+              ),
+              Expanded(
+                child: Text(
+                  _markerFor(correctAnswer ?? '-') + (correctText.isNotEmpty ? '  $correctText' : ''),
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.textPrimary),
+                ),
+              ),
+            ],
+          ),
+          if (explanation?.isNotEmpty ?? false) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.black12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.lightbulb_outline, size: 16, color: Color(0xFFD97706)),
+                      SizedBox(width: 6),
+                      Text('해설', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFFD97706))),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    explanation!,
+                    style: const TextStyle(height: 1.5, fontSize: 13, color: AppColors.textPrimary),
+                  ),
+                ],
+              ),
+            ),
           ],
-        ),
+        ],
       ),
     );
+  }
+
+  String _markerFor(String label) {
+    switch (int.tryParse(label)) {
+      case 1:
+        return '①';
+      case 2:
+        return '②';
+      case 3:
+        return '③';
+      case 4:
+        return '④';
+      default:
+        return label;
+    }
   }
 }
 

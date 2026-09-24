@@ -71,7 +71,11 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
           final showAnswer = _summary != null || selectedAnswer != null;
           final audio = _audioMedia(question);
           final audioUrl = audio == null ? '' : resolveApiMediaUrl(audio.url);
-          final audioTranscript = audio?.transcript ?? question.passageText ?? question.prompt;
+          final rawTranscript = audio?.transcript?.trim();
+          final rawPassage = question.passageText?.trim();
+          final audioTranscript = (rawTranscript != null && rawTranscript.isNotEmpty)
+              ? rawTranscript
+              : ((rawPassage != null && rawPassage.isNotEmpty) ? rawPassage : '');
           final imageMedia = question.media.where(isImageMedia).toList();
           final documentMedia = question.media.where(isDocumentMedia).toList();
           // Some listening sets attach the exam paper PDF to a single question,
@@ -157,10 +161,14 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
                               selectedAnswer: selectedAnswer,
                               correctAnswer: question.correctAnswer,
                               explanation: question.explanation,
+                              options: question.options,
                             ),
                             if (audioTranscript.isNotEmpty) ...[
                               const SizedBox(height: 12),
-                              _TranscriptCard(text: audioTranscript),
+                              _TranscriptCard(
+                                text: audioTranscript,
+                                initiallyExpanded: true,
+                              ),
                             ],
                           ],
                         ],
@@ -453,7 +461,10 @@ class _AudioPlayerCardState extends State<_AudioPlayerCard> {
   bool _isPlaying = false;
   bool _ttsPlaying = false;
   bool _fallbackToTts = false;
-  double _speechRate = 0.45;
+  double _playbackSpeed = 1.0;
+  bool _isLooping = false;
+  bool _isDragging = false;
+  double _dragValue = 0.0;
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
 
@@ -463,7 +474,7 @@ class _AudioPlayerCardState extends State<_AudioPlayerCard> {
     _player = AudioPlayer();
     _tts = FlutterTts();
     _tts.setLanguage('ko-KR');
-    _tts.setSpeechRate(_speechRate);
+    _tts.setSpeechRate(0.45);
     _tts.setCompletionHandler(() {
       if (mounted) setState(() => _ttsPlaying = false);
     });
@@ -488,6 +499,12 @@ class _AudioPlayerCardState extends State<_AudioPlayerCard> {
         setState(() {
           _isPlaying = state.playing;
         });
+        if (state.processingState == ProcessingState.completed) {
+          if (!_isLooping) {
+            _player.seek(Duration.zero);
+            _player.pause();
+          }
+        }
       }
     });
 
@@ -496,7 +513,9 @@ class _AudioPlayerCardState extends State<_AudioPlayerCard> {
     });
 
     _player.positionStream.listen((p) {
-      if (mounted) setState(() => _position = p);
+      if (mounted && !_isDragging) {
+        setState(() => _position = p);
+      }
     });
   }
 
@@ -507,99 +526,193 @@ class _AudioPlayerCardState extends State<_AudioPlayerCard> {
     super.dispose();
   }
 
+  void _seekRelative(int seconds) {
+    if (_fallbackToTts) return;
+    final totalMs = _duration.inMilliseconds;
+    if (totalMs <= 0) return;
+    final targetMs = (_position.inMilliseconds + seconds * 1000).clamp(0, totalMs);
+    _player.seek(Duration(milliseconds: targetMs));
+  }
+
+  void _toggleLoop() {
+    final nextLoop = !_isLooping;
+    setState(() => _isLooping = nextLoop);
+    _player.setLoopMode(nextLoop ? LoopMode.one : LoopMode.off);
+  }
+
+  void _setSpeed(double speed) {
+    setState(() => _playbackSpeed = speed);
+    _player.setSpeed(speed);
+    final ttsRate = speed == 0.8 ? 0.35 : (speed == 1.2 ? 0.55 : 0.45);
+    _tts.setSpeechRate(ttsRate);
+  }
+
   @override
   Widget build(BuildContext context) {
     final useTts = _fallbackToTts || widget.url.isEmpty;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.mint.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.mint.withValues(alpha: 0.15)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.mint.withValues(alpha: 0.35)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.mint.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         children: [
+          // Top Row: Title & Mode Chips
           Row(
             children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.mint.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  useTts ? Icons.record_voice_over : Icons.headphones_rounded,
+                  color: AppColors.mintDark,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  useTts ? '음성 지원 (TTS 독해)' : 'TOPIK 듣기 오디오',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              // Speed selector
+              PopupMenuButton<double>(
+                icon: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F4F8),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.speed, size: 14, color: Colors.black87),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${_playbackSpeed}x',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+                tooltip: '배속 설정',
+                onSelected: _setSpeed,
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 0.8, child: Text('0.8x (느리게)')),
+                  PopupMenuItem(value: 1.0, child: Text('1.0x (표준)')),
+                  PopupMenuItem(value: 1.2, child: Text('1.2x (빠르게)')),
+                ],
+              ),
+              const SizedBox(width: 4),
+              // Repeat button
+              if (!useTts)
+                IconButton(
+                  tooltip: _isLooping ? '한 문항 반복 켜짐' : '반복 끄기',
+                  icon: Icon(
+                    _isLooping ? Icons.repeat_one_on_rounded : Icons.repeat_rounded,
+                    size: 20,
+                    color: _isLooping ? AppColors.mintDark : Colors.grey,
+                  ),
+                  onPressed: _toggleLoop,
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Center Scrubber (Slider)
+          if (!useTts) ...[
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 4,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                activeTrackColor: AppColors.mint,
+                inactiveTrackColor: Colors.black12,
+                thumbColor: AppColors.mintDark,
+                overlayColor: AppColors.mint.withValues(alpha: 0.2),
+              ),
+              child: Slider(
+                value: (_isDragging ? _dragValue : _position.inMilliseconds.toDouble())
+                    .clamp(0.0, _duration.inMilliseconds > 0 ? _duration.inMilliseconds.toDouble() : 1.0),
+                min: 0.0,
+                max: _duration.inMilliseconds > 0 ? _duration.inMilliseconds.toDouble() : 1.0,
+                onChanged: (val) {
+                  setState(() {
+                    _isDragging = true;
+                    _dragValue = val;
+                  });
+                },
+                onChangeEnd: (val) {
+                  _player.seek(Duration(milliseconds: val.toInt()));
+                  setState(() {
+                    _isDragging = false;
+                  });
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(_formatDuration(_position), style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  Text(_formatDuration(_duration), style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+          ],
+          // Playback Control Buttons
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (!useTts) ...[
+                IconButton(
+                  tooltip: '5초 뒤로',
+                  onPressed: () => _seekRelative(-5),
+                  icon: const Icon(Icons.replay_5_rounded, size: 24, color: AppColors.textPrimary),
+                ),
+                const SizedBox(width: 8),
+              ],
               IconButton.filled(
                 onPressed: useTts ? _toggleTts : _togglePlay,
-                icon: Icon(
-                  useTts
-                      ? (_ttsPlaying ? Icons.stop : Icons.record_voice_over)
-                      : (_isPlaying ? Icons.pause : Icons.play_arrow),
-                ),
+                iconSize: 28,
                 style: IconButton.styleFrom(
                   backgroundColor: AppColors.mint,
                   foregroundColor: Colors.white,
+                  padding: const EdgeInsets.all(12),
+                ),
+                icon: Icon(
+                  useTts
+                      ? (_ttsPlaying ? Icons.stop_rounded : Icons.record_voice_over_rounded)
+                      : (_isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      useTts ? '음성 재생 (TTS)' : '오디오 재생',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
-                    if (!useTts) ...[
-                      const SizedBox(height: 4),
-                      LinearProgressIndicator(
-                        value: _duration.inMilliseconds > 0
-                            ? _position.inMilliseconds /
-                                  _duration.inMilliseconds
-                            : 0,
-                        backgroundColor: Colors.black12,
-                        valueColor: const AlwaysStoppedAnimation(
-                          AppColors.mint,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            _formatDuration(_position),
-                            style: const TextStyle(fontSize: 11),
-                          ),
-                          Text(
-                            _formatDuration(_duration),
-                            style: const TextStyle(fontSize: 11),
-                          ),
-                        ],
-                      ),
-                    ] else ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        _ttsPlaying ? '듣기 대본을 읽는 중입니다...' : '재생 버튼을 눌러 음성을 들으세요.',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-                      ),
-                    ],
-                  ],
+              if (!useTts) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: '5초 앞으로',
+                  onPressed: () => _seekRelative(5),
+                  icon: const Icon(Icons.forward_5_rounded, size: 24, color: AppColors.textPrimary),
                 ),
-              ),
-              PopupMenuButton<double>(
-                icon: const Icon(Icons.speed, size: 20),
-                tooltip: '재생 속도',
-                onSelected: (rate) {
-                  setState(() {
-                    _speechRate = rate;
-                  });
-                  _tts.setSpeechRate(rate);
-                  if (!useTts) {
-                    _player.setSpeed(rate * 2);
-                  }
-                },
-                itemBuilder: (context) => const [
-                  PopupMenuItem(value: 0.35, child: Text('0.8x (느리게)')),
-                  PopupMenuItem(value: 0.45, child: Text('1.0x (보통)')),
-                  PopupMenuItem(value: 0.55, child: Text('1.2x (빠르게)')),
-                ],
-              ),
+              ],
             ],
           ),
         ],
@@ -630,7 +743,6 @@ class _AudioPlayerCardState extends State<_AudioPlayerCard> {
   }
 
   String _spokenTranscript(String transcript) {
-    // Remove labels like 남자:, 여자:, [남자], (여자), 남자 : etc.
     return transcript.replaceAll(
       RegExp(r'[\[\(\s]*(여자|남자)[\]\)\s]*[:：]?\s*'),
       '',
@@ -732,72 +844,273 @@ class _AnswerResultCard extends StatelessWidget {
     required this.selectedAnswer,
     required this.correctAnswer,
     required this.explanation,
+    this.options = const [],
   });
 
   final String? selectedAnswer;
   final String? correctAnswer;
   final String? explanation;
+  final List<QuestionOption> options;
 
   @override
   Widget build(BuildContext context) {
     final isCorrect = selectedAnswer == correctAnswer;
+    String correctText = '';
+    if (correctAnswer != null && options.isNotEmpty) {
+      final opt = options.where((o) => o.label == correctAnswer).firstOrNull;
+      if (opt != null) {
+        correctText = opt.text;
+      }
+    }
 
-    return Card(
-      color: isCorrect
-          ? Colors.green.withValues(alpha: 0.08)
-          : Colors.red.withValues(alpha: 0.08),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: isCorrect ? Colors.green.shade600 : Colors.red.shade600,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isCorrect ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isCorrect ? const Color(0xFF86EFAC) : const Color(0xFFFECACA),
+          width: 1.2,
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isCorrect ? '정답입니다.' : '오답입니다.',
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            Text('정답: ${correctAnswer ?? '-'}'),
-            if (explanation?.isNotEmpty ?? false) ...[
-              const SizedBox(height: 12),
-              Text(explanation!),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isCorrect ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                color: isCorrect ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                size: 22,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isCorrect ? '정답입니다!' : '오답입니다.',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                  color: isCorrect ? const Color(0xFF15803D) : const Color(0xFFB91C1C),
+                ),
+              ),
             ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '정답: ',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+              ),
+              Expanded(
+                child: Text(
+                  _markerFor(correctAnswer ?? '-') + (correctText.isNotEmpty ? '  $correctText' : ''),
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.textPrimary),
+                ),
+              ),
+            ],
+          ),
+          if (explanation?.isNotEmpty ?? false) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.black12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.lightbulb_outline, size: 16, color: Color(0xFFD97706)),
+                      SizedBox(width: 6),
+                      Text('해설', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFFD97706))),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    explanation!,
+                    style: const TextStyle(height: 1.5, fontSize: 13, color: AppColors.textPrimary),
+                  ),
+                ],
+              ),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
+
+  String _markerFor(String label) {
+    switch (int.tryParse(label)) {
+      case 1:
+        return '①';
+      case 2:
+        return '②';
+      case 3:
+        return '③';
+      case 4:
+        return '④';
+      default:
+        return label;
+    }
+  }
 }
 
-class _TranscriptCard extends StatelessWidget {
-  const _TranscriptCard({required this.text});
+class _TranscriptCard extends StatefulWidget {
+  const _TranscriptCard({
+    required this.text,
+    this.initiallyExpanded = true,
+  });
 
   final String text;
+  final bool initiallyExpanded;
+
+  @override
+  State<_TranscriptCard> createState() => _TranscriptCardState();
+}
+
+class _TranscriptCardState extends State<_TranscriptCard> {
+  late bool _expanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = widget.initiallyExpanded;
+  }
+
+  @override
+  void didUpdateWidget(covariant _TranscriptCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text != widget.text) {
+      _expanded = widget.initiallyExpanded;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.black12),
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blueGrey.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '듣기 대본',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  const Icon(Icons.description_outlined, size: 18, color: Color(0xFF2E6BD9)),
+                  const SizedBox(width: 8),
+                  const Text(
+                    '듣기 대본',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: Color(0xFF2E6BD9),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    _expanded ? '대본 닫기' : '대본 펼치기',
+                    style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    size: 20,
+                    color: Colors.black54,
+                  ),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 8),
-          Text(text, style: const TextStyle(height: 1.5, fontSize: 14)),
+          if (_expanded) ...[
+            const Divider(height: 1, thickness: 1, color: Colors.black12),
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: _buildDialogueLines(widget.text),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildDialogueLines(String raw) {
+    final lines = raw.split('\n');
+    final widgets = <Widget>[];
+
+    for (final rawLine in lines) {
+      final line = rawLine.trim();
+      if (line.isEmpty) {
+        widgets.add(const SizedBox(height: 6));
+        continue;
+      }
+
+      final maleMatch = RegExp(r'^(?:\[남자\]|남자\s*[:：]|\[남\]|남\s*[:：]|\(남자\))\s*(.*)$').firstMatch(line);
+      final femaleMatch = RegExp(r'^(?:\[여자\]|여자\s*[:：]|\[여\]|여\s*[:：]|\(여자\))\s*(.*)$').firstMatch(line);
+
+      if (maleMatch != null) {
+        final content = maleMatch.group(1) ?? '';
+        widgets.add(_speakerRow(speaker: '남자', color: const Color(0xFF2E6BD9), content: content));
+      } else if (femaleMatch != null) {
+        final content = femaleMatch.group(1) ?? '';
+        widgets.add(_speakerRow(speaker: '여자', color: const Color(0xFFE05268), content: content));
+      } else {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Text(
+              line,
+              style: const TextStyle(fontSize: 14, height: 1.55, color: Colors.black87),
+            ),
+          ),
+        );
+      }
+    }
+
+    return widgets;
+  }
+
+  Widget _speakerRow({required String speaker, required Color color, required String content}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: color.withValues(alpha: 0.3)),
+            ),
+            child: Text(
+              speaker,
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              content,
+              style: const TextStyle(fontSize: 14, height: 1.5, color: Colors.black87),
+            ),
+          ),
         ],
       ),
     );
