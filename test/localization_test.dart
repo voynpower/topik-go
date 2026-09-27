@@ -71,6 +71,17 @@ void main() {
         expect(strings.levelUnit.isNotEmpty, isTrue);
         expect(strings.reviewHardWords.isNotEmpty, isTrue);
         expect(strings.reviewSavedWords.isNotEmpty, isTrue);
+        expect(strings.examDateLabel.isNotEmpty, isTrue);
+        expect(strings.registrationPeriodLabel.isNotEmpty, isTrue);
+        expect(strings.resultDateLabel.isNotEmpty, isTrue);
+        expect(strings.examFeeLabel.isNotEmpty, isTrue);
+        expect(strings.mySavedGrammarbook.isNotEmpty, isTrue);
+        expect(strings.mySavedGrammarbookDesc.isNotEmpty, isTrue);
+        expect(strings.allTopikGrammar.isNotEmpty, isTrue);
+        expect(strings.allTopikGrammarDesc.isNotEmpty, isTrue);
+        expect(strings.grammarQuizPrompt.isNotEmpty, isTrue);
+        expect(strings.accuracyLabel.isNotEmpty, isTrue);
+        expect(strings.originalSentenceLabel.isNotEmpty, isTrue);
       }
 
       // Assert Uzbek specific refinements
@@ -84,6 +95,10 @@ void main() {
       expect(uz.readingShort, "O'qish");
       expect(uz.listeningShort, 'Tinglash');
       expect(uz.writingShort, 'Yozish');
+      expect(uz.grammarFlashcard, 'Flesh-kartalar');
+      expect(uz.grammarQuiz, 'Bo‘shliq testi');
+      expect(uz.mySavedGrammarbook, 'Saqlangan grammatika');
+      expect(uz.allTopikGrammar, 'Barcha TOPIK asosiy grammatikasi');
     });
 
     test('appStringsProvider reactively updates when currentLanguageProvider changes', () async {

@@ -111,8 +111,8 @@ class GrammarSourceSheet extends ConsumerWidget {
 
           // Option 1: Saved Grammar Bookmarks
           _SourceOptionCard(
-            title: strings.mySavedWordbook.replaceAll('단어장', '문법장'),
-            subtitle: strings.mySavedWordbookDesc.replaceAll('단어', '문법'),
+            title: strings.mySavedGrammarbook,
+            subtitle: strings.mySavedGrammarbookDesc,
             countBadge: strings.wordsSavedCount.replaceAll('{count}', '$savedCount'),
             icon: Icons.bookmark_rounded,
             iconColor: const Color(0xFFD07A21),
@@ -125,8 +125,8 @@ class GrammarSourceSheet extends ConsumerWidget {
 
           // Option 2: All Grammar List
           _SourceOptionCard(
-            title: strings.allTopikVocab.replaceAll('어휘', '문법'),
-            subtitle: strings.allTopikVocabDesc.replaceAll('어휘', '문법'),
+            title: strings.allTopikGrammar,
+            subtitle: strings.allTopikGrammarDesc,
             countBadge: strings.all,
             icon: Icons.auto_stories_rounded,
             iconColor: const Color(0xFF7C3AED),
@@ -202,12 +202,14 @@ class _SourceOptionCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          title,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: enabled ? const Color(0xFF0F172A) : Colors.black38,
+                        Flexible(
+                          child: Text(
+                            title,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: enabled ? const Color(0xFF0F172A) : Colors.black38,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),

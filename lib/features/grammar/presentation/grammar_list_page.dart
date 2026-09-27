@@ -176,7 +176,7 @@ class _GrammarListPageState extends ConsumerState<GrammarListPage> {
           Material(
             color: AppColors.surface,
             child: SizedBox(
-              height: 44,
+              height: 48,
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
