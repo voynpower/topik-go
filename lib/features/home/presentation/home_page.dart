@@ -161,7 +161,6 @@ class _HomeHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final nickname = user?.nickname;
-    final targetLevel = user?.targetLevel ?? 3;
     final greeting = nickname == null
         ? strings.homeGreeting
             .replaceAll(', {name}님', '')
@@ -225,39 +224,8 @@ class _HomeHero extends StatelessWidget {
           const SizedBox(height: 14),
           const Divider(height: 1, color: Color(0xFFF1F5F9)),
           const SizedBox(height: 12),
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 8,
-            runSpacing: 6,
+          Row(
             children: [
-              // Target Level Badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.flag_outlined, size: 14, color: Color(0xFF2563EB)),
-                    const SizedBox(width: 5),
-                    Flexible(
-                      child: Text(
-                        '${strings.targetLevelLabel}: TOPIK II ${strings.levelUnit.replaceAll('{level}', '$targetLevel')}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1D4ED8),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
               // Daily Streak
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -270,16 +238,12 @@ class _HomeHero extends StatelessWidget {
                   children: [
                     const Text('🔥', style: TextStyle(fontSize: 13)),
                     const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        strings.streakDays.replaceAll('{days}', '7'),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFFC2410C),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    Text(
+                      strings.streakDays.replaceAll('{days}', '7'),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFC2410C),
                       ),
                     ),
                   ],
@@ -651,14 +615,6 @@ class _TodayWordCardState extends State<_TodayWordCard> {
                   fontSize: 11,
                   color: Color(0xFF64748B),
                   height: 1.25,
-                ),
-              ),
-              Text(
-                'Lv.${item.level}',
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.mintDark,
                 ),
               ),
             ],

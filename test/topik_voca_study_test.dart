@@ -182,5 +182,205 @@ void main() {
       expect(find.text(strings.dictation), findsOneWidget);
       expect(find.text(strings.autoplay), findsOneWidget);
     });
+
+    testWidgets('VocaWordCard has 3-dots popup menu (Edit and Delete) and no TOPIK level badge', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      const sampleWord = repo.VocabularyItem(
+        id: 'v101',
+        word: '포기하다',
+        meaningKo: '하던 일을 중도에 그만두다',
+        level: 3,
+        isDownloaded: false,
+        isBookmarked: false,
+      );
+
+      final strings = AppStrings.of('ko');
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: VocaWordCard(
+                item: sampleWord,
+                strings: strings,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // TOPIK level badge is removed
+      expect(find.text('TOPIK 3급'), findsNothing);
+
+      // 3-dots menu button is present
+      final moreButton = find.byIcon(Icons.more_vert);
+      expect(moreButton, findsOneWidget);
+
+      // Open popup menu
+      await tester.tap(moreButton);
+      await tester.pumpAndSettle();
+
+      // Check Edit and Delete items in popup menu
+      expect(find.text(strings.edit), findsOneWidget);
+      expect(find.text(strings.delete), findsOneWidget);
+
+      // Tap Edit
+      await tester.tap(find.text(strings.edit));
+      await tester.pumpAndSettle();
+
+      // Bottom sheet for edit is shown with word and meaning
+      expect(find.text('포기하다'), findsWidgets);
+      expect(find.text('하던 일을 중도에 그만두다'), findsWidgets);
+      expect(find.text(strings.save), findsOneWidget);
+
+      // Change word and meaning text in edit modal
+      await tester.enterText(find.widgetWithText(TextField, '한국어 단어'), '포기하지마');
+      await tester.enterText(find.widgetWithText(TextField, '단어 뜻'), '절대 포기하지 마라');
+      await tester.tap(find.text(strings.save));
+      await tester.pumpAndSettle();
+
+      // Card now displays edited word
+      expect(find.text('포기하지마'), findsOneWidget);
+
+      // Open popup menu to test Delete
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(strings.delete));
+      await tester.pumpAndSettle();
+
+      // Delete confirmation dialog is shown
+      expect(find.textContaining(strings.deleteConfirm), findsOneWidget);
+
+      // Confirm delete (FilledButton with strings.delete)
+      await tester.tap(find.widgetWithText(FilledButton, strings.delete));
+      await tester.pumpAndSettle();
+
+      // Word is deleted and collapsed/gone
+      expect(find.text('포기하지마'), findsNothing);
+    });
+
+    testWidgets('VocaListTabView does not show TOPIK level classification dropdown', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      const mockPage = repo.VocabularyPage(
+        items: [
+          repo.VocabularyItem(
+            id: 'v1',
+            word: '시작하다',
+            meaningKo: '어떤 일이나 행동의 첫 단계를 떼다',
+            level: 3,
+            isDownloaded: false,
+            isBookmarked: false,
+          ),
+        ],
+        page: 1,
+        limit: 20,
+        total: 1,
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            repo.vocabularyProvider.overrideWith((ref, query) async => mockPage),
+            bookmarkedVocabularyProvider.overrideWith((ref) async => []),
+          ],
+          child: const MaterialApp(
+            home: VocaListTabView(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // TOPIK level classification dropdown should NOT exist
+      expect(find.textContaining('TOPIK I (1·2'), findsNothing);
+      expect(find.textContaining('TOPIK II 3'), findsNothing);
+      expect(find.byIcon(Icons.arrow_drop_down), findsNothing);
+    });
+
+    testWidgets('VocaListTabView deletes a word and removes it from the list', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      const mockPage = repo.VocabularyPage(
+        items: [
+          repo.VocabularyItem(
+            id: 'v10',
+            word: '공부하다',
+            meaningKo: '학문이나 기술을 배우고 익히다',
+            level: 3,
+            isDownloaded: false,
+            isBookmarked: false,
+          ),
+          repo.VocabularyItem(
+            id: 'v20',
+            word: '운동하다',
+            meaningKo: '몸을 움직여 운동을 하다',
+            level: 3,
+            isDownloaded: false,
+            isBookmarked: false,
+          ),
+        ],
+        page: 1,
+        limit: 20,
+        total: 2,
+      );
+
+      final strings = AppStrings.of('ko');
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            repo.vocabularyProvider.overrideWith((ref, query) async => mockPage),
+            bookmarkedVocabularyProvider.overrideWith((ref) async => []),
+          ],
+          child: const MaterialApp(
+            home: VocaListTabView(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('공부하다'), findsOneWidget);
+      expect(find.text('운동하다'), findsOneWidget);
+
+      // Tap 3 dots on the first word
+      await tester.tap(find.byIcon(Icons.more_vert).first);
+      await tester.pumpAndSettle();
+
+      // Tap delete
+      await tester.tap(find.text(strings.delete));
+      await tester.pumpAndSettle();
+
+      // Confirm delete dialog
+      await tester.tap(find.widgetWithText(FilledButton, strings.delete));
+      await tester.pumpAndSettle();
+
+      // '공부하다' should be removed, while '운동하다' remains
+      expect(find.text('공부하다'), findsNothing);
+      expect(find.text('운동하다'), findsOneWidget);
+    });
   });
 }

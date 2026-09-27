@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:go_router/go_router.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/core/localization/app_strings.dart';
 import 'package:topik_go/core/services/translation_service.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/vocabulary/data/vocabulary_repository.dart';
 import 'package:topik_go/features/vocabulary/domain/ai_sentence_service.dart';
+import 'package:topik_go/features/vocabulary/domain/user_vocabulary_service.dart';
 import 'package:topik_go/features/vocabulary/domain/vocabulary_mastery_service.dart';
 
 class VocaWordCard extends ConsumerStatefulWidget {
@@ -44,6 +44,164 @@ class _VocaWordCardState extends ConsumerState<VocaWordCard> {
   void dispose() {
     _tts?.stop();
     super.dispose();
+  }
+
+  void _showEditModal(BuildContext context, VocabularyItem item, AppStrings strings) {
+    final wordCtrl = TextEditingController(text: item.word);
+    final meaningCtrl = TextEditingController(text: item.meaningUserLang ?? item.meaningKo);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(sheetCtx).viewInsets.bottom),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFCBD5E1),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    strings.edit,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20, color: Color(0xFF64748B)),
+                    onPressed: () => Navigator.of(sheetCtx).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: wordCtrl,
+                style: const TextStyle(color: Color(0xFF0F172A)),
+                decoration: InputDecoration(
+                  labelText: '한국어 단어',
+                  labelStyle: const TextStyle(color: Color(0xFF64748B)),
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: meaningCtrl,
+                style: const TextStyle(color: Color(0xFF0F172A)),
+                decoration: InputDecoration(
+                  labelText: '단어 뜻',
+                  labelStyle: const TextStyle(color: Color(0xFF64748B)),
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.mintDark,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () async {
+                    final newWord = wordCtrl.text.trim();
+                    final newMeaning = meaningCtrl.text.trim();
+                    if (newWord.isEmpty) return;
+
+                    Navigator.of(sheetCtx).pop();
+                    await ref.read(userVocabularyOverrideProvider.notifier).editWord(
+                          item.id,
+                          word: newWord,
+                          meaning: newMeaning,
+                        );
+                    ref.invalidate(vocabularyProvider);
+                    ref.invalidate(bookmarkedVocabularyProvider);
+                  },
+                  child: Text(strings.save, style: const TextStyle(fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteDialog(BuildContext context, VocabularyItem item, AppStrings strings) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          strings.delete,
+          style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+        ),
+        content: Text(
+          '\'${item.word}\'\n\n${strings.deleteConfirm}',
+          style: const TextStyle(fontSize: 14, color: Color(0xFF475569)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(),
+            child: Text(strings.cancel, style: const TextStyle(color: Color(0xFF64748B))),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () async {
+              Navigator.of(dialogCtx).pop();
+              await ref.read(userVocabularyOverrideProvider.notifier).deleteWord(item.id);
+              ref.invalidate(vocabularyProvider);
+              ref.invalidate(bookmarkedVocabularyProvider);
+              ref.invalidate(bookmarkSummaryProvider);
+            },
+            child: Text(strings.delete, style: const TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
   }
 
   Color _getStatusColor(WordMasteryStatus status) {
@@ -84,7 +242,19 @@ class _VocaWordCardState extends ConsumerState<VocaWordCard> {
 
   @override
   Widget build(BuildContext context) {
-    final item = widget.item;
+    final overrides = ref.watch(userVocabularyOverrideProvider);
+    if (overrides.isDeleted(widget.item.id)) {
+      return const SizedBox.shrink();
+    }
+    final edit = overrides.getEdit(widget.item.id);
+    final item = edit != null
+        ? widget.item.copyWith(
+            word: edit.word.isNotEmpty ? edit.word : widget.item.word,
+            meaningKo: edit.meaning.isNotEmpty ? edit.meaning : widget.item.meaningKo,
+            meaningUserLang:
+                edit.meaning.isNotEmpty ? edit.meaning : widget.item.meaningUserLang,
+          )
+        : widget.item;
     final strings = widget.strings;
     final currentLang = ref.watch(currentLanguageProvider);
     final masteryMap = ref.watch(wordMasteryProvider);
@@ -155,30 +325,58 @@ class _VocaWordCardState extends ConsumerState<VocaWordCard> {
                         ),
                       ),
                     ),
-                    // Level Tag & Details
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            'TOPIK ${strings.levelUnit.replaceAll('{level}', '${item.level}')}',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF64748B),
-                            ),
+                    // 3-dots Menu (Edit / Delete)
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert, color: Color(0xFF94A3B8), size: 22),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      color: Colors.white,
+                      surfaceTintColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: const BorderSide(color: AppColors.border),
+                      ),
+                      onSelected: (val) {
+                        if (val == 'edit') {
+                          _showEditModal(context, item, strings);
+                        } else if (val == 'delete') {
+                          _showDeleteDialog(context, item, strings);
+                        }
+                      },
+                      itemBuilder: (ctx) => [
+                        PopupMenuItem(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF0F172A)),
+                              const SizedBox(width: 10),
+                              Text(
+                                strings.edit,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        IconButton(
-                          icon: const Icon(Icons.more_horiz, color: Color(0xFF94A3B8), size: 20),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          onPressed: () => context.push('/vocabulary/${item.id}'),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.delete_outline, size: 18, color: Color(0xFFEF4444)),
+                              const SizedBox(width: 10),
+                              Text(
+                                strings.delete,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFFEF4444),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),

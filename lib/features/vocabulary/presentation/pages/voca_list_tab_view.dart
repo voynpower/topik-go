@@ -6,6 +6,7 @@ import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/core/network/api_error_message.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/vocabulary/data/vocabulary_repository.dart';
+import 'package:topik_go/features/vocabulary/domain/user_vocabulary_service.dart';
 import 'package:topik_go/features/vocabulary/domain/vocabulary_mastery_service.dart';
 import 'package:topik_go/features/vocabulary/presentation/widgets/voca_word_card.dart';
 
@@ -18,7 +19,6 @@ class VocaListTabView extends ConsumerStatefulWidget {
 
 class _VocaListTabViewState extends ConsumerState<VocaListTabView> {
   final _searchController = TextEditingController();
-  int? _level;
   int _page = 1;
   bool _onlySaved = false;
   WordMasteryStatus? _statusFilter;
@@ -26,7 +26,6 @@ class _VocaListTabViewState extends ConsumerState<VocaListTabView> {
 
   VocabularyQuery get _query {
     return VocabularyQuery(
-      level: _level,
       q: _searchController.text,
       page: _page,
       limit: 30,
@@ -131,15 +130,12 @@ class _VocaListTabViewState extends ConsumerState<VocaListTabView> {
                     if (word.isEmpty) return;
 
                     Navigator.of(ctx).pop();
-                    try {
-                      await ref.read(bookmarkRepositoryProvider).addVocabularyByWord(
-                            word: word,
-                            meaningUserLang: meaning,
-                            level: 3,
-                          );
-                      ref.invalidate(vocabularyProvider);
-                      ref.invalidate(bookmarkedVocabularyProvider);
-                    } catch (_) {}
+                    await ref.read(userVocabularyOverrideProvider.notifier).addCustomWord(
+                          word: word,
+                          meaning: meaning,
+                        );
+                    ref.invalidate(vocabularyProvider);
+                    ref.invalidate(bookmarkedVocabularyProvider);
                   },
                   child: Text(strings.save, style: const TextStyle(fontWeight: FontWeight.w700)),
                 ),
@@ -157,6 +153,7 @@ class _VocaListTabViewState extends ConsumerState<VocaListTabView> {
     final vocabulary = ref.watch(vocabularyProvider(_query));
     final bookmarksAsync = ref.watch(bookmarkedVocabularyProvider);
     final masteryMap = ref.watch(wordMasteryProvider);
+    final overrides = ref.watch(userVocabularyOverrideProvider);
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -167,59 +164,13 @@ class _VocaListTabViewState extends ConsumerState<VocaListTabView> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Row(
               children: [
-                // Group Dropdown Menu
-                PopupMenuButton<int?>(
-                  color: Colors.white,
-                  surfaceTintColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    side: const BorderSide(color: AppColors.border),
-                  ),
-                  initialValue: _level,
-                  onSelected: (val) {
-                    setState(() {
-                      _level = val;
-                      _page = 1;
-                    });
-                  },
-                  itemBuilder: (ctx) => [
-                    PopupMenuItem(
-                      value: null,
-                      child: Text('${strings.allGroups} (${strings.all})', style: const TextStyle(color: Color(0xFF0F172A))),
-                    ),
-                    PopupMenuItem(
-                      value: 1,
-                      child: Text('TOPIK I (1·2 ${strings.levelUnit.replaceAll('{level}', '')})', style: const TextStyle(color: Color(0xFF0F172A))),
-                    ),
-                    PopupMenuItem(
-                      value: 3,
-                      child: Text('TOPIK II ${strings.levelUnit.replaceAll('{level}', '3')}', style: const TextStyle(color: Color(0xFF0F172A))),
-                    ),
-                    PopupMenuItem(
-                      value: 4,
-                      child: Text('TOPIK II ${strings.levelUnit.replaceAll('{level}', '4')}', style: const TextStyle(color: Color(0xFF0F172A))),
-                    ),
-                    PopupMenuItem(
-                      value: 5,
-                      child: Text('TOPIK II ${strings.levelUnit.replaceAll('{level}', '5')}', style: const TextStyle(color: Color(0xFF0F172A))),
-                    ),
-                    PopupMenuItem(
-                      value: 6,
-                      child: Text('TOPIK II ${strings.levelUnit.replaceAll('{level}', '6')}', style: const TextStyle(color: Color(0xFF0F172A))),
-                    ),
-                  ],
-                  child: Row(
-                    children: [
-                      Text(
-                        _level == null ? strings.allGroups : 'TOPIK ${strings.levelUnit.replaceAll('{level}', '$_level')}',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF0F172A),
-                        ),
-                      ),
-                      const Icon(Icons.arrow_drop_down, color: Color(0xFF64748B)),
-                    ],
+                // Word List Title
+                Text(
+                  strings.tabWordbook,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF0F172A),
                   ),
                 ),
                 const Spacer(),
@@ -325,7 +276,7 @@ class _VocaListTabViewState extends ConsumerState<VocaListTabView> {
           Expanded(
             child: vocabulary.when(
               data: (page) {
-                var items = page.items;
+                var items = overrides.applyOverrides(page.items);
 
                 // Bookmarked Filter
                 if (_onlySaved) {
