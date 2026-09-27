@@ -8,8 +8,11 @@ import 'package:topik_go/features/auth/presentation/login_page.dart';
 import 'package:topik_go/features/auth/presentation/register_page.dart';
 import 'package:topik_go/features/explanation_video/presentation/explanation_video_list_page.dart';
 import 'package:topik_go/features/explanation_video/presentation/video_player_page.dart';
+import 'package:topik_go/features/grammar/domain/grammar_study_models.dart';
 import 'package:topik_go/features/grammar/presentation/grammar_detail_page.dart';
+import 'package:topik_go/features/grammar/presentation/grammar_flashcard_page.dart';
 import 'package:topik_go/features/grammar/presentation/grammar_list_page.dart';
+import 'package:topik_go/features/grammar/presentation/grammar_quiz_page.dart';
 import 'package:topik_go/features/home/presentation/home_page.dart';
 import 'package:topik_go/features/main_nav/presentation/main_shell_page.dart';
 import 'package:topik_go/features/mock_exam/presentation/mock_exam_page.dart';
@@ -120,6 +123,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/grammar',
         builder: (context, state) => const GrammarListPage(),
+      ),
+      GoRoute(
+        path: '/grammar/flashcard',
+        builder: (context, state) {
+          final sourceParam = state.uri.queryParameters['source'];
+          final source = sourceParam == 'saved'
+              ? const GrammarStudySource.saved()
+              : const GrammarStudySource.all();
+          return GrammarFlashcardPage(source: source);
+        },
+      ),
+      GoRoute(
+        path: '/grammar/quiz',
+        builder: (context, state) {
+          final sourceParam = state.uri.queryParameters['source'];
+          final source = sourceParam == 'saved'
+              ? const GrammarStudySource.saved()
+              : const GrammarStudySource.all();
+          return GrammarQuizPage(source: source);
+        },
       ),
       GoRoute(
         path: '/grammar/:id',
