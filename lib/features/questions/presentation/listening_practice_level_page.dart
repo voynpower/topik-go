@@ -87,9 +87,9 @@ class ListeningPracticeLevelPage extends StatelessWidget {
                                       color: const Color(0xFFF1F4F8),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
-                                    child: const Text(
-                                      '30문항',
-                                      style: TextStyle(
+                                    child: Text(
+                                      data.questionCount,
+                                      style: const TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w600,
                                         color: Colors.black54,
@@ -132,12 +132,14 @@ class _LevelMeta {
     required this.level,
     required this.title,
     required this.desc,
+    required this.questionCount,
     required this.color,
   });
 
   final int level;
   final String title;
   final String desc;
+  final String questionCount;
   final Color color;
 }
 
@@ -145,25 +147,29 @@ const _levelData = [
   _LevelMeta(
     level: 3,
     title: '3급 초중급 듣기',
-    desc: '기본 일상 대화, 안내 방송 및 짧은 문답 청취',
+    desc: '기본 일상 대화, 안내 방송 및 짧은 문답 청취 (1~20번)',
+    questionCount: '20문항',
     color: Color(0xFF0F8C63),
   ),
   _LevelMeta(
     level: 4,
     title: '4급 중급 듣기',
-    desc: '사회적 주제, 직장 내 대화 및 라디오 설명 청취',
+    desc: '사회적 주제, 직장 내 대화 및 라디오 설명 청취 (21~36번)',
+    questionCount: '16문항',
     color: Color(0xFF2E6BD9),
   ),
   _LevelMeta(
     level: 5,
     title: '5급 중고급 듣기',
-    desc: '전문가 인터뷰, 강연 및 심층 시사 뉴스 청취',
+    desc: '전문가 인터뷰, 강연 및 심층 시사 뉴스 청취 (37~45번)',
+    questionCount: '9문항',
     color: Color(0xFF6E5BD8),
   ),
   _LevelMeta(
     level: 6,
     title: '6급 최고급 듣기',
-    desc: '학술 토론, 고급 강연 및 비유적 표현 추론',
+    desc: '학술 토론, 고급 강연 및 비유적 표현 추론 (46~50번)',
+    questionCount: '5문항',
     color: Color(0xFFD07A21),
   ),
 ];

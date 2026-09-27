@@ -139,6 +139,24 @@ class BookmarkRepository {
     );
   }
 
+  Future<VocabularyItem> addVocabularyByWord({
+    required String word,
+    String? meaningKo,
+    String? meaningUserLang,
+    int? level,
+  }) async {
+    final response = await _dio.post(
+      '/bookmarks/vocabulary',
+      data: {
+        'word': word,
+        'meaning_ko': ?meaningKo,
+        'meaning_user_lang': ?meaningUserLang,
+        'level': ?level,
+      },
+    );
+    return VocabularyItem.fromJson(response.data as Map<String, dynamic>);
+  }
+
   Future<List<BookmarkedGrammar>> getGrammarBookmarks() async {
     final items = await _getRawList('/bookmarks/grammar');
     return items.map(BookmarkedGrammar.fromJson).toList();

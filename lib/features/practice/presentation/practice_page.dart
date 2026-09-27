@@ -38,7 +38,7 @@ class PracticePage extends ConsumerWidget {
                 iconColor: const Color(0xFF1D8F86),
                 backgroundColor: const Color(0xFFE8F8F3),
                 title: '읽기 연습',
-                subtitle: '3~6급 급수별 집중 독해 (총 120문항)',
+                subtitle: 'TOPIK II 기출 읽기 (제102회 · 제83회 전 문항 수록)',
                 onTap: () => context.push('/reading-practice'),
               ),
               _MenuTile(
@@ -46,7 +46,7 @@ class PracticePage extends ConsumerWidget {
                 iconColor: const Color(0xFF2E6BD9),
                 backgroundColor: const Color(0xFFEAF1FF),
                 title: '듣기 연습',
-                subtitle: '3~6급 배속 제어 & 대본 학습 (총 120문항)',
+                subtitle: 'TOPIK II 기출 듣기 (실제 성우 음원 & 전 문항 대본)',
                 onTap: () => context.push('/listening-practice'),
               ),
               _MenuTile(
@@ -54,7 +54,7 @@ class PracticePage extends ConsumerWidget {
                 iconColor: const Color(0xFFD07A21),
                 backgroundColor: const Color(0xFFFFF1DC),
                 title: '쓰기 집중 훈련',
-                subtitle: '51~54번 유형별 훈련 & 기출 쓰기 (모범 답안 제공)',
+                subtitle: 'TOPIK II 기출 쓰기 (51~54번 원고지 실전 & 모범 답안)',
                 onTap: () => context.push('/writing-practice'),
               ),
               const SizedBox(height: 18),

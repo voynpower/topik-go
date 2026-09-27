@@ -2547,7 +2547,25 @@ class _OptionTile extends StatelessWidget {
                   color: color,
                 ),
                 const SizedBox(width: 10),
-                Expanded(child: Text('${option.label}. ${option.text}')),
+                Expanded(
+                  child: (option.text.contains('.png') ||
+                          option.text.contains('.jpg') ||
+                          option.text.contains('/photos/'))
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(
+                              resolveApiMediaUrl(option.text),
+                              height: 150,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stack) =>
+                                  Text('${option.label}. ${option.text}'),
+                            ),
+                          ),
+                        )
+                      : Text('${option.label}. ${option.text}'),
+                ),
               ],
             ),
           ),

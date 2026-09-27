@@ -87,9 +87,9 @@ class ReadingPracticeLevelPage extends StatelessWidget {
                                       color: const Color(0xFFF1F4F8),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
-                                    child: const Text(
-                                      '30문항',
-                                      style: TextStyle(
+                                    child: Text(
+                                      data.questionCount,
+                                      style: const TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w600,
                                         color: Colors.black54,
@@ -132,12 +132,14 @@ class _LevelMeta {
     required this.level,
     required this.title,
     required this.desc,
+    required this.questionCount,
     required this.color,
   });
 
   final int level;
   final String title;
   final String desc;
+  final String questionCount;
   final Color color;
 }
 
@@ -145,25 +147,29 @@ const _levelData = [
   _LevelMeta(
     level: 3,
     title: '3급 초중급 읽기',
-    desc: '기본 안내문, 실용문 및 일상적 글 독해',
+    desc: '기본 안내문, 실용문 및 일상적 글 독해 (1~20번)',
+    questionCount: '20문항',
     color: Color(0xFF0F8C63),
   ),
   _LevelMeta(
     level: 4,
     title: '4급 중급 읽기',
-    desc: '사회적 주제, 뉴스 기사, 일반 설명문 독해',
+    desc: '사회적 주제, 뉴스 기사, 일반 설명문 독해 (21~36번)',
+    questionCount: '16문항',
     color: Color(0xFF2E6BD9),
   ),
   _LevelMeta(
     level: 5,
     title: '5급 중고급 읽기',
-    desc: '전문적 논설문, 경제/사회 이슈 및 칼럼 독해',
+    desc: '전문적 논설문, 경제/사회 이슈 및 칼럼 독해 (37~45번)',
+    questionCount: '9문항',
     color: Color(0xFF6E5BD8),
   ),
   _LevelMeta(
     level: 6,
     title: '6급 최고급 읽기',
-    desc: '학술 연구, 심층 비평 및 고난도 문맥 추론',
+    desc: '학술 연구, 심층 비평 및 고난도 문맥 추론 (46~50번)',
+    questionCount: '5문항',
     color: Color(0xFFD07A21),
   ),
 ];

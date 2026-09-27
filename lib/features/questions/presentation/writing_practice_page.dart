@@ -8,6 +8,7 @@ import 'package:topik_go/features/question_sets/data/question_set.dart';
 import 'package:topik_go/features/questions/data/question_repository.dart';
 import 'package:topik_go/features/questions/data/writing_practice_set.dart';
 import 'package:topik_go/features/questions/presentation/question_media_view.dart';
+import 'package:topik_go/features/vocabulary/presentation/word_lookup_sheet.dart';
 
 class WritingPracticePage extends ConsumerStatefulWidget {
   const WritingPracticePage({super.key});
@@ -28,6 +29,7 @@ class _WritingPracticePageState extends ConsumerState<WritingPracticePage> {
   final Map<String, TextEditingController> _controllersB = {};
   final Map<String, Set<int>> _checkedConditions = {};
   final DateTime _startedAt = DateTime.now();
+  String _selectedWord = '';
 
   @override
   void dispose() {
@@ -60,6 +62,13 @@ class _WritingPracticePageState extends ConsumerState<WritingPracticePage> {
       appBar: AppBar(
         title: const Text('TOPIK II 쓰기 집중 훈련'),
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search_rounded),
+            tooltip: '단어/문법 검색',
+            onPressed: () => showWordLookupSheet(context),
+          ),
+        ],
       ),
       body: questionsAsync.when(
         data: (page) {
@@ -118,44 +127,68 @@ class _WritingPracticePageState extends ConsumerState<WritingPracticePage> {
                 const SizedBox(height: 14),
               ],
               _ExamPaper(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _ExamInstruction(question: question),
-                    const SizedBox(height: 12),
-                    if (question.passageText?.isNotEmpty ?? false) ...[
-                      _PassageCard(
-                        text: question.passageText!,
-                        isShortCompletion: question.questionNumber <= 52,
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    // Show graph image for Q53 if present
-                    if (question.questionNumber == 53) ...[
-                      _GraphImagePreview(question: question),
-                      const SizedBox(height: 16),
-                    ],
-                    Text(
-                      question.prompt,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            height: 1.45,
-                            fontWeight: FontWeight.w700,
+                child: SelectionArea(
+                  onSelectionChanged: (content) {
+                    _selectedWord = content?.plainText.trim() ?? '';
+                  },
+                  contextMenuBuilder: (context, selectableRegionState) {
+                    final buttonItems = [
+                      if (_selectedWord.isNotEmpty)
+                        ContextMenuButtonItem(
+                          onPressed: () {
+                            final term = _selectedWord;
+                            selectableRegionState.hideToolbar();
+                            showWordLookupSheet(context, initialWord: term);
+                          },
+                          label: '단어장 추가 (+)',
+                        ),
+                      ...selectableRegionState.contextMenuButtonItems,
+                    ];
+                    return AdaptiveTextSelectionToolbar.buttonItems(
+                      anchors: selectableRegionState.contextMenuAnchors,
+                      buttonItems: buttonItems,
+                    );
+                  },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _ExamInstruction(question: question),
+                      const SizedBox(height: 14),
+                      // For Q53: Show graph image FIRST, then supplementary notes if any
+                      if (question.questionNumber == 53) ...[
+                        _GraphImagePreview(question: question),
+                        const SizedBox(height: 14),
+                        if (question.passageText?.isNotEmpty ?? false) ...[
+                          _PassageCard(
+                            text: question.passageText!,
+                            isShortCompletion: false,
                           ),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildDedicatedEditor(question, controller),
-                    if (_submitted) ...[
-                      const SizedBox(height: 20),
-                      _ReviewCard(
-                        question: question,
-                        textAnswer: controller.text,
-                        controllerA: _controllersA[question.id],
-                        controllerB: _controllersB[question.id],
-                        explanation: question.explanation,
-                        sampleAnswer: question.correctAnswer,
-                      ),
+                          const SizedBox(height: 14),
+                        ],
+                      ] else ...[
+                        // For Q51, 52, 54: Show passage card
+                        if (question.passageText?.isNotEmpty ?? false) ...[
+                          _PassageCard(
+                            text: question.passageText!,
+                            isShortCompletion: question.questionNumber <= 52,
+                          ),
+                          const SizedBox(height: 14),
+                        ],
+                      ],
+                      _buildDedicatedEditor(question, controller),
+                      if (_submitted) ...[
+                        const SizedBox(height: 20),
+                        _ReviewCard(
+                          question: question,
+                          textAnswer: controller.text,
+                          controllerA: _controllersA[question.id],
+                          controllerB: _controllersB[question.id],
+                          explanation: question.explanation,
+                          sampleAnswer: question.correctAnswer,
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ],
@@ -613,10 +646,10 @@ class _GraphDescriptionEditorState extends State<_GraphDescriptionEditor> {
 
     if (charCount < 200) {
       gaugeColor = const Color(0xFFD97706);
-      gaugeLabel = '권장 200~300자 (200자 이상 작성해야 합니다)';
+      gaugeLabel = '권장 200~300자 (최소 200자)';
     } else if (charCount <= 300) {
       gaugeColor = const Color(0xFF16A34A);
-      gaugeLabel = '권장 분량 달성! (200~300자)';
+      gaugeLabel = '권장 분량 달성 (200~300자)';
     } else {
       gaugeColor = const Color(0xFFDC2626);
       gaugeLabel = '300자 초과 주의 (감점 요인)';
@@ -638,14 +671,19 @@ class _GraphDescriptionEditorState extends State<_GraphDescriptionEditor> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    gaugeLabel,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: gaugeColor,
+                  Expanded(
+                    child: Text(
+                      gaugeLabel,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: gaugeColor,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Text(
                     '$charCount자 / 200~300자',
                     style: TextStyle(
@@ -807,10 +845,10 @@ class _EssayEditorState extends State<_EssayEditor> {
 
     if (charCount < 600) {
       gaugeColor = const Color(0xFFD97706);
-      gaugeLabel = '권장 600~700자 (서론-본론-결론 3단 구성)';
+      gaugeLabel = '권장 600~700자 (최소 600자)';
     } else if (charCount <= 700) {
       gaugeColor = const Color(0xFF16A34A);
-      gaugeLabel = '권장 분량 달성! (600~700자)';
+      gaugeLabel = '권장 분량 달성 (600~700자)';
     } else {
       gaugeColor = const Color(0xFFDC2626);
       gaugeLabel = '700자 초과 주의 (감점 요인)';
@@ -866,14 +904,19 @@ class _EssayEditorState extends State<_EssayEditor> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    gaugeLabel,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: gaugeColor,
+                  Expanded(
+                    child: Text(
+                      gaugeLabel,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: gaugeColor,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Text(
                     '$charCount자 / 600~700자',
                     style: TextStyle(
@@ -985,6 +1028,8 @@ class _GraphImagePreview extends StatelessWidget {
     }
 
     final resolvedUrl = resolveApiMediaUrl(imageUrl);
+    final urlWithVersion =
+        resolvedUrl.contains('?') ? '$resolvedUrl&v=2' : '$resolvedUrl?v=2';
 
     return Container(
       width: double.infinity,
@@ -997,11 +1042,15 @@ class _GraphImagePreview extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.insert_chart_outlined, size: 16, color: Color(0xFF0F8C63)),
-              SizedBox(width: 6),
-              Text(
+              const Icon(
+                Icons.insert_chart_outlined,
+                size: 16,
+                color: Color(0xFF0F8C63),
+              ),
+              const SizedBox(width: 6),
+              const Text(
                 '도표 / 그래프 자료',
                 style: TextStyle(
                   fontSize: 12,
@@ -1009,21 +1058,92 @@ class _GraphImagePreview extends StatelessWidget {
                   color: Color(0xFF0F8C63),
                 ),
               ),
+              const Spacer(),
+              InkWell(
+                onTap: () => _showZoomDialog(context, urlWithVersion),
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F8C63).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.zoom_in, size: 14, color: Color(0xFF0F8C63)),
+                      SizedBox(width: 4),
+                      Text(
+                        '확대 보기',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF0F8C63),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 10),
-          Center(
+          GestureDetector(
+            onTap: () => _showZoomDialog(context, urlWithVersion),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                resolvedUrl,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) =>
-                    const SizedBox.shrink(),
+              child: Container(
+                color: Colors.white,
+                width: double.infinity,
+                child: Image.network(
+                  urlWithVersion,
+                  fit: BoxFit.fitWidth,
+                  errorBuilder: (context, error, stackTrace) =>
+                      const SizedBox.shrink(),
+                ),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showZoomDialog(BuildContext context, String url) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(12),
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              padding: const EdgeInsets.fromLTRB(12, 36, 12, 12),
+              child: InteractiveViewer(
+                minScale: 0.8,
+                maxScale: 4.0,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(url, fit: BoxFit.contain),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 4,
+              right: 4,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.black87),
+                onPressed: () => Navigator.of(ctx).pop(),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1316,23 +1436,38 @@ class _ExamInstruction extends StatelessWidget {
     final numberLabel = question.questionNumber > 0
         ? '${question.questionNumber}.'
         : '문제';
+    final displayText = question.prompt.trim().isNotEmpty
+        ? question.prompt.trim()
+        : _instructionFor(question.questionNumber);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          numberLabel,
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F8C63).withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            numberLabel,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF0F8C63),
+            ),
+          ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 10),
         Expanded(
           child: Text(
-            _instructionFor(question.questionNumber),
+            displayText,
             style: Theme.of(
               context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ).textTheme.titleMedium?.copyWith(
+                  height: 1.45,
+                  fontWeight: FontWeight.w700,
+                ),
           ),
         ),
       ],
