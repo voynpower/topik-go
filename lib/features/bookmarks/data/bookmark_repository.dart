@@ -132,10 +132,15 @@ class BookmarkRepository {
   Future<void> setVocabularyBookmark({
     required String vocabularyId,
     required bool bookmarked,
+    String? meaningUserLang,
   }) async {
     await _dio.patch(
       '/bookmarks/vocabulary/$vocabularyId',
-      data: {'bookmarked': bookmarked},
+      data: {
+        'bookmarked': bookmarked,
+        if (meaningUserLang != null && meaningUserLang.trim().isNotEmpty)
+          'meaning_user_lang': meaningUserLang.trim(),
+      },
     );
   }
 

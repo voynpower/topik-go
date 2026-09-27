@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/core/constants/prefs_keys.dart';
+import 'package:topik_go/core/localization/app_strings.dart';
+import 'package:topik_go/core/localization/app_strings_provider.dart';
+import 'package:topik_go/core/services/translation_service.dart';
 import 'package:topik_go/features/auth/application/auth_controller.dart';
 import 'package:topik_go/features/auth/data/auth_repository.dart';
 import 'package:topik_go/features/users/data/admin_user_repository.dart';
@@ -34,44 +37,115 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
     if (!mounted) return;
     setState(() {
-      languageLabel = _languageFromCode(languageCode);
+      languageLabel = getLanguageDisplayName(languageCode);
       targetLevelLabel = targetLevel == null ? '미설정' : '$targetLevel급';
     });
   }
 
-  String _languageFromCode(String? code) {
-    switch (code) {
-      case 'ko':
-        return '한국어';
-      case 'en':
-        return 'English';
-      case 'ru':
-        return 'Русский';
-      case 'uz':
-        return "O'zbekcha";
-      case 'vi':
-        return 'Tiếng Việt';
-      case 'zh':
-        return '中文';
-      case 'ja':
-        return '日本語';
-      case 'fr':
-        return 'Français';
-      case 'de':
-        return 'Deutsch';
-      default:
-        return '미설정';
-    }
+  Future<void> _showLanguagePicker() async {
+    final currentCode = ref.read(currentLanguageProvider);
+    final strings = ref.read(appStringsProvider);
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (bottomSheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    const Icon(Icons.language_outlined, color: AppColors.mintDark),
+                    const SizedBox(width: 8),
+                    Text(
+                      strings.chooseLanguage,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: kSupportedLanguages.length,
+                  itemBuilder: (ctx, index) {
+                    final lang = kSupportedLanguages[index];
+                    final isSelected = lang.code == currentCode;
+
+                    return ListTile(
+                      title: Text(
+                        lang.nativeName,
+                        style: TextStyle(
+                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                          color: isSelected ? AppColors.mintDark : AppColors.textPrimary,
+                        ),
+                      ),
+                      subtitle: Text(
+                        lang.name,
+                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                      trailing: isSelected
+                          ? const Icon(Icons.check_circle_rounded, color: AppColors.mintDark)
+                          : null,
+                      onTap: () async {
+                        Navigator.of(bottomSheetContext).pop();
+                        await ref.read(currentLanguageProvider.notifier).setLanguage(lang.code);
+                        if (!mounted) return;
+                        setState(() {
+                          languageLabel = getLanguageDisplayName(lang.code);
+                        });
+                        final updatedStrings = ref.read(appStringsProvider);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(updatedStrings.languageChangedNotice),
+                            duration: const Duration(seconds: 2),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final strings = ref.watch(appStringsProvider);
     final profile = ref.watch(userProfileProvider);
 
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('설정'),
+        title: Text(strings.settingsTitle),
         backgroundColor: Colors.transparent,
       ),
       body: DecoratedBox(
@@ -86,75 +160,77 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
             children: [
-              const _SettingsHero(),
+              _SettingsHero(strings: strings),
               const SizedBox(height: 22),
-              const _SectionTitle(icon: Icons.tune_outlined, title: '일반 설정'),
+              _SectionTitle(icon: Icons.tune_outlined, title: strings.generalSettings),
               const SizedBox(height: 10),
               ...profile.when(
-                data: _profileSettings,
+                data: (user) => _profileSettings(user, strings),
                 loading: () => [
-                  const _SettingTile(
+                  _SettingTile(
                     icon: Icons.person_outline,
-                    title: '프로필',
-                    value: '불러오는 중...',
+                    title: strings.username,
+                    value: strings.loading,
                   ),
                   _SettingTile(
                     icon: Icons.language_outlined,
-                    title: '언어 설정',
-                    value: languageLabel,
+                    title: strings.languageSetting,
+                    value: getLanguageDisplayName(ref.watch(currentLanguageProvider)),
+                    onTap: _showLanguagePicker,
                   ),
                   _SettingTile(
                     icon: Icons.flag_outlined,
-                    title: '목표 등급',
+                    title: strings.targetLevel,
                     value: targetLevelLabel,
                   ),
                 ],
                 error: (_, _) => [
-                  const _SettingTile(
+                  _SettingTile(
                     icon: Icons.person_outline,
-                    title: '프로필',
-                    value: '서버 프로필을 불러오지 못했습니다',
+                    title: strings.username,
+                    value: strings.error,
                   ),
                   _SettingTile(
                     icon: Icons.language_outlined,
-                    title: '언어 설정',
-                    value: languageLabel,
+                    title: strings.languageSetting,
+                    value: getLanguageDisplayName(ref.watch(currentLanguageProvider)),
+                    onTap: _showLanguagePicker,
                   ),
                   _SettingTile(
                     icon: Icons.flag_outlined,
-                    title: '목표 등급',
+                    title: strings.targetLevel,
                     value: targetLevelLabel,
                   ),
                 ],
               ),
               const SizedBox(height: 18),
-              const _SectionTitle(
+              _SectionTitle(
                 icon: Icons.storage_outlined,
-                title: '데이터 관리',
+                title: strings.dataManagement,
               ),
               const SizedBox(height: 10),
-              const _SettingTile(
+              _SettingTile(
                 icon: Icons.bookmark_remove_outlined,
-                title: '북마크 초기화',
-                value: '저장된 모든 북마크 삭제',
+                title: strings.clearBookmarks,
+                value: strings.clearBookmarksDesc,
               ),
-              const _SettingTile(
+              _SettingTile(
                 icon: Icons.info_outline,
-                title: '앱 정보',
-                value: '버전 정보 및 각종 정책 안내',
+                title: strings.appInfo,
+                value: strings.appInfoDesc,
               ),
               const SizedBox(height: 18),
-              const _SectionTitle(icon: Icons.lock_outline, title: '계정'),
+              _SectionTitle(icon: Icons.lock_outline, title: strings.accountSection),
               const SizedBox(height: 10),
               _SettingTile(
                 icon: Icons.password_outlined,
-                title: '비밀번호 재설정',
+                title: strings.changePassword,
                 value: '',
                 onTap: _changePassword,
               ),
               _SettingTile(
                 icon: Icons.logout_outlined,
-                title: '로그아웃',
+                title: strings.logout,
                 value: '',
                 onTap: () async {
                   await ref.read(authRepositoryProvider).logout();
@@ -164,41 +240,24 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   }
                 },
               ),
-              const _SettingTile(
-                icon: Icons.person_remove_outlined,
-                title: '회원 탈퇴',
-                value: '',
-              ),
               ...profile.maybeWhen(
                 data: (user) => user.isAdmin
                     ? [
                         const SizedBox(height: 18),
-                        const _SectionTitle(
+                        _SectionTitle(
                           icon: Icons.admin_panel_settings_outlined,
-                          title: '관리자',
+                          title: strings.adminMenu,
                         ),
                         const SizedBox(height: 10),
                         _SettingTile(
                           icon: Icons.search_outlined,
-                          title: '사용자 조회',
+                          title: strings.manageUsers,
                           value: 'ID로 사용자 정보 확인',
                           onTap: _findAdminUser,
                         ),
                         _SettingTile(
-                          icon: Icons.manage_accounts_outlined,
-                          title: '사용자 수정',
-                          value: 'ID로 사용자 설정 변경',
-                          onTap: _updateAdminUser,
-                        ),
-                        _SettingTile(
-                          icon: Icons.delete_outline,
-                          title: '사용자 삭제',
-                          value: 'ID로 사용자 계정 삭제',
-                          onTap: _deleteAdminUser,
-                        ),
-                        _SettingTile(
                           icon: Icons.library_books_outlined,
-                          title: '문제 세트 관리',
+                          title: strings.manageQuestionSets,
                           value: '생성, 수정, 삭제',
                           onTap: () => context.push('/admin/question-sets'),
                         ),
@@ -213,41 +272,42 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  List<Widget> _profileSettings(UserProfile profile) {
+  List<Widget> _profileSettings(UserProfile profile, AppStrings strings) {
     return [
       _SettingTile(
         icon: Icons.person_outline,
-        title: '사용자명',
+        title: strings.username,
         value: profile.nickname,
       ),
       _SettingTile(
         icon: Icons.mail_outline,
-        title: '이메일',
+        title: strings.email,
         value: profile.email ?? '미등록',
       ),
       _SettingTile(
         icon: Icons.verified_user_outlined,
-        title: '역할',
+        title: strings.role,
         value: profile.role,
       ),
       _SettingTile(
         icon: Icons.language_outlined,
-        title: '언어 설정',
-        value: _languageFromCode(profile.languageCode),
+        title: strings.languageSetting,
+        value: getLanguageDisplayName(ref.watch(currentLanguageProvider)),
+        onTap: _showLanguagePicker,
       ),
       _SettingTile(
         icon: Icons.flag_outlined,
-        title: '목표 등급',
+        title: strings.targetLevel,
         value: '${profile.targetLevel}급',
       ),
       _SettingTile(
         icon: Icons.format_size_outlined,
-        title: '글자 크기',
+        title: strings.fontSize,
         value: '${profile.fontScale}x',
       ),
       _SettingTile(
         icon: Icons.schedule_outlined,
-        title: '타임존',
+        title: strings.timezone,
         value: profile.timezone,
       ),
     ];
@@ -282,128 +342,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ],
         ),
       );
-    } catch (error) {
-      _showError(error);
-    }
-  }
-
-  Future<void> _updateAdminUser() async {
-    final id = await _askUserId(title: '사용자 수정');
-    if (id == null) return;
-
-    try {
-      final user = await ref.read(adminUserRepositoryProvider).getUser(id);
-      if (!mounted) return;
-      final nicknameController = TextEditingController(text: user.nickname);
-      final levelController = TextEditingController(
-        text: user.targetLevel.toString(),
-      );
-      final languageController = TextEditingController(text: user.languageCode);
-
-      final result =
-          await showDialog<
-            ({String nickname, int targetLevel, String language})
-          >(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('사용자 수정'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nicknameController,
-                    decoration: const InputDecoration(labelText: '사용자명'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: levelController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: '목표 등급'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: languageController,
-                    decoration: const InputDecoration(labelText: '언어 코드'),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('취소'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    final nickname = nicknameController.text.trim();
-                    final level = int.tryParse(levelController.text.trim());
-                    final language = languageController.text.trim();
-                    if (nickname.isEmpty || level == null || language.isEmpty) {
-                      return;
-                    }
-                    Navigator.of(context).pop((
-                      nickname: nickname,
-                      targetLevel: level,
-                      language: language,
-                    ));
-                  },
-                  child: const Text('저장'),
-                ),
-              ],
-            ),
-          );
-
-      nicknameController.dispose();
-      levelController.dispose();
-      languageController.dispose();
-      if (result == null) return;
-
-      await ref.read(adminUserRepositoryProvider).updateUser(id, {
-        'nickname': result.nickname,
-        'target_level': result.targetLevel,
-        'language_code': result.language,
-      });
-      ref.invalidate(userProfileProvider);
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('사용자가 수정되었습니다.')));
-      }
-    } catch (error) {
-      _showError(error);
-    }
-  }
-
-  Future<void> _deleteAdminUser() async {
-    final id = await _askUserId(title: '사용자 삭제');
-    if (id == null || !mounted) return;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('사용자 삭제'),
-        content: Text('$id 사용자를 삭제할까요?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('삭제'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    try {
-      await ref.read(adminUserRepositoryProvider).deleteUser(id);
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('사용자가 삭제되었습니다.')));
-      }
     } catch (error) {
       _showError(error);
     }
@@ -447,6 +385,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Future<void> _changePassword() async {
+    final strings = ref.read(appStringsProvider);
     final currentController = TextEditingController();
     final newController = TextEditingController();
     final confirmController = TextEditingController();
@@ -455,7 +394,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('비밀번호 재설정'),
+          title: Text(strings.changePassword),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -481,7 +420,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('취소'),
+              child: Text(strings.cancel),
             ),
             FilledButton(
               onPressed: () {
@@ -495,7 +434,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
                 Navigator.of(context).pop((current: current, next: next));
               },
-              child: const Text('변경'),
+              child: Text(strings.confirm),
             ),
           ],
         );
@@ -523,7 +462,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 }
 
 class _SettingsHero extends StatelessWidget {
-  const _SettingsHero();
+  const _SettingsHero({required this.strings});
+
+  final AppStrings strings;
 
   @override
   Widget build(BuildContext context) {
@@ -561,10 +502,10 @@ class _SettingsHero extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('앱 설정', style: Theme.of(context).textTheme.titleLarge),
+                Text(strings.appSettingsHeroTitle, style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 4),
                 Text(
-                  '계정, 학습 환경, 관리자 기능을 한 곳에서 관리하세요.',
+                  strings.appSettingsHeroDesc,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     height: 1.35,
                     color: AppColors.textSecondary,

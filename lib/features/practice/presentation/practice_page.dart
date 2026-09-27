@@ -2,16 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
+import 'package:topik_go/core/localization/app_strings.dart';
+import 'package:topik_go/core/localization/app_strings_provider.dart';
 
 class PracticePage extends ConsumerWidget {
   const PracticePage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final strings = ref.watch(appStringsProvider);
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('학습'),
+        title: Text(strings.practiceTitle),
         backgroundColor: Colors.transparent,
       ),
       body: DecoratedBox(
@@ -26,65 +30,57 @@ class PracticePage extends ConsumerWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
             children: [
-              const _PracticeHero(),
+              _PracticeHero(strings: strings),
               const SizedBox(height: 22),
-              const _SectionTitle(
+              _SectionTitle(
                 icon: Icons.quiz_outlined,
-                title: '유형별 문제 풀기',
+                title: strings.byTypeSection,
               ),
               const SizedBox(height: 10),
               _MenuTile(
                 icon: Icons.menu_book_outlined,
                 iconColor: const Color(0xFF1D8F86),
                 backgroundColor: const Color(0xFFE8F8F3),
-                title: '읽기 연습',
-                subtitle: 'TOPIK II 기출 읽기 (제102회 · 제83회 전 문항 수록)',
+                title: strings.readingPractice,
+                subtitle: strings.readingPracticeDesc,
                 onTap: () => context.push('/reading-practice'),
               ),
               _MenuTile(
                 icon: Icons.headphones_outlined,
                 iconColor: const Color(0xFF2E6BD9),
                 backgroundColor: const Color(0xFFEAF1FF),
-                title: '듣기 연습',
-                subtitle: 'TOPIK II 기출 듣기 (실제 성우 음원 & 전 문항 대본)',
+                title: strings.listeningPractice,
+                subtitle: strings.listeningPracticeDesc,
                 onTap: () => context.push('/listening-practice'),
               ),
               _MenuTile(
                 icon: Icons.edit_note_outlined,
                 iconColor: const Color(0xFFD07A21),
                 backgroundColor: const Color(0xFFFFF1DC),
-                title: '쓰기 집중 훈련',
-                subtitle: 'TOPIK II 기출 쓰기 (51~54번 원고지 실전 & 모범 답안)',
+                title: strings.writingPractice,
+                subtitle: strings.writingPracticeDesc,
                 onTap: () => context.push('/writing-practice'),
               ),
               const SizedBox(height: 18),
-              const _SectionTitle(
+              _SectionTitle(
                 icon: Icons.auto_stories_outlined,
-                title: '학습 도구',
+                title: strings.studyToolsSection,
               ),
               const SizedBox(height: 10),
-              _MenuTile(
-                icon: Icons.play_circle_outline,
-                iconColor: const Color(0xFFE05268),
-                backgroundColor: const Color(0xFFFFEEF1),
-                title: '문제 해설 영상',
-                subtitle: '문제 해설 영상을 열람해보세요',
-                onTap: () => context.push('/explanation-videos'),
-              ),
               _MenuTile(
                 icon: Icons.translate_outlined,
                 iconColor: const Color(0xFF0F8C63),
                 backgroundColor: const Color(0xFFE9F7EF),
-                title: '단어장',
-                subtitle: 'TOPIK 단어를 검색하고 저장하세요',
+                title: strings.smartWordbook,
+                subtitle: strings.smartWordbookDesc,
                 onTap: () => context.push('/vocabulary'),
               ),
               _MenuTile(
                 icon: Icons.psychology_alt_outlined,
                 iconColor: const Color(0xFF6E5BD8),
                 backgroundColor: const Color(0xFFF0EEFF),
-                title: '문법 공부',
-                subtitle: '문법 패턴을 검색하고 예문을 확인하세요',
+                title: strings.grammarStudy,
+                subtitle: strings.grammarStudyDesc,
                 onTap: () => context.push('/grammar'),
               ),
             ],
@@ -96,7 +92,9 @@ class PracticePage extends ConsumerWidget {
 }
 
 class _PracticeHero extends StatelessWidget {
-  const _PracticeHero();
+  const _PracticeHero({required this.strings});
+
+  final AppStrings strings;
 
   @override
   Widget build(BuildContext context) {
@@ -135,12 +133,12 @@ class _PracticeHero extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'TOPIK II 학습',
+                  strings.practiceHeroTitle,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '읽기, 듣기, 쓰기와 핵심 학습 도구를 한 곳에서 시작하세요.',
+                  strings.practiceHeroSubtitle,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     height: 1.35,
                     color: AppColors.textSecondary,

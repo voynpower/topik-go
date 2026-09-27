@@ -25,8 +25,13 @@ import 'package:topik_go/features/questions/presentation/question_list_page.dart
 import 'package:topik_go/features/questions/presentation/reading_practice_page.dart';
 import 'package:topik_go/features/questions/presentation/writing_practice_page.dart';
 import 'package:topik_go/features/settings/presentation/settings_page.dart';
+import 'package:topik_go/features/vocabulary/domain/vocabulary_study_models.dart';
+import 'package:topik_go/features/vocabulary/presentation/vocabulary_autoplay_page.dart';
 import 'package:topik_go/features/vocabulary/presentation/vocabulary_detail_page.dart';
+import 'package:topik_go/features/vocabulary/presentation/vocabulary_dictation_page.dart';
+import 'package:topik_go/features/vocabulary/presentation/vocabulary_flashcard_page.dart';
 import 'package:topik_go/features/vocabulary/presentation/vocabulary_list_page.dart';
+import 'package:topik_go/features/vocabulary/presentation/vocabulary_quiz_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -125,6 +130,46 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/vocabulary',
         builder: (context, state) => const VocabularyListPage(),
+      ),
+      GoRoute(
+        path: '/vocabulary/flashcard',
+        builder: (context, state) {
+          final sourceParam = state.uri.queryParameters['source'];
+          final source = sourceParam == 'all'
+              ? const StudyWordSource.all()
+              : const StudyWordSource.saved();
+          return VocabularyFlashcardPage(source: source);
+        },
+      ),
+      GoRoute(
+        path: '/vocabulary/quiz',
+        builder: (context, state) {
+          final sourceParam = state.uri.queryParameters['source'];
+          final source = sourceParam == 'all'
+              ? const StudyWordSource.all()
+              : const StudyWordSource.saved();
+          return VocabularyQuizPage(source: source);
+        },
+      ),
+      GoRoute(
+        path: '/vocabulary/dictation',
+        builder: (context, state) {
+          final sourceParam = state.uri.queryParameters['source'];
+          final source = sourceParam == 'all'
+              ? const StudyWordSource.all()
+              : const StudyWordSource.saved();
+          return VocabularyDictationPage(source: source);
+        },
+      ),
+      GoRoute(
+        path: '/vocabulary/autoplay',
+        builder: (context, state) {
+          final sourceParam = state.uri.queryParameters['source'];
+          final source = sourceParam == 'all'
+              ? const StudyWordSource.all()
+              : const StudyWordSource.saved();
+          return VocabularyAutoplayPage(source: source);
+        },
       ),
       GoRoute(
         path: '/vocabulary/:id',

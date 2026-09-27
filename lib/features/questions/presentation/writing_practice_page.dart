@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
+import 'package:topik_go/core/localization/app_strings.dart';
+import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/core/network/api_media_url.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/practice/data/practice_session_repository.dart';
@@ -47,6 +49,7 @@ class _WritingPracticePageState extends ConsumerState<WritingPracticePage> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = ref.watch(appStringsProvider);
     // Watch backend questions for the selected writing round
     final questionsAsync = ref.watch(
       practiceQuestionsProvider(
@@ -60,12 +63,12 @@ class _WritingPracticePageState extends ConsumerState<WritingPracticePage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F5F7),
       appBar: AppBar(
-        title: const Text('TOPIK II 쓰기 집중 훈련'),
+        title: Text(strings.writingPractice),
         elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.search_rounded),
-            tooltip: '단어/문법 검색',
+            tooltip: strings.searchWordOrGrammar,
             onPressed: () => showWordLookupSheet(context),
           ),
         ],
@@ -75,18 +78,18 @@ class _WritingPracticePageState extends ConsumerState<WritingPracticePage> {
           final items = page.items.isNotEmpty
               ? page.items
               : _fallbackQuestionsForRound(_selectedRoundId);
-          return _buildContent(items);
+          return _buildContent(items, strings);
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) {
           final fallbackItems = _fallbackQuestionsForRound(_selectedRoundId);
-          return _buildContent(fallbackItems);
+          return _buildContent(fallbackItems, strings);
         },
       ),
     );
   }
 
-  Widget _buildContent(List<Question> items) {
+  Widget _buildContent(List<Question> items, AppStrings strings) {
     final safeIndex = _currentIndex.clamp(0, items.length - 1);
     final question = items[safeIndex];
     final controller = _controllerFor(question);
@@ -140,7 +143,7 @@ class _WritingPracticePageState extends ConsumerState<WritingPracticePage> {
                             selectableRegionState.hideToolbar();
                             showWordLookupSheet(context, initialWord: term);
                           },
-                          label: '단어장 추가 (+)',
+                          label: '${strings.addToVocabulary} (+)',
                         ),
                       ...selectableRegionState.contextMenuButtonItems,
                     ];
@@ -203,6 +206,7 @@ class _WritingPracticePageState extends ConsumerState<WritingPracticePage> {
           onNext: () => setState(() => _currentIndex = safeIndex + 1),
           onSubmit: () => _submitWriting(items),
           onEditAgain: () => setState(() => _submitted = false),
+          strings: strings,
         ),
       ],
     );
@@ -1583,6 +1587,7 @@ class _BottomControls extends StatelessWidget {
     required this.onNext,
     required this.onSubmit,
     required this.onEditAgain,
+    required this.strings,
   });
 
   final bool canGoPrevious;
@@ -1593,6 +1598,7 @@ class _BottomControls extends StatelessWidget {
   final VoidCallback onNext;
   final VoidCallback onSubmit;
   final VoidCallback onEditAgain;
+  final AppStrings strings;
 
   @override
   Widget build(BuildContext context) {
@@ -1612,7 +1618,7 @@ class _BottomControls extends StatelessWidget {
                     child: OutlinedButton.icon(
                       onPressed: canGoPrevious ? onPrevious : null,
                       icon: const Icon(Icons.chevron_left),
-                      label: const Text('이전'),
+                      label: Text(strings.prev),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -1620,7 +1626,7 @@ class _BottomControls extends StatelessWidget {
                     child: OutlinedButton.icon(
                       onPressed: canGoNext ? onNext : null,
                       icon: const Icon(Icons.chevron_right),
-                      label: const Text('다음'),
+                      label: Text(strings.next),
                     ),
                   ),
                 ],
@@ -1640,7 +1646,7 @@ class _BottomControls extends StatelessWidget {
                         )
                       : Icon(submitted ? Icons.edit_outlined : Icons.upload_rounded),
                   label: Text(
-                    saving ? '저장 중...' : (submitted ? '다시 수정하기' : '답안 제출 및 모범 답안 확인'),
+                    saving ? strings.loading : (submitted ? strings.edit : strings.submitExam),
                   ),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.mint,

@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
+import 'package:topik_go/core/localization/app_strings.dart';
+import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/core/network/api_error_message.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/vocabulary/data/vocabulary_repository.dart';
+import 'package:topik_go/features/vocabulary/domain/vocabulary_study_models.dart';
+import 'package:topik_go/features/vocabulary/presentation/vocabulary_source_sheet.dart';
 
 class VocabularyListPage extends ConsumerStatefulWidget {
   const VocabularyListPage({super.key});
@@ -17,6 +22,7 @@ class _VocabularyListPageState extends ConsumerState<VocabularyListPage> {
   final _searchController = TextEditingController();
   int? _level;
   int _page = 1;
+  bool _onlySaved = false;
 
   VocabularyQuery get _query {
     return VocabularyQuery(
@@ -33,26 +39,143 @@ class _VocabularyListPageState extends ConsumerState<VocabularyListPage> {
     super.dispose();
   }
 
+  void _openStudyMode(VocabularyStudyMode mode) {
+    VocabularySourceSheet.show(context, mode);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final strings = ref.watch(appStringsProvider);
     final vocabulary = ref.watch(vocabularyProvider(_query));
+    final bookmarksAsync = ref.watch(bookmarkedVocabularyProvider);
+    final savedCount = bookmarksAsync.asData?.value.length ?? 0;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('단어장')),
+      appBar: AppBar(
+        title: Text(strings.smartWordbook),
+      ),
       body: Column(
         children: [
+          // 1. OneVoca 4 Study Launchers Hub
+          Material(
+            color: Colors.white,
+            elevation: 1,
+            shadowColor: Colors.black12,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.bolt, color: AppColors.mintDark, size: 20),
+                          const SizedBox(width: 6),
+                          Text(
+                            strings.oneVocaTitle,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFDCFCE7),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          strings.wordsSavedCount.replaceAll('{count}', '$savedCount'),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF15803D),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      // Mode 1: Flashcard
+                      Expanded(
+                        child: _StudyModeCard(
+                          icon: Icons.style,
+                          iconColor: const Color(0xFF0284C7),
+                          bgColor: const Color(0xFFF0F9FF),
+                          borderColor: const Color(0xFFBAE6FD),
+                          title: strings.flashcard,
+                          subtitle: strings.flashcardDesc,
+                          onTap: () => _openStudyMode(VocabularyStudyMode.flashcard),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Mode 2: Quiz
+                      Expanded(
+                        child: _StudyModeCard(
+                          icon: Icons.quiz,
+                          iconColor: const Color(0xFF7C3AED),
+                          bgColor: const Color(0xFFF5F3FF),
+                          borderColor: const Color(0xFFDDD6FE),
+                          title: strings.quiz,
+                          subtitle: strings.quizDesc,
+                          onTap: () => _openStudyMode(VocabularyStudyMode.quiz),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Mode 3: Dictation
+                      Expanded(
+                        child: _StudyModeCard(
+                          icon: Icons.edit_note,
+                          iconColor: const Color(0xFFD97706),
+                          bgColor: const Color(0xFFFFFBEB),
+                          borderColor: const Color(0xFFFDE68A),
+                          title: strings.dictation,
+                          subtitle: strings.dictationDesc,
+                          onTap: () => _openStudyMode(VocabularyStudyMode.dictation),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Mode 4: Autoplay
+                      Expanded(
+                        child: _StudyModeCard(
+                          icon: Icons.headset,
+                          iconColor: const Color(0xFF059669),
+                          bgColor: const Color(0xFFECFDF5),
+                          borderColor: const Color(0xFFA7F3D0),
+                          title: strings.autoplay,
+                          subtitle: strings.autoplayDesc,
+                          onTap: () => _openStudyMode(VocabularyStudyMode.autoplay),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // 2. Search & Filter Bar
           Material(
             color: AppColors.surface,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
               child: Column(
                 children: [
                   TextField(
                     controller: _searchController,
                     textInputAction: TextInputAction.search,
                     decoration: InputDecoration(
-                      hintText: '단어 검색',
-                      prefixIcon: const Icon(Icons.search),
+                      hintText: strings.searchVocabulary,
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       suffixIcon: _searchController.text.isEmpty
                           ? null
                           : IconButton(
@@ -60,7 +183,7 @@ class _VocabularyListPageState extends ConsumerState<VocabularyListPage> {
                                 _searchController.clear();
                                 setState(() => _page = 1);
                               },
-                              icon: const Icon(Icons.close),
+                              icon: const Icon(Icons.close, size: 18),
                             ),
                     ),
                     onSubmitted: (_) => setState(() => _page = 1),
@@ -71,22 +194,23 @@ class _VocabularyListPageState extends ConsumerState<VocabularyListPage> {
                     child: Row(
                       children: [
                         _LevelChip(
-                          label: '전체',
-                          selected: _level == null,
+                          label: strings.all,
+                          selected: !_onlySaved && _level == null,
                           onTap: () => setState(() {
+                            _onlySaved = false;
                             _level = null;
                             _page = 1;
                           }),
                         ),
-                        for (final level in const [1, 2, 3, 4, 5, 6])
-                          _LevelChip(
-                            label: '$level급',
-                            selected: _level == level,
-                            onTap: () => setState(() {
-                              _level = level;
-                              _page = 1;
-                            }),
-                          ),
+                        _LevelChip(
+                          label: strings.savedWords,
+                          selected: _onlySaved,
+                          color: const Color(0xFF15803D),
+                          onTap: () => setState(() {
+                            _onlySaved = true;
+                            _level = null;
+                          }),
+                        ),
                       ],
                     ),
                   ),
@@ -94,30 +218,144 @@ class _VocabularyListPageState extends ConsumerState<VocabularyListPage> {
               ),
             ),
           ),
+
+          // 3. Word List Content
           Expanded(
-            child: vocabulary.when(
-              data: (page) => _VocabularyList(
-                page: page,
-                ref: ref,
-                query: _query,
-                onPrevious: page.page > 1
-                    ? () => setState(() => _page = _page - 1)
-                    : null,
-                onNext: page.page * page.limit < page.total
-                    ? () => setState(() => _page = _page + 1)
-                    : null,
-              ),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => _ErrorState(
-                message: apiErrorMessage(
-                  error,
-                  missingApiMessage: '단어장 API가 아직 백엔드에 연결되지 않았습니다.',
-                ),
-                onRetry: () => ref.invalidate(vocabularyProvider(_query)),
-              ),
-            ),
+            child: _onlySaved
+                ? bookmarksAsync.when(
+                    data: (bookmarks) {
+                      final items = bookmarks.map((b) => b.vocabulary).toList();
+                      final queryText = _searchController.text.trim().toLowerCase();
+                      final filtered = queryText.isEmpty
+                          ? items
+                          : items.where((it) {
+                              return it.word.toLowerCase().contains(queryText) ||
+                                  it.meaningKo.toLowerCase().contains(queryText);
+                            }).toList();
+
+                      if (filtered.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.bookmark_border, size: 48, color: Colors.black26),
+                              const SizedBox(height: 12),
+                              Text(
+                                strings.noBookmarks,
+                                style: const TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                strings.mySavedWordbookDesc,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: AppColors.textSecondary, height: 1.4),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      return ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) {
+                          return _VocabularyTile(
+                            item: filtered[index],
+                            ref: ref,
+                            query: _query,
+                            strings: strings,
+                          );
+                        },
+                      );
+                    },
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (error, _) => Center(child: Text('${strings.error}: $error')),
+                  )
+                : vocabulary.when(
+                    data: (page) => _VocabularyList(
+                      page: page,
+                      ref: ref,
+                      query: _query,
+                      strings: strings,
+                      onPrevious: page.page > 1
+                          ? () => setState(() => _page = _page - 1)
+                          : null,
+                      onNext: page.page * page.limit < page.total
+                          ? () => setState(() => _page = _page + 1)
+                          : null,
+                    ),
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (error, _) => _ErrorState(
+                      message: apiErrorMessage(
+                        error,
+                        missingApiMessage: strings.error,
+                      ),
+                      retryText: strings.retry,
+                      onRetry: () => ref.invalidate(vocabularyProvider(_query)),
+                    ),
+                  ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _StudyModeCard extends StatelessWidget {
+  const _StudyModeCard({
+    required this.icon,
+    required this.iconColor,
+    required this.bgColor,
+    required this.borderColor,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final Color bgColor;
+  final Color borderColor;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: borderColor),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: iconColor, size: 22),
+            const SizedBox(height: 6),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: iconColor,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 10,
+                color: iconColor.withValues(alpha: 0.8),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -128,19 +366,27 @@ class _LevelChip extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.color,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.only(right: 6),
       child: ChoiceChip(
         label: Text(label),
         selected: selected,
+        selectedColor: color?.withValues(alpha: 0.15),
+        labelStyle: TextStyle(
+          color: selected ? (color ?? AppColors.mintDark) : Colors.black87,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.normal,
+          fontSize: 12,
+        ),
         onSelected: (_) => onTap(),
       ),
     );
@@ -152,6 +398,7 @@ class _VocabularyList extends StatelessWidget {
     required this.page,
     required this.ref,
     required this.query,
+    required this.strings,
     required this.onPrevious,
     required this.onNext,
   });
@@ -159,22 +406,23 @@ class _VocabularyList extends StatelessWidget {
   final VocabularyPage page;
   final WidgetRef ref;
   final VocabularyQuery query;
+  final AppStrings strings;
   final VoidCallback? onPrevious;
   final VoidCallback? onNext;
 
   @override
   Widget build(BuildContext context) {
     if (page.items.isEmpty) {
-      return const Center(child: Text('조건에 맞는 단어가 없습니다.'));
+      return Center(child: Text(strings.noBookmarks));
     }
 
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       children: [
         _ListSummary(total: page.total, page: page.page),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         ...page.items.map(
-          (item) => _VocabularyTile(item: item, ref: ref, query: query),
+          (item) => _VocabularyTile(item: item, ref: ref, query: query, strings: strings),
         ),
         const SizedBox(height: 8),
         Row(
@@ -182,7 +430,7 @@ class _VocabularyList extends StatelessWidget {
             Expanded(
               child: OutlinedButton(
                 onPressed: onPrevious,
-                child: const Text('이전'),
+                child: Text(strings.prev),
               ),
             ),
             Padding(
@@ -190,7 +438,7 @@ class _VocabularyList extends StatelessWidget {
               child: Text('${page.page}'),
             ),
             Expanded(
-              child: OutlinedButton(onPressed: onNext, child: const Text('다음')),
+              child: OutlinedButton(onPressed: onNext, child: Text(strings.next)),
             ),
           ],
         ),
@@ -211,15 +459,15 @@ class _ListSummary extends StatelessWidget {
       children: [
         Expanded(
           child: Text(
-            '총 $total개',
-            style: Theme.of(context).textTheme.bodyLarge,
+            '총 $total개 단어',
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
           ),
         ),
         Text(
           '$page 페이지',
           style: Theme.of(
             context,
-          ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+          ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary, fontSize: 12),
         ),
       ],
     );
@@ -231,11 +479,13 @@ class _VocabularyTile extends ConsumerStatefulWidget {
     required this.item,
     required this.ref,
     required this.query,
+    required this.strings,
   });
 
   final VocabularyItem item;
   final WidgetRef ref;
   final VocabularyQuery query;
+  final AppStrings strings;
 
   @override
   ConsumerState<_VocabularyTile> createState() => _VocabularyTileState();
@@ -243,128 +493,112 @@ class _VocabularyTile extends ConsumerStatefulWidget {
 
 class _VocabularyTileState extends ConsumerState<_VocabularyTile> {
   bool _savingBookmark = false;
+  FlutterTts? _tts;
+
+  void _speak(String text) async {
+    _tts ??= FlutterTts()
+      ..setLanguage('ko-KR')
+      ..setSpeechRate(0.45);
+    await _tts?.stop();
+    await _tts?.speak(text);
+  }
+
+  @override
+  void dispose() {
+    _tts?.stop();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
+    final strings = widget.strings;
+
     return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => context.push('/vocabulary/${item.id}'),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
-          child: Row(
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        title: Row(
+          children: [
+            Text(
+              item.word,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+            ),
+            const Spacer(),
+            // TTS Audio speaker button
+            IconButton(
+              icon: const Icon(Icons.volume_up, size: 20, color: AppColors.mintDark),
+              tooltip: strings.listenPronunciation,
+              visualDensity: VisualDensity.compact,
+              onPressed: () => _speak(item.word),
+            ),
+            // Bookmark toggle
+            IconButton(
+              icon: _savingBookmark
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(
+                      item.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                      size: 22,
+                      color: item.isBookmarked ? const Color(0xFF16A34A) : AppColors.textSecondary,
+                    ),
+              visualDensity: VisualDensity.compact,
+              onPressed: () async {
+                setState(() => _savingBookmark = true);
+                try {
+                  await ref.read(bookmarkRepositoryProvider).setVocabularyBookmark(
+                        vocabularyId: item.id,
+                        bookmarked: !item.isBookmarked,
+                      );
+                  ref.invalidate(vocabularyProvider(widget.query));
+                  ref.invalidate(bookmarkedVocabularyProvider);
+                  ref.invalidate(bookmarkSummaryProvider);
+                } finally {
+                  if (mounted) setState(() => _savingBookmark = false);
+                }
+              },
+            ),
+          ],
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            item.word,
-                            style: const TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                        ),
-                        _SmallBadge(
-                          text: item.level > 0 ? '${item.level}급' : 'TOPIK',
-                        ),
-                        if (item.partOfSpeech?.isNotEmpty ?? false) ...[
-                          const SizedBox(width: 6),
-                          _SmallBadge(text: item.partOfSpeech!),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      item.meaningKo,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    if (item.example?.isNotEmpty ?? false) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        item.example!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ],
+              Text(
+                item.meaningKo,
+                style: const TextStyle(fontSize: 13, color: Color(0xFF334155), height: 1.3),
+              ),
+              if (item.meaningUserLang != null && item.meaningUserLang!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    item.meaningUserLang!,
+                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  ),
                 ),
-              ),
-              IconButton(
-                tooltip: item.isBookmarked ? '북마크 해제' : '북마크',
-                onPressed: _savingBookmark ? null : () => _toggleBookmark(item),
-                icon: Icon(
-                  item.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                  color: item.isBookmarked ? Colors.orange : Colors.grey,
-                ),
-              ),
-              Icon(
-                item.isDownloaded ? Icons.download_done : Icons.chevron_right,
-                color: item.isDownloaded ? AppColors.mintDark : Colors.grey,
-              ),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Future<void> _toggleBookmark(VocabularyItem item) async {
-    setState(() => _savingBookmark = true);
-    try {
-      await ref
-          .read(vocabularyRepositoryProvider)
-          .setVocabularyBookmark(id: item.id, bookmarked: !item.isBookmarked);
-      widget.ref.invalidate(vocabularyProvider(widget.query));
-      widget.ref.invalidate(bookmarkSummaryProvider);
-      widget.ref.invalidate(bookmarkedVocabularyProvider);
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(apiErrorMessage(error))));
-      }
-    } finally {
-      if (mounted) setState(() => _savingBookmark = false);
-    }
-  }
-}
-
-class _SmallBadge extends StatelessWidget {
-  const _SmallBadge({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: AppColors.mint.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: AppColors.mintDark,
-        ),
+        onTap: () => context.push('/vocabulary/${item.id}'),
       ),
     );
   }
 }
 
 class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.message, required this.onRetry});
+  const _ErrorState({
+    required this.message,
+    required this.retryText,
+    required this.onRetry,
+  });
 
   final String message;
+  final String retryText;
   final VoidCallback onRetry;
 
   @override
@@ -377,7 +611,7 @@ class _ErrorState extends StatelessWidget {
           children: [
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 12),
-            FilledButton(onPressed: onRetry, child: const Text('다시 시도')),
+            FilledButton(onPressed: onRetry, child: Text(retryText)),
           ],
         ),
       ),

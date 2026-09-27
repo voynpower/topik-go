@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
+import 'package:topik_go/core/localization/app_strings.dart';
+import 'package:topik_go/core/localization/app_strings_provider.dart';
+import 'package:topik_go/core/services/translation_service.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/grammar/data/grammar_repository.dart';
 import 'package:topik_go/features/vocabulary/data/vocabulary_repository.dart';
@@ -34,7 +37,9 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
   late final FlutterTts _tts;
 
   bool _loading = false;
+  bool _translating = false;
   String? _errorMessage;
+  String? _autoTranslation;
   List<VocabularyItem> _vocabResults = [];
   List<GrammarItem> _grammarResults = [];
   final Set<String> _bookmarkedVocabIds = {};
@@ -74,6 +79,7 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
       setState(() {
         _vocabResults = [];
         _grammarResults = [];
+        _autoTranslation = null;
         _errorMessage = null;
       });
       return;
@@ -81,9 +87,25 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
 
     setState(() {
       _loading = true;
+      _translating = true;
+      _autoTranslation = null;
       _errorMessage = null;
       _customWordBookmarked = false;
     });
+
+    final targetLang = ref.read(currentLanguageProvider);
+    if (targetLang != 'ko') {
+      TranslationService.translate(text: term, targetLang: targetLang).then((trans) {
+        if (mounted) {
+          setState(() {
+            _autoTranslation = trans;
+            _translating = false;
+          });
+        }
+      });
+    } else {
+      _translating = false;
+    }
 
     try {
       final vocabRepo = ref.read(vocabularyRepositoryProvider);
@@ -117,13 +139,13 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
       if (mounted) {
         setState(() {
           _loading = false;
-          _errorMessage = '단어 검색 중 오류가 발생했습니다.';
+          _errorMessage = ref.read(appStringsProvider).error;
         });
       }
     }
   }
 
-  Future<void> _toggleVocabBookmark(VocabularyItem item) async {
+  Future<void> _toggleVocabBookmark(VocabularyItem item, AppStrings strings) async {
     final isBookmarked = _bookmarkedVocabIds.contains(item.id);
     final newStatus = !isBookmarked;
 
@@ -137,9 +159,19 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
 
     try {
       final repo = ref.read(bookmarkRepositoryProvider);
+      final targetLang = ref.read(currentLanguageProvider);
+      String? translationToSave = item.meaningUserLang;
+      if (newStatus && targetLang != 'ko') {
+        if (translationToSave == null || translationToSave.isEmpty) {
+          translationToSave = _autoTranslation ??
+              await TranslationService.translate(text: item.word, targetLang: targetLang);
+        }
+      }
+
       await repo.setVocabularyBookmark(
         vocabularyId: item.id,
         bookmarked: newStatus,
+        meaningUserLang: translationToSave,
       );
       ref.invalidate(bookmarkSummaryProvider);
       ref.invalidate(bookmarkedVocabularyProvider);
@@ -148,9 +180,7 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              newStatus
-                  ? '\'${item.word}\'이(가) 내 단어장에 추가되었습니다.'
-                  : '\'${item.word}\'이(가) 내 단어장에서 삭제되었습니다.',
+              newStatus ? strings.savedToVocabulary : strings.delete,
             ),
             duration: const Duration(seconds: 2),
             behavior: SnackBarBehavior.floating,
@@ -167,8 +197,8 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
           }
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('단어장 저장에 실패했습니다. 다시 시도해주세요.'),
+          SnackBar(
+            content: Text(strings.error),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -176,7 +206,7 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
     }
   }
 
-  Future<void> _addCustomWordToBookmark(String word) async {
+  Future<void> _addCustomWordToBookmark(String word, AppStrings strings) async {
     final clean = _cleanWord(word);
     if (clean.isEmpty) return;
 
@@ -186,14 +216,25 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
 
     try {
       final repo = ref.read(bookmarkRepositoryProvider);
-      await repo.addVocabularyByWord(word: clean);
+      final targetLang = ref.read(currentLanguageProvider);
+      String? translationToSave;
+      if (targetLang != 'ko') {
+        translationToSave = _autoTranslation ??
+            await TranslationService.translate(text: clean, targetLang: targetLang);
+      }
+
+      await repo.addVocabularyByWord(
+        word: clean,
+        meaningKo: clean,
+        meaningUserLang: translationToSave,
+      );
       ref.invalidate(bookmarkSummaryProvider);
       ref.invalidate(bookmarkedVocabularyProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('\'$clean\'이(가) 내 단어장에 추가되었습니다.'),
+            content: Text(strings.savedToVocabulary),
             duration: const Duration(seconds: 2),
             behavior: SnackBarBehavior.floating,
           ),
@@ -203,8 +244,8 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
       if (mounted) {
         setState(() => _customWordBookmarked = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('단어장에 추가하지 못했습니다.'),
+          SnackBar(
+            content: Text(strings.error),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -212,7 +253,7 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
     }
   }
 
-  Future<void> _toggleGrammarBookmark(GrammarItem item) async {
+  Future<void> _toggleGrammarBookmark(GrammarItem item, AppStrings strings) async {
     final isBookmarked = _bookmarkedGrammarIds.contains(item.id);
     final newStatus = !isBookmarked;
 
@@ -237,9 +278,7 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              newStatus
-                  ? '\'${item.pattern}\'이(가) 내 문법장에 추가되었습니다.'
-                  : '\'${item.pattern}\'이(가) 내 문법장에서 삭제되었습니다.',
+              newStatus ? strings.savedToGrammar : strings.delete,
             ),
             duration: const Duration(seconds: 2),
             behavior: SnackBarBehavior.floating,
@@ -278,6 +317,7 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = ref.watch(appStringsProvider);
     final term = _controller.text.trim();
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
@@ -310,9 +350,9 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
             children: [
               const Icon(Icons.menu_book_rounded, color: AppColors.mintDark, size: 20),
               const SizedBox(width: 8),
-              const Text(
-                '단어 · 문법 사전',
-                style: TextStyle(
+              Text(
+                strings.dictTitle,
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                   color: Color(0xFF1E293B),
@@ -332,7 +372,7 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
             controller: _controller,
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
-              hintText: '단어 또는 문법 검색...',
+              hintText: strings.searchWordOrGrammar,
               prefixIcon: const Icon(Icons.search, size: 20),
               suffixIcon: IconButton(
                 icon: const Icon(Icons.arrow_forward_rounded, size: 20),
@@ -353,14 +393,14 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                : _buildResultsList(term),
+                : _buildResultsList(term, strings),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildResultsList(String term) {
+  Widget _buildResultsList(String term, AppStrings strings) {
     if (_errorMessage != null) {
       return Center(
         child: Text(
@@ -374,43 +414,43 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
     final hasGrammar = _grammarResults.isNotEmpty;
 
     if (!hasVocab && !hasGrammar) {
-      return _buildNoResultsView(term);
+      return _buildNoResultsView(term, strings);
     }
 
     return ListView(
       children: [
         if (hasVocab) ...[
-          const Text(
-            '어휘 (단어)',
-            style: TextStyle(
+          Text(
+            strings.vocabSection,
+            style: const TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w700,
               color: Colors.black54,
             ),
           ),
           const SizedBox(height: 6),
-          ..._vocabResults.map(_buildVocabCard),
+          ..._vocabResults.map((it) => _buildVocabCard(it, strings)),
           const SizedBox(height: 14),
         ],
         if (hasGrammar) ...[
-          const Text(
-            '문법 표현',
-            style: TextStyle(
+          Text(
+            strings.grammarSection,
+            style: const TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w700,
               color: Colors.black54,
             ),
           ),
           const SizedBox(height: 6),
-          ..._grammarResults.map(_buildGrammarCard),
+          ..._grammarResults.map((it) => _buildGrammarCard(it, strings)),
           const SizedBox(height: 14),
         ],
-        _buildExternalDictionaryButton(term),
+        _buildExternalDictionaryButton(term, strings),
       ],
     );
   }
 
-  Widget _buildVocabCard(VocabularyItem item) {
+  Widget _buildVocabCard(VocabularyItem item, AppStrings strings) {
     final isBookmarked = _bookmarkedVocabIds.contains(item.id);
 
     return Container(
@@ -434,29 +474,12 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
                   color: Color(0xFF1E293B),
                 ),
               ),
-              const SizedBox(width: 8),
-              if (item.level > 0)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppColors.mint.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    '${item.level}급',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.mintDark,
-                    ),
-                  ),
-                ),
               const Spacer(),
               IconButton(
                 icon: const Icon(Icons.volume_up_outlined, size: 20, color: AppColors.mintDark),
                 onPressed: () => _speak(item.word),
                 visualDensity: VisualDensity.compact,
-                tooltip: '발음 듣기',
+                tooltip: strings.listenPronunciation,
               ),
             ],
           ),
@@ -480,6 +503,17 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
                 height: 1.3,
               ),
             ),
+          ] else if (_autoTranslation != null && _autoTranslation!.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              '${strings.dictTranslationLabel}$_autoTranslation',
+              style: const TextStyle(
+                fontSize: 12.5,
+                color: Color(0xFF0D9488),
+                fontWeight: FontWeight.w500,
+                height: 1.3,
+              ),
+            ),
           ],
           const SizedBox(height: 10),
           Align(
@@ -496,8 +530,8 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
                       ),
                     ),
                     icon: const Icon(Icons.check_circle_rounded, size: 16),
-                    label: const Text('단어장에 저장됨'),
-                    onPressed: () => _toggleVocabBookmark(item),
+                    label: Text(strings.savedToVocabulary),
+                    onPressed: () => _toggleVocabBookmark(item, strings),
                   )
                 : ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
@@ -510,8 +544,8 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
                       ),
                     ),
                     icon: const Icon(Icons.add_rounded, size: 16),
-                    label: const Text('+ 내 단어장에 추가'),
-                    onPressed: () => _toggleVocabBookmark(item),
+                    label: Text(strings.addToVocabulary),
+                    onPressed: () => _toggleVocabBookmark(item, strings),
                   ),
           ),
         ],
@@ -519,7 +553,7 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
     );
   }
 
-  Widget _buildGrammarCard(GrammarItem item) {
+  Widget _buildGrammarCard(GrammarItem item, AppStrings strings) {
     final isBookmarked = _bookmarkedGrammarIds.contains(item.id);
 
     return Container(
@@ -548,7 +582,7 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
                 icon: const Icon(Icons.volume_up_outlined, size: 20, color: Color(0xFF4338CA)),
                 onPressed: () => _speak(item.pattern),
                 visualDensity: VisualDensity.compact,
-                tooltip: '발음 듣기',
+                tooltip: strings.listenPronunciation,
               ),
             ],
           ),
@@ -577,8 +611,8 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
                       ),
                     ),
                     icon: const Icon(Icons.check_circle_rounded, size: 16),
-                    label: const Text('문법장에 저장됨'),
-                    onPressed: () => _toggleGrammarBookmark(item),
+                    label: Text(strings.savedToGrammar),
+                    onPressed: () => _toggleGrammarBookmark(item, strings),
                   )
                 : ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
@@ -591,8 +625,8 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
                       ),
                     ),
                     icon: const Icon(Icons.add_rounded, size: 16),
-                    label: const Text('+ 내 문법장에 추가'),
-                    onPressed: () => _toggleGrammarBookmark(item),
+                    label: Text(strings.addToGrammar),
+                    onPressed: () => _toggleGrammarBookmark(item, strings),
                   ),
           ),
         ],
@@ -600,7 +634,7 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
     );
   }
 
-  Widget _buildNoResultsView(String term) {
+  Widget _buildNoResultsView(String term, AppStrings strings) {
     final clean = _cleanWord(term);
 
     return ListView(
@@ -624,11 +658,36 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
                   color: Color(0xFF1E293B),
                 ),
               ),
+              if (_autoTranslation != null && _autoTranslation!.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE6FFFA),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.mintDark.withValues(alpha: 0.2)),
+                  ),
+                  child: Text(
+                    '${strings.dictTranslationLabel}$_autoTranslation',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.mintDark,
+                    ),
+                  ),
+                ),
+              ] else if (_translating) ...[
+                const SizedBox(height: 6),
+                Text(
+                  strings.dictTranslating,
+                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                ),
+              ],
               const SizedBox(height: 6),
-              const Text(
-                '사전 기본 등록어 목록에 없지만,\n내 단어장에 바로 추가하여 나중에 복습할 수 있습니다.',
+              Text(
+                strings.dictNoResultsDesc,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B), height: 1.4),
+                style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B), height: 1.4),
               ),
               const SizedBox(height: 14),
               _customWordBookmarked
@@ -639,7 +698,7 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
                         elevation: 0,
                       ),
                       icon: const Icon(Icons.check_circle_rounded),
-                      label: const Text('내 단어장에 저장 완료!'),
+                      label: Text(strings.savedToVocabulary),
                       onPressed: null,
                     )
                   : ElevatedButton.icon(
@@ -650,19 +709,19 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
                         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                       ),
                       icon: const Icon(Icons.add_rounded),
-                      label: const Text('+ 내 단어장에 추가'),
-                      onPressed: () => _addCustomWordToBookmark(clean),
+                      label: Text(strings.addToVocabulary),
+                      onPressed: () => _addCustomWordToBookmark(clean, strings),
                     ),
             ],
           ),
         ),
         const SizedBox(height: 14),
-        _buildExternalDictionaryButton(clean),
+        _buildExternalDictionaryButton(clean, strings),
       ],
     );
   }
 
-  Widget _buildExternalDictionaryButton(String term) {
+  Widget _buildExternalDictionaryButton(String term, AppStrings strings) {
     final clean = _cleanWord(term);
     if (clean.isEmpty) return const SizedBox.shrink();
 
@@ -674,7 +733,7 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
         padding: const EdgeInsets.symmetric(vertical: 11),
       ),
       icon: const Icon(Icons.open_in_new_rounded, size: 16),
-      label: Text('네이버 국어사전에서 \'$clean\' 자세히 보기'),
+      label: Text('${strings.viewNaverDict} (\'$clean\')'),
       onPressed: () => _openNaverDictionary(clean),
     );
   }
