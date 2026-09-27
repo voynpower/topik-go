@@ -57,7 +57,33 @@ void main() {
         expect(strings.studyToolsSection.isNotEmpty, isTrue);
         expect(strings.smartWordbook.isNotEmpty, isTrue);
         expect(strings.grammarStudy.isNotEmpty, isTrue);
+        expect(strings.tapToViewMeaning.isNotEmpty, isTrue);
+        expect(strings.hideTranslation.isNotEmpty, isTrue);
+        expect(strings.showTranslation.isNotEmpty, isTrue);
+        expect(strings.readingShort.isNotEmpty, isTrue);
+        expect(strings.listeningShort.isNotEmpty, isTrue);
+        expect(strings.writingShort.isNotEmpty, isTrue);
+        expect(strings.allGroups.isNotEmpty, isTrue);
+        expect(strings.addNewWord.isNotEmpty, isTrue);
+        expect(strings.streakConsecutive.isNotEmpty, isTrue);
+        expect(strings.streakTotal.isNotEmpty, isTrue);
+        expect(strings.dailyStudyGoalTitle.isNotEmpty, isTrue);
+        expect(strings.levelUnit.isNotEmpty, isTrue);
+        expect(strings.reviewHardWords.isNotEmpty, isTrue);
+        expect(strings.reviewSavedWords.isNotEmpty, isTrue);
       }
+
+      // Assert Uzbek specific refinements
+      final uz = AppStrings.of('uz');
+      expect(uz.dictation, 'Diktant');
+      expect(uz.quiz, 'Test');
+      expect(uz.flashcard, 'Kartochkalar');
+      expect(uz.autoplay, 'Avto-ijro');
+      expect(uz.studyRecord, 'O‘rganish tarixi');
+      expect(uz.statusUnsure, 'O‘rganilmoqda');
+      expect(uz.readingShort, "O'qish");
+      expect(uz.listeningShort, 'Tinglash');
+      expect(uz.writingShort, 'Yozish');
     });
 
     test('appStringsProvider reactively updates when currentLanguageProvider changes', () async {

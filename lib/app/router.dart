@@ -33,7 +33,7 @@ import 'package:topik_go/features/vocabulary/presentation/vocabulary_autoplay_pa
 import 'package:topik_go/features/vocabulary/presentation/vocabulary_detail_page.dart';
 import 'package:topik_go/features/vocabulary/presentation/vocabulary_dictation_page.dart';
 import 'package:topik_go/features/vocabulary/presentation/vocabulary_flashcard_page.dart';
-import 'package:topik_go/features/vocabulary/presentation/vocabulary_list_page.dart';
+import 'package:topik_go/features/vocabulary/presentation/vocabulary_page.dart';
 import 'package:topik_go/features/vocabulary/presentation/vocabulary_quiz_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -152,7 +152,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/vocabulary',
-        builder: (context, state) => const VocabularyListPage(),
+        builder: (context, state) {
+          final tabParam = state.uri.queryParameters['tab'];
+          final initialTab = tabParam == 'study' ? 1 : 0;
+          return VocabularyPage(initialTabIndex: initialTab);
+        },
       ),
       GoRoute(
         path: '/vocabulary/flashcard',
