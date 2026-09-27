@@ -208,9 +208,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Verify User Hero & Streak
+      // Verify User Hero & Streak (목표 등급 표시 제거 확인)
       expect(find.textContaining('김토픽'), findsOneWidget);
-      expect(find.textContaining('목표: TOPIK II 5급'), findsOneWidget);
+      expect(find.textContaining('목표: TOPIK II'), findsNothing);
       expect(find.textContaining('7일 연속'), findsOneWidget);
 
       // Verify Daily Word Challenge & 4 Launchers

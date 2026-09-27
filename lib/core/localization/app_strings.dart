@@ -11,6 +11,7 @@ class AppStrings {
     required this.cancel,
     required this.save,
     required this.delete,
+    required this.deleteConfirm,
     required this.edit,
     required this.close,
     required this.back,
@@ -238,6 +239,7 @@ class AppStrings {
   final String cancel;
   final String save;
   final String delete;
+  final String deleteConfirm;
   final String edit;
   final String close;
   final String back;
@@ -497,6 +499,7 @@ class AppStrings {
     cancel: '취소',
     save: '저장',
     delete: '삭제',
+    deleteConfirm: '이 단어를 삭제하시겠습니까?',
     edit: '수정',
     close: '닫기',
     back: '뒤로',
@@ -710,6 +713,7 @@ class AppStrings {
     cancel: 'Cancel',
     save: 'Save',
     delete: 'Delete',
+    deleteConfirm: 'Are you sure you want to delete this word?',
     edit: 'Edit',
     close: 'Close',
     back: 'Back',
@@ -923,6 +927,7 @@ class AppStrings {
     cancel: 'Bekor qilish',
     save: 'Saqlash',
     delete: "O'chirish",
+    deleteConfirm: "Haqiqatan ham bu so'zni o'chirib tashlamoqchimisiz?",
     edit: 'Tahrirlash',
     close: 'Yopish',
     back: 'Orqaga',
@@ -1136,6 +1141,7 @@ class AppStrings {
     cancel: 'Отмена',
     save: 'Сохранить',
     delete: 'Удалить',
+    deleteConfirm: 'Вы уверены, что хотите удалить это слово?',
     edit: 'Изменить',
     close: 'Закрыть',
     back: 'Назад',
@@ -1349,6 +1355,7 @@ class AppStrings {
     cancel: 'Hủy',
     save: 'Lưu',
     delete: 'Xóa',
+    deleteConfirm: 'Bạn có chắc muốn xóa từ này không?',
     edit: 'Sửa',
     close: 'Đóng',
     back: 'Quay lại',
@@ -1562,6 +1569,7 @@ class AppStrings {
     cancel: '取消',
     save: '保存',
     delete: '删除',
+    deleteConfirm: '确定要删除此单词吗？',
     edit: '编辑',
     close: '关闭',
     back: '返回',
@@ -1775,6 +1783,7 @@ class AppStrings {
     cancel: 'キャンセル',
     save: '保存',
     delete: '削除',
+    deleteConfirm: 'この単語を削除してもよろしいですか？',
     edit: '編集',
     close: '閉じる',
     back: '戻る',
@@ -1988,6 +1997,7 @@ class AppStrings {
     cancel: 'Annuler',
     save: 'Enregistrer',
     delete: 'Supprimer',
+    deleteConfirm: 'Voulez-vous vraiment supprimer ce mot ?',
     edit: 'Modifier',
     close: 'Fermer',
     back: 'Retour',
@@ -2201,6 +2211,7 @@ class AppStrings {
     cancel: 'Abbrechen',
     save: 'Speichern',
     delete: 'Löschen',
+    deleteConfirm: 'Möchten Sie dieses Wort wirklich löschen?',
     edit: 'Bearbeiten',
     close: 'Schließen',
     back: 'Zurück',

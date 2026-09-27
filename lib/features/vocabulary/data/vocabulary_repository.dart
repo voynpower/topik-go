@@ -70,6 +70,50 @@ class VocabularyItem {
       ]),
     );
   }
+
+  VocabularyItem copyWith({
+    String? id,
+    String? word,
+    String? meaningKo,
+    int? level,
+    bool? isDownloaded,
+    bool? isBookmarked,
+    String? meaningUserLang,
+    String? ttsUrl,
+    String? partOfSpeech,
+    String? example,
+    String? exampleMeaning,
+  }) {
+    return VocabularyItem(
+      id: id ?? this.id,
+      word: word ?? this.word,
+      meaningKo: meaningKo ?? this.meaningKo,
+      level: level ?? this.level,
+      isDownloaded: isDownloaded ?? this.isDownloaded,
+      isBookmarked: isBookmarked ?? this.isBookmarked,
+      meaningUserLang: meaningUserLang ?? this.meaningUserLang,
+      ttsUrl: ttsUrl ?? this.ttsUrl,
+      partOfSpeech: partOfSpeech ?? this.partOfSpeech,
+      example: example ?? this.example,
+      exampleMeaning: exampleMeaning ?? this.exampleMeaning,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'word': word,
+      'meaning_ko': meaningKo,
+      'level': level,
+      'is_downloaded': isDownloaded,
+      'is_bookmarked': isBookmarked,
+      'meaning_user_lang': meaningUserLang,
+      'tts_url': ttsUrl,
+      'part_of_speech': partOfSpeech,
+      'example': example,
+      'example_meaning': exampleMeaning,
+    };
+  }
 }
 
 class VocabularyPage {

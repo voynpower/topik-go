@@ -454,9 +454,9 @@ class _CardFront extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Top Star & Level
+          // Top Star
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
               IconButton(
                 icon: Icon(
@@ -472,17 +472,6 @@ class _CardFront extends ConsumerWidget {
                   ref.invalidate(vocabularyProvider);
                   ref.invalidate(bookmarkedVocabularyProvider);
                 },
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'TOPIK ${item.level}급',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF64748B)),
-                ),
               ),
             ],
           ),
