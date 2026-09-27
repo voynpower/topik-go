@@ -13,6 +13,7 @@ import 'package:topik_go/features/grammar/data/grammar_repository.dart';
 import 'package:topik_go/features/users/data/user_profile.dart';
 import 'package:topik_go/features/users/data/user_repository.dart';
 import 'package:topik_go/features/vocabulary/data/vocabulary_repository.dart';
+import 'package:topik_go/features/vocabulary/domain/user_vocabulary_service.dart';
 import 'package:topik_go/features/vocabulary/domain/vocabulary_study_models.dart';
 import 'package:topik_go/features/vocabulary/presentation/vocabulary_source_sheet.dart';
 
@@ -269,6 +270,7 @@ class _DailyWordSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final vocabQuery = const VocabularyQuery(page: 1, limit: 10);
     final vocabAsync = ref.watch(vocabularyProvider(vocabQuery));
+    final overrides = ref.watch(userVocabularyOverrideProvider);
 
     return Container(
       decoration: BoxDecoration(
@@ -402,7 +404,7 @@ class _DailyWordSection extends ConsumerWidget {
           // Preview Carousel of Today's 10 Words
           vocabAsync.when(
             data: (page) {
-              final words = page.items;
+              final words = overrides.applyOverrides(page.items);
               if (words.isEmpty) return const SizedBox.shrink();
 
               return Column(
@@ -531,16 +533,16 @@ class _OneVocaLauncherTile extends StatelessWidget {
   }
 }
 
-class _TodayWordCard extends StatefulWidget {
+class _TodayWordCard extends ConsumerStatefulWidget {
   const _TodayWordCard({required this.word});
 
   final VocabularyItem word;
 
   @override
-  State<_TodayWordCard> createState() => _TodayWordCardState();
+  ConsumerState<_TodayWordCard> createState() => _TodayWordCardState();
 }
 
-class _TodayWordCardState extends State<_TodayWordCard> {
+class _TodayWordCardState extends ConsumerState<_TodayWordCard> {
   FlutterTts? _tts;
 
   void _speak(String text) async {
@@ -559,7 +561,19 @@ class _TodayWordCardState extends State<_TodayWordCard> {
 
   @override
   Widget build(BuildContext context) {
-    final item = widget.word;
+    final overrides = ref.watch(userVocabularyOverrideProvider);
+    if (overrides.isDeleted(widget.word.id)) {
+      return const SizedBox.shrink();
+    }
+    final edit = overrides.getEdit(widget.word.id);
+    final item = edit != null
+        ? widget.word.copyWith(
+            word: edit.word.isNotEmpty ? edit.word : widget.word.word,
+            meaningKo: edit.meaning.isNotEmpty ? edit.meaning : widget.word.meaningKo,
+            meaningUserLang:
+                edit.meaning.isNotEmpty ? edit.meaning : widget.word.meaningUserLang,
+          )
+        : widget.word;
 
     return Material(
       color: const Color(0xFFF8FAFC),

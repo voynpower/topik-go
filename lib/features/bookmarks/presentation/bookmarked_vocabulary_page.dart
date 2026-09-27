@@ -8,6 +8,7 @@ import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/core/network/api_error_message.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/vocabulary/data/vocabulary_repository.dart';
+import 'package:topik_go/features/vocabulary/domain/user_vocabulary_service.dart';
 
 class BookmarkedVocabularyPage extends ConsumerWidget {
   const BookmarkedVocabularyPage({super.key});
@@ -16,12 +17,14 @@ class BookmarkedVocabularyPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final strings = ref.watch(appStringsProvider);
     final vocabulary = ref.watch(bookmarkedVocabularyProvider);
+    final overrides = ref.watch(userVocabularyOverrideProvider);
 
     return Scaffold(
       appBar: AppBar(title: Text(strings.bookmarkedVocab)),
       body: vocabulary.when(
         data: (items) {
-          if (items.isEmpty) {
+          final visibleItems = items.where((it) => !overrides.isDeleted(it.vocabulary.id)).toList();
+          if (visibleItems.isEmpty) {
             return Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -134,8 +137,21 @@ class BookmarkedVocabularyPage extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                for (final item in items)
-                  _VocabularyTile(item: item.vocabulary, strings: strings),
+                for (final item in visibleItems)
+                  _VocabularyTile(
+                    item: () {
+                      final edit = overrides.getEdit(item.vocabulary.id);
+                      if (edit != null) {
+                        return item.vocabulary.copyWith(
+                          word: edit.word.isNotEmpty ? edit.word : item.vocabulary.word,
+                          meaningKo: edit.meaning.isNotEmpty ? edit.meaning : item.vocabulary.meaningKo,
+                          meaningUserLang: edit.meaning.isNotEmpty ? edit.meaning : item.vocabulary.meaningUserLang,
+                        );
+                      }
+                      return item.vocabulary;
+                    }(),
+                    strings: strings,
+                  ),
               ],
             ),
           );

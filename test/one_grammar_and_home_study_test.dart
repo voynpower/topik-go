@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/exam_schedule/data/exam_schedule_repository.dart';
 import 'package:topik_go/features/grammar/data/grammar_repository.dart';
@@ -11,6 +12,7 @@ import 'package:topik_go/features/home/presentation/home_page.dart';
 import 'package:topik_go/features/users/data/user_profile.dart';
 import 'package:topik_go/features/users/data/user_repository.dart';
 import 'package:topik_go/features/vocabulary/data/vocabulary_repository.dart';
+import 'package:topik_go/features/vocabulary/domain/user_vocabulary_service.dart';
 
 void main() {
   group('OneGrammar & Home Study System Tests', () {
@@ -237,6 +239,110 @@ void main() {
       expect(find.text('문제 5개'), findsOneWidget);
       expect(find.text('단어 12개'), findsOneWidget);
       expect(find.text('문법 7개'), findsOneWidget);
+    });
+
+    testWidgets('HomePage immediately removes deleted words and reflects edits in Daily Word Challenge', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      const mockUser = UserProfile(
+        id: 'u1',
+        email: 'test@topikgo.com',
+        nickname: '김토픽',
+        role: 'user',
+        languageCode: 'ko',
+        targetLevel: 5,
+        timezone: '+09:00',
+        fontScale: '1.00',
+        timerMode: 'countdown',
+        themeColor: 'mint',
+        homeLayout: 1,
+        practiceLayout: 1,
+      );
+
+      const testVocabPage = VocabularyPage(
+        items: [
+          VocabularyItem(
+            id: 'v1',
+            word: '도전하다',
+            meaningKo: '어려운 일에 맞서다',
+            level: 4,
+            isDownloaded: false,
+            isBookmarked: false,
+          ),
+          VocabularyItem(
+            id: 'v2',
+            word: '성공하다',
+            meaningKo: '뜻한 바를 이루다',
+            level: 3,
+            isDownloaded: false,
+            isBookmarked: false,
+          ),
+        ],
+        page: 1,
+        limit: 10,
+        total: 2,
+      );
+
+      final mockGrammarPage = GrammarPage(
+        items: mockGrammarList,
+        page: 1,
+        limit: 1,
+        total: 1,
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          userProfileProvider.overrideWith((ref) async => mockUser),
+          vocabularyProvider.overrideWith((ref, query) async => testVocabPage),
+          grammarProvider.overrideWith((ref, query) async => mockGrammarPage),
+          examSchedulesProvider.overrideWith((ref) async => []),
+          bookmarkSummaryProvider.overrideWith((ref) async => const BookmarkSummary(questions: 0, vocabulary: 0, grammar: 0)),
+          bookmarkedVocabularyProvider.overrideWith((ref) async => []),
+          bookmarkedGrammarProvider.overrideWith((ref) async => []),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: HomePage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Both words appear on home screen
+      expect(find.text('도전하다'), findsOneWidget);
+      expect(find.text('성공하다'), findsOneWidget);
+
+      // Now delete 'v1' ('도전하다') via userVocabularyOverrideProvider
+      await container.read(userVocabularyOverrideProvider.notifier).deleteWord('v1');
+      await tester.pumpAndSettle();
+
+      // '도전하다' is removed from Home screen, '성공하다' remains
+      expect(find.text('도전하다'), findsNothing);
+      expect(find.text('성공하다'), findsOneWidget);
+
+      // Edit 'v2' word and meaning
+      await container.read(userVocabularyOverrideProvider.notifier).editWord(
+            'v2',
+            word: '대성공하다',
+            meaning: 'katta muvaffaqiyat',
+          );
+      await tester.pumpAndSettle();
+
+      // Edited word and meaning are immediately reflected on Home screen
+      expect(find.text('대성공하다'), findsOneWidget);
+      expect(find.text('katta muvaffaqiyat'), findsOneWidget);
+      expect(find.text('성공하다'), findsNothing);
     });
   });
 }
