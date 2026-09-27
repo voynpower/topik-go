@@ -205,6 +205,7 @@ void main() {
         ProviderScope(
           overrides: [
             grammarProvider.overrideWith((ref, query) async => mockGrammarPage),
+            bookmarkedGrammarProvider.overrideWith((ref) async => []),
           ],
           child: const MaterialApp(
             home: GrammarListPage(),

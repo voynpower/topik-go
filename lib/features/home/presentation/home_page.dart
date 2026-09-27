@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -8,7 +9,12 @@ import 'package:topik_go/core/localization/app_strings.dart';
 import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/exam_schedule/data/exam_schedule_repository.dart';
+import 'package:topik_go/features/grammar/data/grammar_repository.dart';
+import 'package:topik_go/features/users/data/user_profile.dart';
 import 'package:topik_go/features/users/data/user_repository.dart';
+import 'package:topik_go/features/vocabulary/data/vocabulary_repository.dart';
+import 'package:topik_go/features/vocabulary/domain/vocabulary_study_models.dart';
+import 'package:topik_go/features/vocabulary/presentation/vocabulary_source_sheet.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -36,14 +42,29 @@ class HomePage extends ConsumerWidget {
         ),
         child: SafeArea(
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
             children: [
+              // 1. Hero Header (User Profile & Streak)
               profile.when(
-                data: (user) => _HomeHero(nickname: user.nickname, strings: strings),
+                data: (user) => _HomeHero(user: user, strings: strings),
                 loading: () => _HomeHero(strings: strings),
                 error: (_, _) => _HomeHero(strings: strings),
               ),
+              const SizedBox(height: 20),
+
+              // 2. Daily Word Challenge & OneVoca 4 Study Launchers Hub
+              _DailyWordSection(strings: strings),
               const SizedBox(height: 22),
+
+              // 3. Today's Grammar Focus
+              _TodayGrammarSection(strings: strings),
+              const SizedBox(height: 22),
+
+              // 4. Quick Practice Shortcuts (Reading / Listening / Writing)
+              _QuickPracticeSection(strings: strings),
+              const SizedBox(height: 22),
+
+              // 5. Exam Schedule & D-Day
               examSchedules.when(
                 data: (schedules) {
                   final upcoming = schedules
@@ -80,7 +101,8 @@ class HomePage extends ConsumerWidget {
                   onRetry: () => ref.invalidate(examSchedulesProvider),
                 ),
               ),
-              const SizedBox(height: 12),
+
+              // 6. Bookmarks Summary Dashboard
               bookmarkSummary.when(
                 data: (summary) => _StatusPanel(
                   icon: Icons.bookmark_border_rounded,
@@ -119,7 +141,6 @@ class HomePage extends ConsumerWidget {
                   subtitle: strings.error,
                 ),
               ),
-              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -128,63 +149,126 @@ class HomePage extends ConsumerWidget {
   }
 }
 
+// -------------------------------------------------------------
+// 1. Home Hero
+// -------------------------------------------------------------
 class _HomeHero extends StatelessWidget {
-  const _HomeHero({this.nickname, required this.strings});
+  const _HomeHero({this.user, required this.strings});
 
-  final String? nickname;
+  final UserProfile? user;
   final AppStrings strings;
 
   @override
   Widget build(BuildContext context) {
+    final nickname = user?.nickname;
+    final targetLevel = user?.targetLevel ?? 3;
     final greeting = nickname == null
         ? strings.homeGreeting.replaceAll(', {name}님', '').replaceAll('{name}', '')
-        : strings.homeGreeting.replaceAll('{name}', nickname!);
+        : strings.homeGreeting.replaceAll('{name}', nickname);
 
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.82),
+        color: Colors.white.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.9)),
+        border: Border.all(color: Colors.white),
         boxShadow: [
           BoxShadow(
-            color: AppColors.mintDark.withValues(alpha: 0.12),
+            color: AppColors.mintDark.withValues(alpha: 0.10),
             blurRadius: 22,
             offset: const Offset(0, 10),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: AppColors.mint.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(
-              Icons.home_work_outlined,
-              color: AppColors.mintDark,
-              size: 30,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(greeting, style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 4),
-                Text(
-                  strings.homeSubtitle,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    height: 1.35,
-                    color: AppColors.textSecondary,
-                  ),
+          Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: AppColors.mint.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-              ],
-            ),
+                child: const Icon(
+                  Icons.person_outline_rounded,
+                  color: AppColors.mintDark,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(greeting, style: Theme.of(context).textTheme.titleLarge),
+                    const SizedBox(height: 3),
+                    Text(
+                      strings.homeSubtitle,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              // Target Level Badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.flag_outlined, size: 14, color: Color(0xFF2563EB)),
+                    const SizedBox(width: 5),
+                    Text(
+                      '${strings.targetLevelLabel}: TOPIK II $targetLevel급',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1D4ED8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              // Daily Streak
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7ED),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('🔥', style: TextStyle(fontSize: 13)),
+                    const SizedBox(width: 4),
+                    Text(
+                      strings.streakDays.replaceAll('{days}', '7'),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFC2410C),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -192,6 +276,715 @@ class _HomeHero extends StatelessWidget {
   }
 }
 
+// -------------------------------------------------------------
+// 2. Daily Word Section & OneVoca Hub
+// -------------------------------------------------------------
+class _DailyWordSection extends ConsumerWidget {
+  const _DailyWordSection({required this.strings});
+
+  final AppStrings strings;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final vocabQuery = const VocabularyQuery(page: 1, limit: 10);
+    final vocabAsync = ref.watch(vocabularyProvider(vocabQuery));
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.white),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCFCE7),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.bolt_rounded,
+                  color: Color(0xFF15803D),
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      strings.dailyWordChallenge,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      strings.dailyWordChallengeDesc,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: () => context.push('/vocabulary'),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      strings.all,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.mintDark,
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right, size: 16, color: AppColors.mintDark),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // OneVoca 4 Study Launchers Grid
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 2.2,
+            children: [
+              _OneVocaLauncherTile(
+                icon: Icons.style_outlined,
+                color: const Color(0xFF0F8C63),
+                bgColor: const Color(0xFFE9F7EF),
+                title: strings.flashcard,
+                desc: strings.flashcardDesc,
+                onTap: () => VocabularySourceSheet.show(context, VocabularyStudyMode.flashcard),
+              ),
+              _OneVocaLauncherTile(
+                icon: Icons.check_circle_outline,
+                color: const Color(0xFF2E6BD9),
+                bgColor: const Color(0xFFEAF1FF),
+                title: strings.quiz,
+                desc: strings.quizDesc,
+                onTap: () => VocabularySourceSheet.show(context, VocabularyStudyMode.quiz),
+              ),
+              _OneVocaLauncherTile(
+                icon: Icons.edit_note,
+                color: const Color(0xFFD07A21),
+                bgColor: const Color(0xFFFFF1DC),
+                title: strings.dictation,
+                desc: strings.dictationDesc,
+                onTap: () => VocabularySourceSheet.show(context, VocabularyStudyMode.dictation),
+              ),
+              _OneVocaLauncherTile(
+                icon: Icons.headphones_outlined,
+                color: const Color(0xFF7C3AED),
+                bgColor: const Color(0xFFF3E8FF),
+                title: strings.autoplay,
+                desc: strings.autoplayDesc,
+                onTap: () => VocabularySourceSheet.show(context, VocabularyStudyMode.autoplay),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          const SizedBox(height: 14),
+
+          // Preview Carousel of Today's 10 Words
+          vocabAsync.when(
+            data: (page) {
+              final words = page.items;
+              if (words.isEmpty) return const SizedBox.shrink();
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        strings.wordsCount.replaceAll('{count}', '${words.length}'),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF475569),
+                        ),
+                      ),
+                      Text(
+                        strings.flipCardHint,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 98,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: words.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 10),
+                      itemBuilder: (context, index) {
+                        final word = words[index];
+                        return _TodayWordCard(word: word);
+                      },
+                    ),
+                  ),
+                ],
+              );
+            },
+            loading: () => const SizedBox(
+              height: 98,
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            ),
+            error: (_, _) => const SizedBox.shrink(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OneVocaLauncherTile extends StatelessWidget {
+  const _OneVocaLauncherTile({
+    required this.icon,
+    required this.color,
+    required this.bgColor,
+    required this.title,
+    required this.desc,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color color;
+  final Color bgColor;
+  final String title;
+  final String desc;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: bgColor,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: 22),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: color,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      desc,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: color.withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TodayWordCard extends StatefulWidget {
+  const _TodayWordCard({required this.word});
+
+  final VocabularyItem word;
+
+  @override
+  State<_TodayWordCard> createState() => _TodayWordCardState();
+}
+
+class _TodayWordCardState extends State<_TodayWordCard> {
+  FlutterTts? _tts;
+
+  void _speak(String text) async {
+    _tts ??= FlutterTts()
+      ..setLanguage('ko-KR')
+      ..setSpeechRate(0.45);
+    await _tts?.stop();
+    await _tts?.speak(text);
+  }
+
+  @override
+  void dispose() {
+    _tts?.stop();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.word;
+
+    return Material(
+      color: const Color(0xFFF8FAFC),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: () => context.push('/vocabulary/${item.id}'),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: 140,
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      item.word,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => _speak(item.word),
+                    borderRadius: BorderRadius.circular(12),
+                    child: const Padding(
+                      padding: EdgeInsets.all(2),
+                      child: Icon(
+                        Icons.volume_up_outlined,
+                        size: 16,
+                        color: AppColors.mintDark,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                item.meaningUserLang ?? item.meaningKo,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF64748B),
+                  height: 1.25,
+                ),
+              ),
+              Text(
+                'Lv.${item.level}',
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.mintDark,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// -------------------------------------------------------------
+// 3. Today's Grammar Section
+// -------------------------------------------------------------
+class _TodayGrammarSection extends ConsumerWidget {
+  const _TodayGrammarSection({required this.strings});
+
+  final AppStrings strings;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final grammarAsync = ref.watch(grammarProvider(const GrammarQuery(page: 1, limit: 1)));
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.white),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEDE9FE),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.psychology_alt_outlined,
+                  color: Color(0xFF7C3AED),
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      strings.todayGrammar,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      strings.todayGrammarDesc,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: () => context.push('/grammar'),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      strings.all,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF7C3AED),
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right, size: 16, color: Color(0xFF7C3AED)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Grammar Body
+          grammarAsync.when(
+            data: (page) {
+              final grammar = page.items.isNotEmpty ? page.items.first : null;
+              if (grammar == null) return const SizedBox.shrink();
+
+              final firstExample = grammar.examples.isNotEmpty ? grammar.examples.first : '';
+
+              return Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFBFBFE),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF7C3AED),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            grammar.pattern,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        if (grammar.tags.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              grammar.tags.first,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF475569),
+                              ),
+                            ),
+                          ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.open_in_new, size: 18, color: Color(0xFF7C3AED)),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () => context.push('/grammar/${grammar.id}'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      grammar.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF334155),
+                        height: 1.35,
+                      ),
+                    ),
+                    if (firstExample.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFF1F5F9)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('💬', style: TextStyle(fontSize: 12)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                firstExample,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF475569),
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            },
+            loading: () => const SizedBox(
+              height: 100,
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            ),
+            error: (_, _) => const SizedBox.shrink(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// -------------------------------------------------------------
+// 4. Quick Practice Shortcuts
+// -------------------------------------------------------------
+class _QuickPracticeSection extends StatelessWidget {
+  const _QuickPracticeSection({required this.strings});
+
+  final AppStrings strings;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionTitle(
+          icon: Icons.school_outlined,
+          title: strings.quickPractice,
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _QuickPracticeButton(
+                icon: Icons.menu_book_outlined,
+                color: const Color(0xFF1D8F86),
+                bgColor: const Color(0xFFE8F8F3),
+                label: '읽기',
+                onTap: () => context.push('/reading-practice'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _QuickPracticeButton(
+                icon: Icons.headphones_outlined,
+                color: const Color(0xFF2E6BD9),
+                bgColor: const Color(0xFFEAF1FF),
+                label: '듣기',
+                onTap: () => context.push('/listening-practice'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _QuickPracticeButton(
+                icon: Icons.edit_note_outlined,
+                color: const Color(0xFFD07A21),
+                bgColor: const Color(0xFFFFF1DC),
+                label: '쓰기',
+                onTap: () => context.push('/writing-practice'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickPracticeButton extends StatelessWidget {
+  const _QuickPracticeButton({
+    required this.icon,
+    required this.color,
+    required this.bgColor,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color color;
+  final Color bgColor;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 22),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// -------------------------------------------------------------
+// 5. Existing Shared Components (Exam & Bookmark)
+// -------------------------------------------------------------
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle({required this.icon, required this.title});
 
