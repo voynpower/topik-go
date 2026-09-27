@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/core/network/api_error_message.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/grammar/data/grammar_repository.dart';
@@ -10,14 +11,15 @@ class BookmarkedGrammarPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final strings = ref.watch(appStringsProvider);
     final grammar = ref.watch(bookmarkedGrammarProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('북마크 문법')),
+      appBar: AppBar(title: Text(strings.bookmarkedGrammar)),
       body: grammar.when(
         data: (items) {
           if (items.isEmpty) {
-            return const Center(child: Text('북마크한 문법이 없습니다.'));
+            return Center(child: Text(strings.noBookmarks));
           }
 
           return RefreshIndicator(
@@ -38,8 +40,9 @@ class BookmarkedGrammarPage extends ConsumerWidget {
         error: (error, _) => _ErrorState(
           message: apiErrorMessage(
             error,
-            missingApiMessage: '북마크 문법 API가 아직 백엔드에 연결되지 않았습니다.',
+            missingApiMessage: strings.error,
           ),
+          retryText: strings.retry,
           onRetry: () => ref.invalidate(bookmarkedGrammarProvider),
         ),
       ),
@@ -77,9 +80,14 @@ class _GrammarTile extends StatelessWidget {
 }
 
 class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.message, required this.onRetry});
+  const _ErrorState({
+    required this.message,
+    required this.retryText,
+    required this.onRetry,
+  });
 
   final String message;
+  final String retryText;
   final VoidCallback onRetry;
 
   @override
@@ -92,7 +100,7 @@ class _ErrorState extends StatelessWidget {
           children: [
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 12),
-            FilledButton(onPressed: onRetry, child: const Text('다시 시도')),
+            FilledButton(onPressed: onRetry, child: Text(retryText)),
           ],
         ),
       ),

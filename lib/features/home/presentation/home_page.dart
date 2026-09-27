@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
+import 'package:topik_go/core/localization/app_strings.dart';
+import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/exam_schedule/data/exam_schedule_repository.dart';
 import 'package:topik_go/features/users/data/user_repository.dart';
@@ -13,6 +15,7 @@ class HomePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final strings = ref.watch(appStringsProvider);
     final profile = ref.watch(userProfileProvider);
     final bookmarkSummary = ref.watch(bookmarkSummaryProvider);
     final examSchedules = ref.watch(examSchedulesProvider);
@@ -20,7 +23,7 @@ class HomePage extends ConsumerWidget {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('홈'),
+        title: Text(strings.homeTitle),
         backgroundColor: Colors.transparent,
       ),
       body: DecoratedBox(
@@ -36,9 +39,9 @@ class HomePage extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
             children: [
               profile.when(
-                data: (user) => _HomeHero(nickname: user.nickname),
-                loading: () => const _HomeHero(),
-                error: (_, _) => const _HomeHero(),
+                data: (user) => _HomeHero(nickname: user.nickname, strings: strings),
+                loading: () => _HomeHero(strings: strings),
+                error: (_, _) => _HomeHero(strings: strings),
               ),
               const SizedBox(height: 22),
               examSchedules.when(
@@ -57,21 +60,23 @@ class HomePage extends ConsumerWidget {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const _SectionTitle(
+                      _SectionTitle(
                         icon: Icons.event_available_outlined,
-                        title: '시험 일정',
+                        title: strings.examSchedule,
                       ),
                       const SizedBox(height: 10),
                       if (schedule == null)
-                        const _EmptyExamScheduleCard()
+                        _EmptyExamScheduleCard(message: strings.noUpcomingExam)
                       else
-                        _NextExamCard(schedule: schedule),
+                        _NextExamCard(schedule: schedule, strings: strings),
                       const SizedBox(height: 20),
                     ],
                   );
                 },
-                loading: () => const _ExamScheduleLoadingCard(),
+                loading: () => _ExamScheduleLoadingCard(message: strings.loading),
                 error: (error, _) => _ExamScheduleErrorCard(
+                  message: strings.error,
+                  retryTooltip: strings.retry,
                   onRetry: () => ref.invalidate(examSchedulesProvider),
                 ),
               ),
@@ -81,40 +86,37 @@ class HomePage extends ConsumerWidget {
                   icon: Icons.bookmark_border_rounded,
                   iconColor: const Color(0xFFD07A21),
                   backgroundColor: const Color(0xFFFFF1DC),
-                  title: '북마크',
-                  subtitle: '다시 보고 싶은 자료를 모아두는 공간입니다.',
+                  title: strings.bookmarksSummary,
+                  subtitle: strings.bookmarksSummaryDesc,
                   onTap: () => context.push('/bookmarks/questions'),
                   children: [
                     _MetricPill(
-                      label: '문제',
-                      count: summary.questions,
+                      text: strings.questionsCount.replaceAll('{count}', '${summary.questions}'),
                       onTap: () => context.push('/bookmarks/questions'),
                     ),
                     _MetricPill(
-                      label: '단어',
-                      count: summary.vocabulary,
+                      text: strings.vocabCount.replaceAll('{count}', '${summary.vocabulary}'),
                       onTap: () => context.push('/bookmarks/vocabulary'),
                     ),
                     _MetricPill(
-                      label: '문법',
-                      count: summary.grammar,
+                      text: strings.grammarCount.replaceAll('{count}', '${summary.grammar}'),
                       onTap: () => context.push('/bookmarks/grammar'),
                     ),
                   ],
                 ),
-                loading: () => const _StatusPanel(
+                loading: () => _StatusPanel(
                   icon: Icons.bookmark_border_rounded,
-                  iconColor: Color(0xFFD07A21),
-                  backgroundColor: Color(0xFFFFF1DC),
-                  title: '북마크',
-                  subtitle: '북마크 정보를 불러오는 중...',
+                  iconColor: const Color(0xFFD07A21),
+                  backgroundColor: const Color(0xFFFFF1DC),
+                  title: strings.bookmarksSummary,
+                  subtitle: strings.loading,
                 ),
-                error: (_, _) => const _StatusPanel(
+                error: (_, _) => _StatusPanel(
                   icon: Icons.bookmark_border_rounded,
-                  iconColor: Color(0xFFD07A21),
-                  backgroundColor: Color(0xFFFFF1DC),
-                  title: '북마크',
-                  subtitle: '북마크 정보를 불러오지 못했습니다.',
+                  iconColor: const Color(0xFFD07A21),
+                  backgroundColor: const Color(0xFFFFF1DC),
+                  title: strings.bookmarksSummary,
+                  subtitle: strings.error,
                 ),
               ),
               const SizedBox(height: 20),
@@ -127,13 +129,16 @@ class HomePage extends ConsumerWidget {
 }
 
 class _HomeHero extends StatelessWidget {
-  const _HomeHero({this.nickname});
+  const _HomeHero({this.nickname, required this.strings});
 
   final String? nickname;
+  final AppStrings strings;
 
   @override
   Widget build(BuildContext context) {
-    final greeting = nickname == null ? '안녕하세요!' : '안녕하세요, $nickname님!';
+    final greeting = nickname == null
+        ? strings.homeGreeting.replaceAll(', {name}님', '').replaceAll('{name}', '')
+        : strings.homeGreeting.replaceAll('{name}', nickname!);
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -172,7 +177,7 @@ class _HomeHero extends StatelessWidget {
                 Text(greeting, style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 4),
                 Text(
-                  '오늘도 TOPIK 목표에 맞춰 차근차근 학습해보세요.',
+                  strings.homeSubtitle,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     height: 1.35,
                     color: AppColors.textSecondary,
@@ -206,15 +211,16 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _NextExamCard extends StatelessWidget {
-  const _NextExamCard({required this.schedule});
+  const _NextExamCard({required this.schedule, required this.strings});
 
   final TopikExamSchedule schedule;
+  final AppStrings strings;
 
   @override
   Widget build(BuildContext context) {
-    final dateFormat = DateFormat('yyyy.MM.dd (E)', 'ko_KR');
+    final dateFormat = DateFormat('yyyy.MM.dd (E)');
     final diff = schedule.examDate.difference(DateTime.now()).inDays;
-    final dDay = schedule.dDayLabel ?? 'D-$diff';
+    final dDay = schedule.dDayLabel ?? strings.daysLeft.replaceAll('{days}', '$diff');
     final examDate =
         schedule.examDateLabel ?? dateFormat.format(schedule.examDate);
     final registrationPeriod = schedule.registrationPeriodLabel;
@@ -244,8 +250,8 @@ class _NextExamCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '다음 시험 일정',
-                        style: TextStyle(
+                        strings.examSchedule,
+                        style: const TextStyle(
                           fontSize: 12,
                           color: AppColors.mintDark,
                           fontWeight: FontWeight.w600,
@@ -262,7 +268,7 @@ class _NextExamCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         '시험일: $examDate',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 14,
                           color: AppColors.textSecondary,
                         ),
@@ -272,7 +278,7 @@ class _NextExamCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           '접수기간: $registrationPeriod',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 13,
                             color: AppColors.textSecondary,
                           ),
@@ -282,7 +288,7 @@ class _NextExamCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           '결과발표: $resultDate',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 13,
                             color: AppColors.textSecondary,
                           ),
@@ -293,7 +299,7 @@ class _NextExamCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           '응시료: ${schedule.feeLabel}',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 13,
                             color: AppColors.textSecondary,
                             fontWeight: FontWeight.w500,
@@ -304,7 +310,7 @@ class _NextExamCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           schedule.location!,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 13,
                             color: AppColors.textSecondary,
                           ),
@@ -358,7 +364,7 @@ class _NextExamCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      '접수 페이지 이동',
+                      'topik.go.kr',
                       style: TextStyle(
                         color: AppColors.mintDark,
                         fontWeight: FontWeight.w700,
@@ -383,39 +389,50 @@ class _NextExamCard extends StatelessWidget {
 }
 
 class _EmptyExamScheduleCard extends StatelessWidget {
-  const _EmptyExamScheduleCard();
+  const _EmptyExamScheduleCard({required this.message});
+
+  final String message;
 
   @override
   Widget build(BuildContext context) {
-    return const _ExamScheduleMessageCard(
+    return _ExamScheduleMessageCard(
       icon: Icons.event_busy_outlined,
-      message: '등록된 시험 일정이 없습니다.',
+      message: message,
     );
   }
 }
 
 class _ExamScheduleLoadingCard extends StatelessWidget {
-  const _ExamScheduleLoadingCard();
+  const _ExamScheduleLoadingCard({required this.message});
+
+  final String message;
 
   @override
   Widget build(BuildContext context) {
-    return const _ExamScheduleMessageCard(
+    return _ExamScheduleMessageCard(
       icon: Icons.hourglass_empty,
-      message: '시험 일정을 불러오는 중입니다.',
+      message: message,
     );
   }
 }
 
 class _ExamScheduleErrorCard extends StatelessWidget {
-  const _ExamScheduleErrorCard({required this.onRetry});
+  const _ExamScheduleErrorCard({
+    required this.message,
+    required this.retryTooltip,
+    required this.onRetry,
+  });
 
+  final String message;
+  final String retryTooltip;
   final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
     return _ExamScheduleMessageCard(
       icon: Icons.error_outline,
-      message: '시험 일정을 불러오지 못했습니다.',
+      message: message,
+      retryTooltip: retryTooltip,
       onRetry: onRetry,
     );
   }
@@ -425,11 +442,13 @@ class _ExamScheduleMessageCard extends StatelessWidget {
   const _ExamScheduleMessageCard({
     required this.icon,
     required this.message,
+    this.retryTooltip,
     this.onRetry,
   });
 
   final IconData icon;
   final String message;
+  final String? retryTooltip;
   final VoidCallback? onRetry;
 
   @override
@@ -448,7 +467,7 @@ class _ExamScheduleMessageCard extends StatelessWidget {
           Expanded(child: Text(message)),
           if (onRetry != null)
             IconButton(
-              tooltip: '다시 시도',
+              tooltip: retryTooltip,
               onPressed: onRetry,
               icon: const Icon(Icons.refresh),
             ),
@@ -547,10 +566,9 @@ class _StatusPanel extends StatelessWidget {
 }
 
 class _MetricPill extends StatelessWidget {
-  const _MetricPill({required this.label, required this.count, this.onTap});
+  const _MetricPill({required this.text, this.onTap});
 
-  final String label;
-  final int count;
+  final String text;
   final VoidCallback? onTap;
 
   @override
@@ -568,7 +586,7 @@ class _MetricPill extends StatelessWidget {
             border: Border.all(color: AppColors.border.withValues(alpha: 0.7)),
           ),
           child: Text(
-            '$label $count',
+            text,
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,

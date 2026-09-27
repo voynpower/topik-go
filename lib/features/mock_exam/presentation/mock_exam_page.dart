@@ -1,9 +1,12 @@
+// ignore_for_file: unused_element_parameter
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
+import 'package:topik_go/core/localization/app_strings.dart';
+import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/core/network/api_error_message.dart';
 import 'package:topik_go/core/network/api_media_url.dart';
 import 'package:topik_go/features/explanation_video/data/explanation_video_repository.dart';
@@ -272,11 +275,13 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = ref.watch(appStringsProvider);
+
     if (_result != null) {
       return Scaffold(
         backgroundColor: const Color(0xFFF7F8F9),
         appBar: AppBar(
-          title: const Text('모의고사 결과'),
+          title: Text(strings.examResult),
           backgroundColor: Colors.transparent,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
@@ -285,7 +290,13 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
         ),
         body: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-          children: [_ResultCard(result: _result!, onRestart: _reset)],
+          children: [
+            _ResultCard(
+              result: _result!,
+              onRestart: _reset,
+              strings: strings,
+            ),
+          ],
         ),
       );
     }
@@ -294,7 +305,7 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
       return Scaffold(
         backgroundColor: const Color(0xFFF7F8F9),
         appBar: AppBar(
-          title: Text(_detail!.session.title ?? 'TOPIK II 실전 모의고사'),
+          title: Text(_detail!.session.title ?? strings.mockExamTitle),
           backgroundColor: Colors.white,
           foregroundColor: AppColors.textPrimary,
           elevation: 0.5,
@@ -304,21 +315,21 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
               showDialog(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  title: const Text('시험 중단'),
-                  content: const Text(
-                    '시험을 중단하고 나가시겠습니까?\n진행 상황은 저장되지 않습니다.',
+                  title: Text(strings.cancel),
+                  content: Text(
+                    strings.confirmSubmitExam,
                   ),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.of(ctx).pop(),
-                      child: const Text('계속 풀기'),
+                      child: Text(strings.cancel),
                     ),
                     FilledButton(
                       onPressed: () {
                         Navigator.of(ctx).pop();
                         _reset();
                       },
-                      child: const Text('나가기'),
+                      child: Text(strings.close),
                     ),
                   ],
                 ),
@@ -375,6 +386,7 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
           remainingSeconds: _remainingSeconds,
           onOpenQuestionGrid: () => _showQuestionGridSheet(context),
           onSubmit: () => _confirmSubmit(context),
+          strings: strings,
         ),
       );
     }
@@ -394,12 +406,14 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
                 _StartScreenHeader(
                   round: round,
                   onBack: () => setState(() => _selectedRound = null),
+                  strings: strings,
                 ),
                 const SizedBox(height: 24),
                 _RealExamCard(
                   round: round,
                   loading: _loading,
                   onStart: () => _startExam(round),
+                  strings: strings,
                 ),
                 const SizedBox(height: 28),
                 historyAsync.when(
@@ -439,6 +453,7 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
             children: [
               _RealExamHeader(
                 onBack: () => Navigator.of(context).maybePop(),
+                strings: strings,
               ),
               const SizedBox(height: 24),
               _TopikSelectCard(
@@ -465,27 +480,28 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
     final detail = _detail;
     if (detail == null) return;
 
+    final strings = ref.read(appStringsProvider);
     final total = detail.questions.length;
     final answered = _selectedAnswers.length;
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('모의고사 제출'),
+        title: Text(strings.submitExam),
         content: Text(
           '총 $total문항 중 $answered문항을 풀었습니다.\n정말 시험을 종료하고 제출하시겠습니까?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('취소'),
+            child: Text(strings.cancel),
           ),
           FilledButton(
             onPressed: () {
               Navigator.of(ctx).pop();
               _submit(isAutoSubmit: false);
             },
-            child: const Text('제출하기'),
+            child: Text(strings.submitExam),
           ),
         ],
       ),
@@ -891,9 +907,14 @@ class _GradientBackground extends StatelessWidget {
 }
 
 class _RealExamHeader extends StatelessWidget {
-  const _RealExamHeader({super.key, required this.onBack});
+  const _RealExamHeader({
+    super.key,
+    required this.onBack,
+    required this.strings,
+  });
 
   final VoidCallback onBack;
+  final AppStrings strings;
 
   @override
   Widget build(BuildContext context) {
@@ -922,9 +943,9 @@ class _RealExamHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        const Text(
-          '실전연습',
-          style: TextStyle(
+        Text(
+          strings.mockExamTitle,
+          style: const TextStyle(
             fontSize: 26,
             fontWeight: FontWeight.w900,
             color: Color(0xFF111827),
@@ -932,9 +953,9 @@ class _RealExamHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        const Text(
-          '모의고사와 똑같은 환경에서 실전 연습해요.',
-          style: TextStyle(
+        Text(
+          strings.mockExamBannerDesc,
+          style: const TextStyle(
             fontSize: 14,
             color: Color(0xFF6B7280),
             fontWeight: FontWeight.w500,
@@ -950,10 +971,12 @@ class _StartScreenHeader extends StatelessWidget {
     super.key,
     required this.round,
     required this.onBack,
+    required this.strings,
   });
 
   final String round;
   final VoidCallback onBack;
+  final AppStrings strings;
 
   @override
   Widget build(BuildContext context) {
@@ -992,9 +1015,9 @@ class _StartScreenHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        const Text(
-          '모의고사와 똑같은 환경에서 실전 연습해요.',
-          style: TextStyle(
+        Text(
+          strings.mockExamBannerDesc,
+          style: const TextStyle(
             fontSize: 14,
             color: Color(0xFF6B7280),
             fontWeight: FontWeight.w500,
@@ -1145,11 +1168,13 @@ class _RealExamCard extends StatelessWidget {
     required this.round,
     required this.loading,
     required this.onStart,
+    required this.strings,
   });
 
   final String round;
   final bool loading;
   final VoidCallback onStart;
+  final AppStrings strings;
 
   @override
   Widget build(BuildContext context) {
@@ -1257,9 +1282,9 @@ class _RealExamCard extends StatelessWidget {
                         strokeWidth: 2.5,
                       ),
                     )
-                  : const Text(
-                      '시작하기',
-                      style: TextStyle(
+                  : Text(
+                      strings.startExam,
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                       ),
@@ -1930,6 +1955,7 @@ class _ExamBottomBar extends StatelessWidget {
     required this.remainingSeconds,
     required this.onOpenQuestionGrid,
     required this.onSubmit,
+    required this.strings,
   });
 
   final MockExamDetail detail;
@@ -1937,6 +1963,7 @@ class _ExamBottomBar extends StatelessWidget {
   final int remainingSeconds;
   final VoidCallback onOpenQuestionGrid;
   final VoidCallback onSubmit;
+  final AppStrings strings;
 
   @override
   Widget build(BuildContext context) {
@@ -1980,9 +2007,9 @@ class _ExamBottomBar extends StatelessWidget {
             child: FilledButton.icon(
               onPressed: onSubmit,
               icon: const Icon(Icons.check_circle_outline, size: 20),
-              label: const Text(
-                '시험 제출하기',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+              label: Text(
+                strings.submitExam,
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
               ),
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF4AC4B2),
@@ -2000,7 +2027,7 @@ class _ExamBottomBar extends StatelessWidget {
   }
 }
 
-class _ExamPanel extends StatelessWidget {
+class _ExamPanel extends ConsumerWidget {
   const _ExamPanel({
     super.key,
     required this.detail,
@@ -2033,7 +2060,8 @@ class _ExamPanel extends StatelessWidget {
   final void Function(String questionId) onScrollToQuestion;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final strings = ref.watch(appStringsProvider);
     final questions = detail.questions;
     if (questions.isEmpty) {
       return const _InfoCard(title: '문제가 없습니다', message: '이 세트에 문제가 없습니다.');
@@ -2092,7 +2120,7 @@ class _ExamPanel extends StatelessWidget {
           ],
         ],
         const SizedBox(height: 24),
-        _buildCompletionSummaryCard(context),
+        _buildCompletionSummaryCard(context, strings),
         const SizedBox(height: 60),
       ],
     );
@@ -2305,7 +2333,7 @@ class _ExamPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildCompletionSummaryCard(BuildContext context) {
+  Widget _buildCompletionSummaryCard(BuildContext context, AppStrings strings) {
     final total = detail.questions.length;
     final answered = selectedAnswers.length;
     final remaining = total - answered;
@@ -2359,7 +2387,7 @@ class _ExamPanel extends StatelessWidget {
             child: FilledButton.icon(
               onPressed: loading ? null : onSubmit,
               icon: const Icon(Icons.check),
-              label: const Text('시험 제출하기'),
+              label: Text(strings.submitExam),
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF4AC4B2),
                 shape: RoundedRectangleBorder(
@@ -2731,10 +2759,16 @@ class _QuestionImage extends StatelessWidget {
 enum _ReviewFilter { all, correct, incorrect, unanswered }
 
 class _ResultCard extends StatefulWidget {
-  const _ResultCard({super.key, required this.result, required this.onRestart});
+  const _ResultCard({
+    super.key,
+    required this.result,
+    required this.onRestart,
+    required this.strings,
+  });
 
   final MockExamResult result;
   final VoidCallback onRestart;
+  final AppStrings strings;
 
   @override
   State<_ResultCard> createState() => _ResultCardState();
@@ -2791,7 +2825,7 @@ class _ResultCardState extends State<_ResultCard> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '모의고사 결과',
+                            widget.strings.examResult,
                             style: Theme.of(context)
                                 .textTheme
                                 .titleLarge
@@ -2840,14 +2874,14 @@ class _ResultCardState extends State<_ResultCard> {
                   children: [
                     _SummaryPill(
                       icon: Icons.check_circle_outline,
-                      label: '정답',
+                      label: widget.strings.correctAnswer,
                       value:
                           '${summary.correctCount}/${summary.totalQuestions}',
                       color: const Color(0xFF198754),
                     ),
                     _SummaryPill(
                       icon: Icons.cancel_outlined,
-                      label: '오답',
+                      label: widget.strings.wrongAnswer,
                       value: '${summary.incorrectCount}',
                       color: const Color(0xFFE14D4D),
                     ),
@@ -2869,7 +2903,7 @@ class _ResultCardState extends State<_ResultCard> {
                 FilledButton.icon(
                   onPressed: widget.onRestart,
                   icon: const Icon(Icons.list_alt_outlined),
-                  label: const Text('돌아가기'),
+                  label: Text(widget.strings.back),
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF4AC4B2),
                   ),
@@ -2898,17 +2932,17 @@ class _ResultCardState extends State<_ResultCard> {
           child: Row(
             children: [
               _FilterChipButton(
-                label: '전체 ${reviewItems.length}',
+                label: '${widget.strings.all} ${reviewItems.length}',
                 selected: _filter == _ReviewFilter.all,
                 onTap: () => setState(() => _filter = _ReviewFilter.all),
               ),
               _FilterChipButton(
-                label: '정답 ${summary.correctCount}',
+                label: '${widget.strings.correctAnswer} ${summary.correctCount}',
                 selected: _filter == _ReviewFilter.correct,
                 onTap: () => setState(() => _filter = _ReviewFilter.correct),
               ),
               _FilterChipButton(
-                label: '오답 ${summary.incorrectCount}',
+                label: '${widget.strings.wrongAnswer} ${summary.incorrectCount}',
                 selected: _filter == _ReviewFilter.incorrect,
                 onTap: () => setState(() => _filter = _ReviewFilter.incorrect),
               ),

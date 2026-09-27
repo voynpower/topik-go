@@ -96,7 +96,7 @@ class AuthRepository {
     final currentRefreshToken = await _sessionStore.readRefreshToken();
     try {
       await _dio.post('/auth/logout', data: {
-        if (currentRefreshToken != null) 'refreshToken': currentRefreshToken,
+        'refreshToken': ?currentRefreshToken,
       });
     } on DioException {
       // Logout is stateless on the backend, so local cleanup is still enough.

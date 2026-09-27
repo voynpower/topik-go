@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/core/network/api_error_message.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/grammar/data/grammar_repository.dart';
@@ -18,10 +19,11 @@ class _GrammarDetailPageState extends ConsumerState<GrammarDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = ref.watch(appStringsProvider);
     final item = ref.watch(grammarItemProvider(widget.id));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('문법 상세')),
+      appBar: AppBar(title: Text(strings.grammarDetail)),
       body: item.when(
         data: (grammar) => ListView(
           padding: const EdgeInsets.all(20),
@@ -59,7 +61,7 @@ class _GrammarDetailPageState extends ConsumerState<GrammarDetailPage> {
             ),
             if (grammar.examples.isNotEmpty) ...[
               const SizedBox(height: 16),
-              Text('예문', style: Theme.of(context).textTheme.titleMedium),
+              Text(strings.examples, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 10),
               ...grammar.examples.map(
                 (example) => Card(
@@ -84,22 +86,7 @@ class _GrammarDetailPageState extends ConsumerState<GrammarDetailPage> {
                     ? Icons.bookmark
                     : Icons.bookmark_add_outlined,
               ),
-              label: Text(grammar.isBookmarked ? '북마크 해제' : '북마크 저장'),
-            ),
-            const SizedBox(height: 10),
-            OutlinedButton.icon(
-              onPressed: _saving
-                  ? null
-                  : () => _toggleDownload(
-                      grammar.id,
-                      downloaded: !grammar.isDownloaded,
-                    ),
-              icon: Icon(
-                grammar.isDownloaded
-                    ? Icons.download_done
-                    : Icons.download_outlined,
-              ),
-              label: Text(grammar.isDownloaded ? '다운로드 해제' : '오프라인 저장'),
+              label: Text(grammar.isBookmarked ? strings.savedToGrammar : strings.addToGrammar),
             ),
           ],
         ),
@@ -107,8 +94,9 @@ class _GrammarDetailPageState extends ConsumerState<GrammarDetailPage> {
         error: (error, _) => _ErrorState(
           message: apiErrorMessage(
             error,
-            missingApiMessage: '문법 상세 API가 아직 백엔드에 연결되지 않았습니다.',
+            missingApiMessage: strings.error,
           ),
+          retryText: strings.retry,
           onRetry: () => ref.invalidate(grammarItemProvider(widget.id)),
         ),
       ),
@@ -124,27 +112,8 @@ class _GrammarDetailPageState extends ConsumerState<GrammarDetailPage> {
       ref.invalidate(bookmarkSummaryProvider);
       ref.invalidate(bookmarkedGrammarProvider);
       ref.invalidate(grammarItemProvider(widget.id));
-      _showMessage(bookmarked ? '북마크에 저장되었습니다.' : '북마크가 해제되었습니다.');
-    } catch (error) {
-      _showMessage(apiErrorMessage(error));
-    } finally {
-      if (mounted) {
-        setState(() => _saving = false);
-      }
-    }
-  }
-
-  Future<void> _toggleDownload(String id, {required bool downloaded}) async {
-    setState(() => _saving = true);
-    try {
-      final repository = ref.read(grammarRepositoryProvider);
-      if (downloaded) {
-        await repository.downloadGrammar(id);
-      } else {
-        await repository.removeGrammarDownload(id);
-      }
-      ref.invalidate(grammarItemProvider(widget.id));
-      _showMessage(downloaded ? '오프라인 저장되었습니다.' : '다운로드가 해제되었습니다.');
+      final strings = ref.read(appStringsProvider);
+      _showMessage(bookmarked ? strings.savedToGrammar : strings.delete);
     } catch (error) {
       _showMessage(apiErrorMessage(error));
     } finally {
@@ -163,9 +132,14 @@ class _GrammarDetailPageState extends ConsumerState<GrammarDetailPage> {
 }
 
 class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.message, required this.onRetry});
+  const _ErrorState({
+    required this.message,
+    required this.retryText,
+    required this.onRetry,
+  });
 
   final String message;
+  final String retryText;
   final VoidCallback onRetry;
 
   @override
@@ -178,7 +152,7 @@ class _ErrorState extends StatelessWidget {
           children: [
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 12),
-            FilledButton(onPressed: onRetry, child: const Text('다시 시도')),
+            FilledButton(onPressed: onRetry, child: Text(retryText)),
           ],
         ),
       ),

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
+import 'package:topik_go/core/localization/app_strings.dart';
+import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/core/network/api_media_url.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart';
@@ -258,6 +260,7 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = ref.watch(appStringsProvider);
     final questions = ref.watch(
       practiceQuestionsProvider(
         PracticeSetQuestionsKey(
@@ -270,11 +273,11 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F5F7),
       appBar: AppBar(
-        title: const Text('TOPIK II 듣기 연습'),
+        title: Text(strings.listeningPractice),
         actions: [
           IconButton(
             icon: const Icon(Icons.search_rounded),
-            tooltip: '단어/문법 검색',
+            tooltip: strings.searchWordOrGrammar,
             onPressed: () => showWordLookupSheet(context),
           ),
         ],
@@ -389,6 +392,7 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
                               _TranscriptCard(
                                 text: currentGroup.transcript!.trim(),
                                 initiallyExpanded: _summary != null,
+                                label: strings.viewScript,
                               ),
                             ],
                           ],
@@ -401,17 +405,12 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
               _BottomControls(
                 canGoPrevious: safeGroupIndex > 0,
                 canGoNext: safeGroupIndex < groups.length - 1,
-                previousLabel: safeGroupIndex > 0
-                    ? groups[safeGroupIndex - 1].rangeLabel
-                    : '이전',
-                nextLabel: safeGroupIndex < groups.length - 1
-                    ? groups[safeGroupIndex + 1].rangeLabel
-                    : '다음',
                 onPrevious: () =>
                     setState(() => _currentGroupIndex = safeGroupIndex - 1),
                 onNext: () =>
                     setState(() => _currentGroupIndex = safeGroupIndex + 1),
                 onSubmit: () => _submitTest(page.items),
+                strings: strings,
               ),
             ],
           );
@@ -664,15 +663,16 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
       _summary = summary;
     });
 
+    final strings = ref.read(appStringsProvider);
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('시험 결과'),
+        title: Text(strings.examResult),
         content: _SummaryContent(summary: summary),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('확인'),
+            child: Text(strings.confirm),
           ),
         ],
       ),
@@ -1160,10 +1160,12 @@ class _TranscriptCard extends StatefulWidget {
   const _TranscriptCard({
     required this.text,
     this.initiallyExpanded = false,
+    this.label,
   });
 
   final String text;
   final bool initiallyExpanded;
+  final String? label;
 
   @override
   State<_TranscriptCard> createState() => _TranscriptCardState();
@@ -1199,9 +1201,9 @@ class _TranscriptCardState extends State<_TranscriptCard> {
                   const Icon(Icons.description_outlined,
                       size: 16, color: Color(0xFF2E6BD9)),
                   const SizedBox(width: 6),
-                  const Text(
-                    '듣기 대본 보기',
-                    style: TextStyle(
+                  Text(
+                    widget.label ?? '듣기 대본 보기',
+                    style: const TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 13,
                       color: Color(0xFF2E6BD9),
@@ -1541,20 +1543,18 @@ class _BottomControls extends StatelessWidget {
   const _BottomControls({
     required this.canGoPrevious,
     required this.canGoNext,
-    required this.previousLabel,
-    required this.nextLabel,
     required this.onPrevious,
     required this.onNext,
     required this.onSubmit,
+    required this.strings,
   });
 
   final bool canGoPrevious;
   final bool canGoNext;
-  final String previousLabel;
-  final String nextLabel;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
   final VoidCallback onSubmit;
+  final AppStrings strings;
 
   @override
   Widget build(BuildContext context) {
@@ -1574,7 +1574,7 @@ class _BottomControls extends StatelessWidget {
                     child: OutlinedButton.icon(
                       onPressed: canGoPrevious ? onPrevious : null,
                       icon: const Icon(Icons.chevron_left, size: 18),
-                      label: Text('이전 ($previousLabel)'),
+                      label: Text(strings.prev),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -1582,7 +1582,7 @@ class _BottomControls extends StatelessWidget {
                     child: OutlinedButton.icon(
                       onPressed: canGoNext ? onNext : null,
                       icon: const Icon(Icons.chevron_right, size: 18),
-                      label: Text('다음 ($nextLabel)'),
+                      label: Text(strings.next),
                     ),
                   ),
                 ],
@@ -1596,7 +1596,7 @@ class _BottomControls extends StatelessWidget {
                     backgroundColor: const Color(0xFF2E6BD9),
                   ),
                   icon: const Icon(Icons.fact_check_outlined, size: 18),
-                  label: const Text('시험 제출 및 채점'),
+                  label: Text(strings.submitExam),
                 ),
               ),
             ],

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
+import 'package:topik_go/core/localization/app_strings.dart';
+import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/core/network/api_media_url.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart';
@@ -401,6 +403,7 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = ref.watch(appStringsProvider);
     final questionsAsync = ref.watch(
       practiceQuestionsProvider(
         PracticeSetQuestionsKey(
@@ -413,11 +416,11 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F5F7),
       appBar: AppBar(
-        title: const Text('TOPIK II 읽기 연습'),
+        title: Text(strings.readingPractice),
         actions: [
           IconButton(
             icon: const Icon(Icons.search_rounded),
-            tooltip: '단어/문법 검색',
+            tooltip: strings.searchWordOrGrammar,
             onPressed: () => showWordLookupSheet(context),
           ),
         ],
@@ -558,6 +561,7 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
                 onOpenGrid: () =>
                     _showQuestionGridSheet(context, questions, groups),
                 onSubmit: () => _submitTest(questions),
+                strings: strings,
               ),
             ],
           );
@@ -685,15 +689,16 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
       _summary = summary;
     });
 
+    final strings = ref.read(appStringsProvider);
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('시험 결과'),
+        title: Text(strings.examResult),
         content: _SummaryContent(summary: summary),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('확인'),
+            child: Text(strings.confirm),
           ),
         ],
       ),
@@ -1596,6 +1601,7 @@ class _BottomControls extends StatelessWidget {
     required this.onNext,
     required this.onOpenGrid,
     required this.onSubmit,
+    required this.strings,
   });
 
   final bool canGoPrevious;
@@ -1604,6 +1610,7 @@ class _BottomControls extends StatelessWidget {
   final VoidCallback onNext;
   final VoidCallback onOpenGrid;
   final VoidCallback onSubmit;
+  final AppStrings strings;
 
   @override
   Widget build(BuildContext context) {
@@ -1623,14 +1630,14 @@ class _BottomControls extends StatelessWidget {
                     child: OutlinedButton.icon(
                       onPressed: canGoPrevious ? onPrevious : null,
                       icon: const Icon(Icons.chevron_left, size: 18),
-                      label: const Text('이전'),
+                      label: Text(strings.prev),
                     ),
                   ),
                   const SizedBox(width: 8),
                   IconButton.outlined(
                     onPressed: onOpenGrid,
                     icon: const Icon(Icons.grid_view_rounded, size: 18),
-                    tooltip: '전체 문항 목록',
+                    tooltip: strings.all,
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: Color(0xFFD1D5DB)),
                     ),
@@ -1640,7 +1647,7 @@ class _BottomControls extends StatelessWidget {
                     child: OutlinedButton.icon(
                       onPressed: canGoNext ? onNext : null,
                       icon: const Icon(Icons.chevron_right, size: 18),
-                      label: const Text('다음'),
+                      label: Text(strings.next),
                     ),
                   ),
                 ],
@@ -1654,7 +1661,7 @@ class _BottomControls extends StatelessWidget {
                     backgroundColor: AppColors.mintDark,
                   ),
                   icon: const Icon(Icons.fact_check_outlined, size: 18),
-                  label: const Text('시험 제출 및 채점'),
+                  label: Text(strings.submitExam),
                 ),
               ),
             ],

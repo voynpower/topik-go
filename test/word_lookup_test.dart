@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:topik_go/core/services/translation_service.dart';
+import 'package:topik_go/features/grammar/data/grammar_repository.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart';
 import 'package:topik_go/features/questions/data/question_repository.dart';
 import 'package:topik_go/features/questions/presentation/listening_practice_page.dart';
 import 'package:topik_go/features/questions/presentation/reading_practice_page.dart';
+import 'package:topik_go/features/settings/presentation/settings_page.dart';
+import 'package:topik_go/features/users/data/user_profile.dart';
+import 'package:topik_go/features/users/data/user_repository.dart';
+import 'package:topik_go/features/vocabulary/data/vocabulary_repository.dart';
 import 'package:topik_go/features/vocabulary/presentation/word_lookup_sheet.dart';
 
 void main() {
@@ -394,5 +400,127 @@ void main() {
       final totalQ = groups.fold<int>(0, (sum, g) => sum + g.questions.length);
       expect(totalQ, 50);
     });
+
+    testWidgets('WordLookupSheet renders search results without level badges', (
+      tester,
+    ) async {
+      const mockVocabPage = VocabularyPage(
+        items: [
+          VocabularyItem(
+            id: 'v1',
+            word: '약속',
+            meaningKo: '다른 사람과 앞으로의 일을 미리 정하여 둠',
+            meaningUserLang: 'Appointment',
+            level: 2,
+            isDownloaded: false,
+            isBookmarked: false,
+          ),
+        ],
+        page: 1,
+        limit: 10,
+        total: 1,
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            vocabularyRepositoryProvider.overrideWithValue(
+              _MockVocabularyRepo(mockVocabPage),
+            ),
+            grammarRepositoryProvider.overrideWithValue(
+              _MockGrammarRepo(const GrammarPage(items: [], page: 1, limit: 5, total: 0)),
+            ),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(
+              body: WordLookupSheet(initialWord: '약속'),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('약속'), findsNWidgets(2));
+      expect(find.text('다른 사람과 앞으로의 일을 미리 정하여 둠'), findsOneWidget);
+      expect(find.text('Appointment'), findsOneWidget);
+
+      // Verify level badge is NOT present
+      expect(find.text('2급'), findsNothing);
+    });
+
+    testWidgets('SettingsPage renders language setting tile with language display name and opens picker', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      const profile = UserProfile(
+        id: 'u-1',
+        email: 'user@test.com',
+        nickname: 'Tester',
+        role: 'user',
+        languageCode: 'en',
+        targetLevel: 4,
+        timezone: '+09:00',
+        fontScale: '1.00',
+        timerMode: 'countdown',
+        themeColor: 'mint',
+        homeLayout: 1,
+        practiceLayout: 1,
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            userProfileProvider.overrideWith((ref) async => profile),
+          ],
+          child: const MaterialApp(
+            home: SettingsPage(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Find language setting tile
+      expect(find.text('언어 설정'), findsOneWidget);
+      expect(find.text(getLanguageDisplayName('ko')), findsOneWidget);
+
+      // Tap language tile
+      await tester.tap(find.text('언어 설정'));
+      await tester.pumpAndSettle();
+
+      // Verify bottom sheet language picker opens
+      expect(find.text('언어 선택 (Language)'), findsOneWidget);
+      expect(find.text("O'zbekcha"), findsOneWidget);
+      expect(find.text('한국어'), findsOneWidget);
+      expect(find.text('Русский'), findsOneWidget);
+    });
   });
+}
+
+class _MockVocabularyRepo implements VocabularyRepository {
+  final VocabularyPage page;
+  _MockVocabularyRepo(this.page);
+
+  @override
+  Future<VocabularyPage> getVocabulary(VocabularyQuery query) async => page;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _MockGrammarRepo implements GrammarRepository {
+  final GrammarPage page;
+  _MockGrammarRepo(this.page);
+
+  @override
+  Future<GrammarPage> getGrammar(GrammarQuery query) async => page;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

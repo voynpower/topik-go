@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:topik_go/core/localization/app_strings.dart';
+import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 
 class BookmarkedQuestionsPage extends ConsumerWidget {
@@ -8,14 +10,15 @@ class BookmarkedQuestionsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final strings = ref.watch(appStringsProvider);
     final bookmarks = ref.watch(bookmarkedQuestionsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('북마크 문제')),
+      appBar: AppBar(title: Text(strings.bookmarkedQuestions)),
       body: bookmarks.when(
         data: (items) {
           if (items.isEmpty) {
-            return const Center(child: Text('북마크한 문제가 없습니다.'));
+            return Center(child: Text(strings.noBookmarks));
           }
 
           return RefreshIndicator(
@@ -27,7 +30,7 @@ class BookmarkedQuestionsPage extends ConsumerWidget {
               padding: const EdgeInsets.all(20),
               itemCount: items.length,
               itemBuilder: (context, index) {
-                return _BookmarkedQuestionTile(item: items[index]);
+                return _BookmarkedQuestionTile(item: items[index], strings: strings);
               },
             ),
           );
@@ -35,6 +38,7 @@ class BookmarkedQuestionsPage extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => _ErrorState(
           message: error.toString(),
+          retryText: strings.retry,
           onRetry: () => ref.invalidate(bookmarkedQuestionsProvider),
         ),
       ),
@@ -43,9 +47,10 @@ class BookmarkedQuestionsPage extends ConsumerWidget {
 }
 
 class _BookmarkedQuestionTile extends StatelessWidget {
-  const _BookmarkedQuestionTile({required this.item});
+  const _BookmarkedQuestionTile({required this.item, required this.strings});
 
   final BookmarkedQuestion item;
+  final AppStrings strings;
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +71,7 @@ class _BookmarkedQuestionTile extends StatelessWidget {
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 6),
           child: Text(
-            '${_sectionLabel(question.section)}$levelLabel / ${question.questionType}',
+            '${_sectionLabel(question.section, strings)}$levelLabel / ${question.questionType}',
           ),
         ),
         trailing: const Icon(Icons.chevron_right),
@@ -75,14 +80,14 @@ class _BookmarkedQuestionTile extends StatelessWidget {
     );
   }
 
-  String _sectionLabel(String section) {
+  String _sectionLabel(String section, AppStrings strings) {
     switch (section.toLowerCase()) {
       case 'reading':
-        return '읽기';
+        return strings.readingPractice;
       case 'listening':
-        return '듣기';
+        return strings.listeningPractice;
       case 'writing':
-        return '쓰기';
+        return strings.writingPractice;
       default:
         return section;
     }
@@ -90,9 +95,14 @@ class _BookmarkedQuestionTile extends StatelessWidget {
 }
 
 class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.message, required this.onRetry});
+  const _ErrorState({
+    required this.message,
+    required this.retryText,
+    required this.onRetry,
+  });
 
   final String message;
+  final String retryText;
   final VoidCallback onRetry;
 
   @override
@@ -105,7 +115,7 @@ class _ErrorState extends StatelessWidget {
           children: [
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 12),
-            FilledButton(onPressed: onRetry, child: const Text('다시 시도')),
+            FilledButton(onPressed: onRetry, child: Text(retryText)),
           ],
         ),
       ),
