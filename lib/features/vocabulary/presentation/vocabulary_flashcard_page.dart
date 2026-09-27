@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/core/localization/app_strings.dart';
 import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
@@ -121,13 +122,16 @@ class _VocabularyFlashcardPageState
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E222D),
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         title: Row(
           children: [
-            const Icon(Icons.celebration, color: Color(0xFF6366F1), size: 28),
+            const Icon(Icons.celebration, color: AppColors.mintDark, size: 28),
             const SizedBox(width: 8),
-            Text(strings.finishStudy, style: const TextStyle(color: Colors.white)),
+            Text(
+              strings.finishStudy,
+              style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.w800),
+            ),
           ],
         ),
         content: Column(
@@ -136,14 +140,14 @@ class _VocabularyFlashcardPageState
           children: [
             Text(
               '총 $total개 단어 학습 완료!',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
             ),
             const SizedBox(height: 14),
             Row(
               children: [
                 const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 20),
                 const SizedBox(width: 8),
-                Text('${strings.memorized}: ${_masteredIds.length}개', style: const TextStyle(color: Colors.white70)),
+                Text('${strings.memorized}: ${_masteredIds.length}개', style: const TextStyle(color: Color(0xFF475569))),
               ],
             ),
             const SizedBox(height: 8),
@@ -151,7 +155,7 @@ class _VocabularyFlashcardPageState
               children: [
                 const Icon(Icons.replay, color: Color(0xFFEF4444), size: 20),
                 const SizedBox(width: 8),
-                Text('${strings.needReview}: ${_reviewIds.length}개', style: const TextStyle(color: Colors.white70)),
+                Text('${strings.needReview}: ${_reviewIds.length}개', style: const TextStyle(color: Color(0xFF475569))),
               ],
             ),
           ],
@@ -162,11 +166,11 @@ class _VocabularyFlashcardPageState
               Navigator.of(ctx).pop();
               context.pop();
             },
-            child: Text(strings.confirm, style: const TextStyle(color: Colors.white70)),
+            child: Text(strings.confirm, style: const TextStyle(color: Color(0xFF64748B))),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF6366F1),
+              backgroundColor: AppColors.mint,
             ),
             onPressed: () {
               Navigator.of(ctx).pop();
@@ -194,14 +198,15 @@ class _VocabularyFlashcardPageState
     final wordsAsync = ref.watch(studyWordsProvider(widget.source));
 
     return Scaffold(
-      backgroundColor: const Color(0xFF13161F), // OneVoca 다크 테마
+      backgroundColor: AppColors.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF13161F),
+        backgroundColor: AppColors.bg,
         elevation: 0,
+        foregroundColor: const Color(0xFF0F172A),
         title: wordsAsync.when(
           data: (items) => Text(
             '${_currentIndex + 1} / ${items.length}',
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Colors.white),
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
           ),
           loading: () => const SizedBox.shrink(),
           error: (_, _) => const SizedBox.shrink(),
@@ -209,7 +214,7 @@ class _VocabularyFlashcardPageState
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings_outlined, color: Colors.white70),
+            icon: const Icon(Icons.settings_outlined, color: Color(0xFF64748B)),
             onPressed: () => VocaStudySetupSheet.show(context, VocabularyStudyMode.flashcard),
           ),
         ],
@@ -218,7 +223,7 @@ class _VocabularyFlashcardPageState
         data: (items) {
           if (items.isEmpty) {
             return Center(
-              child: Text(strings.noBookmarks, style: const TextStyle(color: Colors.white54)),
+              child: Text(strings.noBookmarks, style: const TextStyle(color: Color(0xFF64748B))),
             );
           }
 
@@ -233,12 +238,12 @@ class _VocabularyFlashcardPageState
               // 1. Top Progress Indicator
               LinearProgressIndicator(
                 value: (_currentIndex + 1) / items.length,
-                backgroundColor: const Color(0xFF1E222D),
-                valueColor: const AlwaysStoppedAnimation(Color(0xFF6366F1)),
+                backgroundColor: const Color(0xFFE2E8F0),
+                valueColor: const AlwaysStoppedAnimation(AppColors.mint),
                 minHeight: 4,
               ),
 
-              // 2. Tinder-style Swipe Flashcard Stack (voca_img2, voca_img3, voca_img4)
+              // 2. Tinder-style Swipe Flashcard Stack
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
@@ -277,21 +282,21 @@ class _VocabularyFlashcardPageState
                               alignment: Alignment.center,
                               child: Container(
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF1E222D),
+                                  color: Colors.white,
                                   borderRadius: BorderRadius.circular(24),
                                   border: Border.all(
                                     color: isSwipeRight
                                         ? const Color(0xFF10B981) // 초록 테두리 (외웠어요)
                                         : isSwipeLeft
                                             ? const Color(0xFFEF4444) // 빨간 테두리 (아직 외우고 있어요)
-                                            : const Color(0xFF2D3342),
+                                            : AppColors.border,
                                     width: (isSwipeRight || isSwipeLeft) ? 2.5 : 1.2,
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.3),
-                                      blurRadius: 20,
-                                      offset: const Offset(0, 10),
+                                      color: Colors.black.withValues(alpha: 0.06),
+                                      blurRadius: 18,
+                                      offset: const Offset(0, 8),
                                     ),
                                   ],
                                 ),
@@ -317,7 +322,7 @@ class _VocabularyFlashcardPageState
                                             ),
                                           ),
 
-                                    // Swipe Overlay Labels (voca_img2 & voca_img3)
+                                    // Swipe Overlay Labels
                                     if (isSwipeRight)
                                       Positioned(
                                         right: 30,
@@ -325,7 +330,7 @@ class _VocabularyFlashcardPageState
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                                            color: const Color(0xFF10B981).withValues(alpha: 0.15),
                                             borderRadius: BorderRadius.circular(12),
                                             border: Border.all(color: const Color(0xFF10B981), width: 2),
                                           ),
@@ -346,7 +351,7 @@ class _VocabularyFlashcardPageState
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFFEF4444).withValues(alpha: 0.2),
+                                            color: const Color(0xFFEF4444).withValues(alpha: 0.15),
                                             borderRadius: BorderRadius.circular(12),
                                             border: Border.all(color: const Color(0xFFEF4444), width: 2),
                                           ),
@@ -372,7 +377,7 @@ class _VocabularyFlashcardPageState
                 ),
               ),
 
-              // 3. Bottom One-Touch Buttons (voca_img2, voca_img3, voca_img4)
+              // 3. Bottom One-Touch Buttons
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
                 child: Row(
@@ -380,17 +385,17 @@ class _VocabularyFlashcardPageState
                     Expanded(
                       child: FilledButton(
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF2E1A24),
-                          foregroundColor: const Color(0xFFFDA4AF),
+                          backgroundColor: const Color(0xFFFFF1F2),
+                          foregroundColor: const Color(0xFFE11D48),
                           padding: const EdgeInsets.symmetric(vertical: 18),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(18),
-                            side: const BorderSide(color: Color(0xFF4C1D2F)),
+                            side: const BorderSide(color: Color(0xFFFECDD3)),
                           ),
                         ),
                         onPressed: () => _onAnswer(currentItem, false, items.length),
                         child: Text(
-                          '아직 외우고 있어요',
+                          strings.statusHard,
                           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
                         ),
                       ),
@@ -399,12 +404,12 @@ class _VocabularyFlashcardPageState
                     Expanded(
                       child: FilledButton(
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF143026),
-                          foregroundColor: const Color(0xFF86EFAC),
+                          backgroundColor: const Color(0xFFF0FDF4),
+                          foregroundColor: const Color(0xFF16A34A),
                           padding: const EdgeInsets.symmetric(vertical: 18),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(18),
-                            side: const BorderSide(color: Color(0xFF1A4736)),
+                            side: const BorderSide(color: Color(0xFFBBF7D0)),
                           ),
                         ),
                         onPressed: () => _onAnswer(currentItem, true, items.length),
@@ -421,9 +426,9 @@ class _VocabularyFlashcardPageState
           );
         },
         loading: () => const Center(
-          child: CircularProgressIndicator(color: Color(0xFF6366F1)),
+          child: CircularProgressIndicator(color: AppColors.mintDark),
         ),
-        error: (_, _) => Center(child: Text(strings.error, style: const TextStyle(color: Colors.white70))),
+        error: (_, _) => Center(child: Text(strings.error, style: const TextStyle(color: Color(0xFF64748B)))),
       ),
     );
   }
@@ -456,7 +461,7 @@ class _CardFront extends ConsumerWidget {
               IconButton(
                 icon: Icon(
                   item.isBookmarked ? Icons.star_rounded : Icons.star_outline_rounded,
-                  color: item.isBookmarked ? const Color(0xFFFBBF24) : Colors.white38,
+                  color: item.isBookmarked ? const Color(0xFFFBBF24) : const Color(0xFF94A3B8),
                   size: 26,
                 ),
                 onPressed: () async {
@@ -471,25 +476,25 @@ class _CardFront extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF272C3E),
+                  color: const Color(0xFFF1F5F9),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   'TOPIK ${item.level}급',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF94A3B8)),
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF64748B)),
                 ),
               ),
             ],
           ),
 
-          // Center Giant Word (voca_img4.jpeg)
+          // Center Giant Word
           Text(
             item.word,
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 34,
               fontWeight: FontWeight.w900,
-              color: Colors.white,
+              color: Color(0xFF0F172A),
               letterSpacing: -0.5,
             ),
           ),
@@ -520,7 +525,7 @@ class _CardFront extends ConsumerWidget {
                 ],
               ),
               IconButton(
-                icon: const Icon(Icons.volume_up_outlined, color: Colors.white70, size: 24),
+                icon: const Icon(Icons.volume_up_outlined, color: Color(0xFF64748B), size: 24),
                 onPressed: () => onSpeak(item.word),
               ),
             ],
@@ -553,18 +558,18 @@ class _CardBack extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Word & POS
+          // Word & Meaning
           Column(
             children: [
               Text(
                 item.word,
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF818CF8)),
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.mintDark),
               ),
               const SizedBox(height: 6),
               Text(
                 item.meaningUserLang ?? item.meaningKo,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
               ),
             ],
           ),
@@ -574,18 +579,19 @@ class _CardBack extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFF272C3E),
+                color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('💬 실전 예문', style: TextStyle(fontSize: 11, color: Color(0xFF818CF8), fontWeight: FontWeight.w700)),
+                  Text('💬 ${strings.aiExample}', style: const TextStyle(fontSize: 11, color: AppColors.mintDark, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 6),
-                  Text(item.example!, style: const TextStyle(fontSize: 13, color: Colors.white, height: 1.35)),
+                  Text(item.example!, style: const TextStyle(fontSize: 13, color: Color(0xFF0F172A), height: 1.35)),
                   if (item.exampleMeaning != null) ...[
                     const SizedBox(height: 4),
-                    Text(item.exampleMeaning!, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                    Text(item.exampleMeaning!, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
                   ],
                 ],
               ),
@@ -595,9 +601,9 @@ class _CardBack extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(strings.flipCardHint, style: const TextStyle(fontSize: 12, color: Colors.white38)),
+              Text(strings.flipCardHint, style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
               IconButton(
-                icon: const Icon(Icons.volume_up_outlined, color: Colors.white70, size: 24),
+                icon: const Icon(Icons.volume_up_outlined, color: Color(0xFF64748B), size: 24),
                 onPressed: () => onSpeak(item.word),
               ),
             ],
@@ -627,7 +633,7 @@ class _SpeedChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF6366F1) : const Color(0xFF272C3E),
+          color: isSelected ? AppColors.mintDark : const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Text(
@@ -635,7 +641,7 @@ class _SpeedChip extends StatelessWidget {
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w700,
-            color: isSelected ? Colors.white : Colors.white60,
+            color: isSelected ? Colors.white : const Color(0xFF64748B),
           ),
         ),
       ),

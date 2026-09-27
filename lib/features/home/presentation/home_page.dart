@@ -163,7 +163,13 @@ class _HomeHero extends StatelessWidget {
     final nickname = user?.nickname;
     final targetLevel = user?.targetLevel ?? 3;
     final greeting = nickname == null
-        ? strings.homeGreeting.replaceAll(', {name}님', '').replaceAll('{name}', '')
+        ? strings.homeGreeting
+            .replaceAll(', {name}님', '')
+            .replaceAll('{name}님', '')
+            .replaceAll(', {name}', '')
+            .replaceAll('{name}', '')
+            .replaceAll('!', '')
+            .trim()
         : strings.homeGreeting.replaceAll('{name}', nickname);
 
     return Container(
@@ -234,7 +240,7 @@ class _HomeHero extends StatelessWidget {
                     const Icon(Icons.flag_outlined, size: 14, color: Color(0xFF2563EB)),
                     const SizedBox(width: 5),
                     Text(
-                      '${strings.targetLevelLabel}: TOPIK II $targetLevel급',
+                      '${strings.targetLevelLabel}: TOPIK II ${strings.levelUnit.replaceAll('{level}', '$targetLevel')}',
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -377,7 +383,7 @@ class _DailyWordSection extends ConsumerWidget {
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: 10,
             crossAxisSpacing: 10,
-            childAspectRatio: 2.2,
+            childAspectRatio: 1.85,
             children: [
               _OneVocaLauncherTile(
                 icon: Icons.style_outlined,
@@ -887,7 +893,7 @@ class _QuickPracticeSection extends StatelessWidget {
                 icon: Icons.menu_book_outlined,
                 color: const Color(0xFF1D8F86),
                 bgColor: const Color(0xFFE8F8F3),
-                label: '읽기',
+                label: strings.readingShort,
                 onTap: () => context.push('/reading-practice'),
               ),
             ),
@@ -897,7 +903,7 @@ class _QuickPracticeSection extends StatelessWidget {
                 icon: Icons.headphones_outlined,
                 color: const Color(0xFF2E6BD9),
                 bgColor: const Color(0xFFEAF1FF),
-                label: '듣기',
+                label: strings.listeningShort,
                 onTap: () => context.push('/listening-practice'),
               ),
             ),
@@ -907,7 +913,7 @@ class _QuickPracticeSection extends StatelessWidget {
                 icon: Icons.edit_note_outlined,
                 color: const Color(0xFFD07A21),
                 bgColor: const Color(0xFFFFF1DC),
-                label: '쓰기',
+                label: strings.writingShort,
                 onTap: () => context.push('/writing-practice'),
               ),
             ),

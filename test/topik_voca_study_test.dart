@@ -91,15 +91,24 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Word and meaning should be displayed
+      // Word should be displayed, but meaning is hidden by default (문제 2)
       expect(find.text('노력하다'), findsOneWidget);
-      expect(find.text('목적을 이루기 위하여 힘을 쓰다'), findsOneWidget);
+      expect(find.text('목적을 이루기 위하여 힘을 쓰다'), findsNothing);
+      expect(find.text('탭하여 뜻 보기'), findsOneWidget);
 
-      // AI example card is initially hidden until expanded
+      // AI example is also hidden initially (문제 3)
       expect(find.text(strings.aiExample), findsNothing);
 
-      // Tap card to expand
+      // Tap word to reveal translation (문제 2)
       await tester.tap(find.text('노력하다'));
+      await tester.pumpAndSettle();
+
+      // Now meaning is visible, but AI example is still hidden
+      expect(find.text('목적을 이루기 위하여 힘을 쓰다'), findsOneWidget);
+      expect(find.text(strings.aiExample), findsNothing);
+
+      // Tap AI icon button to reveal AI example (문제 3)
+      await tester.tap(find.byIcon(Icons.auto_awesome));
       await tester.pumpAndSettle();
 
       // AI example card and refresh button should now be visible

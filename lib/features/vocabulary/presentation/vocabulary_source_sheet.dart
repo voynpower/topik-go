@@ -158,12 +158,15 @@ class VocabularySourceSheet extends ConsumerWidget {
                         children: [
                           Row(
                             children: [
-                              Text(
-                                strings.mySavedWordbook,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF14532D),
+                              Flexible(
+                                child: Text(
+                                  strings.mySavedWordbook,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF14532D),
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 8),

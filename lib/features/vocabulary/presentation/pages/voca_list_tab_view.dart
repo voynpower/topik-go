@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/core/localization/app_strings.dart';
 import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/core/network/api_error_message.dart';
@@ -50,7 +51,7 @@ class _VocaListTabViewState extends ConsumerState<VocaListTabView> {
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: Container(
           decoration: const BoxDecoration(
-            color: Color(0xFF1E222D),
+            color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
@@ -64,41 +65,55 @@ class _VocaListTabViewState extends ConsumerState<VocaListTabView> {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: Colors.white24,
+                    color: const Color(0xFFCBD5E1),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
-              const Text(
-                '새 단어 추가',
-                style: TextStyle(
+              Text(
+                strings.addNewWord,
+                style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
-                  color: Colors.white,
+                  color: Color(0xFF0F172A),
                 ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: wordCtrl,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: Color(0xFF0F172A)),
                 decoration: InputDecoration(
                   labelText: '한국어 단어',
-                  labelStyle: const TextStyle(color: Colors.white60),
+                  labelStyle: const TextStyle(color: Color(0xFF64748B)),
                   filled: true,
-                  fillColor: const Color(0xFF272C3E),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: meaningCtrl,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: Color(0xFF0F172A)),
                 decoration: InputDecoration(
                   labelText: '단어 뜻 (모국어 또는 한국어)',
-                  labelStyle: const TextStyle(color: Colors.white60),
+                  labelStyle: const TextStyle(color: Color(0xFF64748B)),
                   filled: true,
-                  fillColor: const Color(0xFF272C3E),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -106,7 +121,7 @@ class _VocaListTabViewState extends ConsumerState<VocaListTabView> {
                 width: double.infinity,
                 child: FilledButton(
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF6366F1),
+                    backgroundColor: AppColors.mint,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
@@ -126,7 +141,7 @@ class _VocaListTabViewState extends ConsumerState<VocaListTabView> {
                       ref.invalidate(bookmarkedVocabularyProvider);
                     } catch (_) {}
                   },
-                  child: const Text('단어장에 저장', style: TextStyle(fontWeight: FontWeight.w700)),
+                  child: Text(strings.save, style: const TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ),
             ],
@@ -144,18 +159,22 @@ class _VocaListTabViewState extends ConsumerState<VocaListTabView> {
     final masteryMap = ref.watch(wordMasteryProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF13161F), // OneVoca 딥 다크 배경
+      backgroundColor: AppColors.bg,
       body: Column(
         children: [
-          // 1. OneVoca Style Group Header & Controls (voca_img1)
+          // 1. Group Header & Controls
           Container(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Row(
               children: [
                 // Group Dropdown Menu
                 PopupMenuButton<int?>(
-                  color: const Color(0xFF1E222D),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  color: Colors.white,
+                  surfaceTintColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    side: const BorderSide(color: AppColors.border),
+                  ),
                   initialValue: _level,
                   onSelected: (val) {
                     setState(() {
@@ -164,42 +183,42 @@ class _VocaListTabViewState extends ConsumerState<VocaListTabView> {
                     });
                   },
                   itemBuilder: (ctx) => [
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: null,
-                      child: Text('모든 그룹 (전체)', style: TextStyle(color: Colors.white)),
+                      child: Text('${strings.allGroups} (${strings.all})', style: const TextStyle(color: Color(0xFF0F172A))),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 1,
-                      child: Text('TOPIK I (1·2급 기초)', style: TextStyle(color: Colors.white)),
+                      child: Text('TOPIK I (1·2 ${strings.levelUnit.replaceAll('{level}', '')})', style: const TextStyle(color: Color(0xFF0F172A))),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 3,
-                      child: Text('TOPIK II 3급', style: TextStyle(color: Colors.white)),
+                      child: Text('TOPIK II ${strings.levelUnit.replaceAll('{level}', '3')}', style: const TextStyle(color: Color(0xFF0F172A))),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 4,
-                      child: Text('TOPIK II 4급', style: TextStyle(color: Colors.white)),
+                      child: Text('TOPIK II ${strings.levelUnit.replaceAll('{level}', '4')}', style: const TextStyle(color: Color(0xFF0F172A))),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 5,
-                      child: Text('TOPIK II 5급', style: TextStyle(color: Colors.white)),
+                      child: Text('TOPIK II ${strings.levelUnit.replaceAll('{level}', '5')}', style: const TextStyle(color: Color(0xFF0F172A))),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 6,
-                      child: Text('TOPIK II 6급 심화', style: TextStyle(color: Colors.white)),
+                      child: Text('TOPIK II ${strings.levelUnit.replaceAll('{level}', '6')}', style: const TextStyle(color: Color(0xFF0F172A))),
                     ),
                   ],
                   child: Row(
                     children: [
                       Text(
-                        _level == null ? '모든 그룹' : 'TOPIK $_level급',
+                        _level == null ? strings.allGroups : 'TOPIK ${strings.levelUnit.replaceAll('{level}', '$_level')}',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
-                          color: Colors.white,
+                          color: Color(0xFF0F172A),
                         ),
                       ),
-                      const Icon(Icons.arrow_drop_down, color: Colors.white),
+                      const Icon(Icons.arrow_drop_down, color: Color(0xFF64748B)),
                     ],
                   ),
                 ),
@@ -208,7 +227,7 @@ class _VocaListTabViewState extends ConsumerState<VocaListTabView> {
                 IconButton(
                   icon: Icon(
                     _isSearching ? Icons.close : Icons.search,
-                    color: Colors.white70,
+                    color: _isSearching ? AppColors.mintDark : const Color(0xFF64748B),
                     size: 22,
                   ),
                   onPressed: () {
@@ -225,7 +244,7 @@ class _VocaListTabViewState extends ConsumerState<VocaListTabView> {
                 IconButton(
                   icon: Icon(
                     _onlySaved ? Icons.star_rounded : Icons.star_outline_rounded,
-                    color: _onlySaved ? const Color(0xFFFBBF24) : Colors.white70,
+                    color: _onlySaved ? const Color(0xFFF59E0B) : const Color(0xFF64748B),
                     size: 22,
                   ),
                   onPressed: () {
@@ -245,17 +264,21 @@ class _VocaListTabViewState extends ConsumerState<VocaListTabView> {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: TextField(
                 controller: _searchController,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: Color(0xFF0F172A)),
                 decoration: InputDecoration(
                   hintText: strings.searchVocabulary,
-                  hintStyle: const TextStyle(color: Colors.white38),
-                  prefixIcon: const Icon(Icons.search, color: Colors.white60),
+                  hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
+                  prefixIcon: const Icon(Icons.search, color: Color(0xFF64748B)),
                   filled: true,
-                  fillColor: const Color(0xFF1E222D),
+                  fillColor: Colors.white,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: AppColors.border),
                   ),
                 ),
                 onSubmitted: (_) => setState(() => _page = 1),
@@ -271,7 +294,7 @@ class _VocaListTabViewState extends ConsumerState<VocaListTabView> {
               children: [
                 _StatusFilterChip(
                   label: strings.all,
-                  color: Colors.white70,
+                  color: const Color(0xFF475569),
                   isSelected: _statusFilter == null,
                   onTap: () => setState(() => _statusFilter = null),
                 ),
@@ -323,11 +346,11 @@ class _VocaListTabViewState extends ConsumerState<VocaListTabView> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.style_outlined, size: 54, color: Colors.white24),
+                        const Icon(Icons.style_outlined, size: 54, color: Color(0xFF94A3B8)),
                         const SizedBox(height: 14),
                         Text(
                           strings.noBookmarks,
-                          style: const TextStyle(color: Colors.white54, fontSize: 15),
+                          style: const TextStyle(color: Color(0xFF64748B), fontSize: 15),
                         ),
                       ],
                     ),
@@ -339,35 +362,44 @@ class _VocaListTabViewState extends ConsumerState<VocaListTabView> {
                   children: [
                     ...items.map((item) => VocaWordCard(item: item, strings: strings)),
                     // Pagination
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        OutlinedButton(
-                          style: OutlinedButton.styleFrom(foregroundColor: Colors.white70),
-                          onPressed: page.page > 1 ? () => setState(() => _page = _page - 1) : null,
-                          child: Text(strings.prev),
-                        ),
-                        Text(
-                          '${page.page} / ${(page.total / page.limit).ceil().clamp(1, 999)}',
-                          style: const TextStyle(color: Colors.white60, fontSize: 13),
-                        ),
-                        OutlinedButton(
-                          style: OutlinedButton.styleFrom(foregroundColor: Colors.white70),
-                          onPressed: page.page * page.limit < page.total ? () => setState(() => _page = _page + 1) : null,
-                          child: Text(strings.next),
-                        ),
-                      ],
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.mintDark,
+                              side: const BorderSide(color: AppColors.border),
+                            ),
+                            onPressed: page.page > 1 ? () => setState(() => _page = _page - 1) : null,
+                            child: Text(strings.prev),
+                          ),
+                          Text(
+                            '${page.page} / ${(page.total / page.limit).ceil().clamp(1, 999)}',
+                            style: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                          ),
+                          OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.mintDark,
+                              side: const BorderSide(color: AppColors.border),
+                            ),
+                            onPressed: page.page * page.limit < page.total ? () => setState(() => _page = _page + 1) : null,
+                            child: Text(strings.next),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 );
               },
               loading: () => const Center(
-                child: CircularProgressIndicator(color: Color(0xFF6366F1)),
+                child: CircularProgressIndicator(color: AppColors.mintDark),
               ),
               error: (err, _) => Center(
                 child: Text(
                   apiErrorMessage(err, missingApiMessage: strings.error),
-                  style: const TextStyle(color: Colors.white70),
+                  style: const TextStyle(color: Color(0xFF64748B)),
                 ),
               ),
             ),
@@ -376,7 +408,7 @@ class _VocaListTabViewState extends ConsumerState<VocaListTabView> {
       ),
       // Floating Action Button (+)
       floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF6366F1),
+        backgroundColor: AppColors.mint,
         onPressed: () => _showAddWordModal(context, strings),
         child: const Icon(Icons.add, color: Colors.white, size: 28),
       ),
@@ -404,16 +436,16 @@ class _StatusFilterChip extends StatelessWidget {
       child: ChoiceChip(
         label: Text(label),
         selected: isSelected,
-        backgroundColor: const Color(0xFF1E222D),
-        selectedColor: const Color(0xFF272C3E),
+        backgroundColor: Colors.white,
+        selectedColor: AppColors.mint.withValues(alpha: 0.15),
         side: BorderSide(
-          color: isSelected ? const Color(0xFF6366F1) : const Color(0xFF2D3342),
+          color: isSelected ? AppColors.mintDark : AppColors.border,
           width: isSelected ? 1.5 : 1.0,
         ),
         labelStyle: TextStyle(
           fontSize: 12,
-          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-          color: isSelected ? Colors.white : Colors.white60,
+          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+          color: isSelected ? AppColors.mintDark : const Color(0xFF475569),
         ),
         onSelected: (_) => onTap(),
       ),

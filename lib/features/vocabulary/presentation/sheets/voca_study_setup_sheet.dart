@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/core/localization/app_strings.dart';
 import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/features/vocabulary/domain/vocabulary_mastery_service.dart';
@@ -79,7 +80,7 @@ class _VocaStudySetupSheetState extends ConsumerState<VocaStudySetupSheet> {
 
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFF1E222D), // OneVoca voca_img5 스타일 딥 다크
+        color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
@@ -94,7 +95,7 @@ class _VocaStudySetupSheetState extends ConsumerState<VocaStudySetupSheet> {
               height: 4,
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: Colors.white24,
+                color: const Color(0xFFCBD5E1),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -104,7 +105,7 @@ class _VocaStudySetupSheetState extends ConsumerState<VocaStudySetupSheet> {
           Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.close, color: Colors.white70),
+                icon: const Icon(Icons.close, color: Color(0xFF64748B)),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
                 onPressed: () => Navigator.of(context).pop(),
@@ -115,7 +116,7 @@ class _VocaStudySetupSheetState extends ConsumerState<VocaStudySetupSheet> {
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
-                  color: Colors.white,
+                  color: Color(0xFF0F172A),
                 ),
               ),
             ],
@@ -126,7 +127,7 @@ class _VocaStudySetupSheetState extends ConsumerState<VocaStudySetupSheet> {
           _SettingGroupContainer(
             children: [
               _SettingTile(
-                title: '학습할 단어 그룹',
+                title: strings.studySourceSheetTitle,
                 value: _sourceType == StudyWordSourceType.saved ? strings.mySavedWordbook : strings.allTopikVocab,
                 onTap: () {
                   setState(() {
@@ -136,7 +137,7 @@ class _VocaStudySetupSheetState extends ConsumerState<VocaStudySetupSheet> {
                   });
                 },
               ),
-              const Divider(height: 1, color: Color(0xFF2D3342)),
+              const Divider(height: 1, color: Color(0xFFE2E8F0)),
               // 2. 단어 암기 상태 필터
               _SettingTile(
                 title: strings.selectWordLevel,
@@ -195,7 +196,7 @@ class _VocaStudySetupSheetState extends ConsumerState<VocaStudySetupSheet> {
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
-                            color: Colors.white,
+                            color: Color(0xFF0F172A),
                           ),
                         ),
                         Text(
@@ -203,7 +204,7 @@ class _VocaStudySetupSheetState extends ConsumerState<VocaStudySetupSheet> {
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xFF6366F1),
+                            color: AppColors.mintDark,
                           ),
                         ),
                       ],
@@ -213,7 +214,7 @@ class _VocaStudySetupSheetState extends ConsumerState<VocaStudySetupSheet> {
                       strings.questionsPerSetDesc,
                       style: const TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF94A3B8),
+                        color: Color(0xFF64748B),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -229,7 +230,7 @@ class _VocaStudySetupSheetState extends ConsumerState<VocaStudySetupSheet> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(vertical: 8),
                                 decoration: BoxDecoration(
-                                  color: isSel ? const Color(0xFF6366F1) : const Color(0xFF333B4F),
+                                  color: isSel ? AppColors.mintDark : const Color(0xFFE2E8F0),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 alignment: Alignment.center,
@@ -238,7 +239,7 @@ class _VocaStudySetupSheetState extends ConsumerState<VocaStudySetupSheet> {
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
-                                    color: isSel ? Colors.white : Colors.white70,
+                                    color: isSel ? Colors.white : const Color(0xFF475569),
                                   ),
                                 ),
                               ),
@@ -254,12 +255,12 @@ class _VocaStudySetupSheetState extends ConsumerState<VocaStudySetupSheet> {
           ),
           const SizedBox(height: 24),
 
-          // Start Button (OneVoca Style Wide Purple Button)
+          // Start Button
           SizedBox(
             width: double.infinity,
             child: FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF6366F1),
+                backgroundColor: AppColors.mint,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
@@ -285,9 +286,9 @@ class _SettingGroupContainer extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF272C3E),
+        color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF333B4F)),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -318,27 +319,36 @@ class _SettingTile extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF0F172A),
+                ),
               ),
             ),
-            Row(
-              children: [
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF94A3B8),
-                    fontWeight: FontWeight.w500,
+            const SizedBox(width: 10),
+            Flexible(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      value,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppColors.mintDark,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 4),
-                const Icon(Icons.chevron_right, size: 18, color: Colors.white38),
-              ],
+                  const SizedBox(width: 4),
+                  const Icon(Icons.chevron_right, size: 18, color: Color(0xFF94A3B8)),
+                ],
+              ),
             ),
           ],
         ),

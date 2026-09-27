@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/features/vocabulary/presentation/pages/voca_list_tab_view.dart';
 import 'package:topik_go/features/vocabulary/presentation/pages/voca_study_hub_tab_view.dart';
@@ -38,24 +39,32 @@ class _VocabularyPageState extends ConsumerState<VocabularyPage>
     final strings = ref.watch(appStringsProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF13161F),
+      backgroundColor: AppColors.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF13161F),
+        backgroundColor: AppColors.bg,
         elevation: 0,
         title: Container(
-          height: 38,
+          height: 40,
+          padding: const EdgeInsets.all(3),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E222D),
-            borderRadius: BorderRadius.circular(20),
+            color: const Color(0xFFE2E8F0),
+            borderRadius: BorderRadius.circular(22),
           ),
           child: TabBar(
             controller: _tabController,
             indicator: BoxDecoration(
-              color: const Color(0xFF6366F1),
+              color: AppColors.mintDark,
               borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.mintDark.withValues(alpha: 0.25),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             labelColor: Colors.white,
-            unselectedLabelColor: Colors.white60,
+            unselectedLabelColor: const Color(0xFF64748B),
             labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
             unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             indicatorSize: TabBarIndicatorSize.tab,
@@ -67,7 +76,13 @@ class _VocabularyPageState extends ConsumerState<VocabularyPage>
                   children: [
                     const Icon(Icons.menu_book_rounded, size: 16),
                     const SizedBox(width: 6),
-                    Text(strings.tabWordbook),
+                    Flexible(
+                      child: Text(
+                        strings.tabWordbook,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -77,7 +92,13 @@ class _VocabularyPageState extends ConsumerState<VocabularyPage>
                   children: [
                     const Icon(Icons.bolt_rounded, size: 16),
                     const SizedBox(width: 6),
-                    Text(strings.tabStudyHub),
+                    Flexible(
+                      child: Text(
+                        strings.tabStudyHub,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
                   ],
                 ),
               ),
