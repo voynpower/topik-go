@@ -32,15 +32,15 @@ String? resolvedPracticeSetId({
   if (candidates.isEmpty) return fallbackId;
   int score(QuestionSet s) {
     final n = s.questionCount ?? s.questions.length;
-    final isPractice = s.examKind == 'practice';
+    final isTopik102 = _isTopikRoundSet(s, 102);
+    final isTopik83 = _isTopikRoundSet(s, 83);
     final isReal = _isActualSet(s);
-    final isTopik83 = _isTopik83ActualSet(s);
     final isLevelSpecificPractice = s.id.startsWith('practice-') && s.level == level;
     return n +
-        (isPractice ? 1000 : 0) +
-        (isLevelSpecificPractice ? 500000 : 0) +
-        (isReal ? 100000 : 0) +
-        (isTopik83 ? 1000000 : 0);
+        (isTopik102 ? 2000000 : 0) +
+        (isTopik83 ? 1000000 : 0) +
+        (isReal ? 500000 : 0) +
+        (isLevelSpecificPractice ? 1000 : 0);
   }
 
   candidates.sort((a, b) => score(b).compareTo(score(a)));
@@ -68,13 +68,9 @@ String? readResolvedPracticeSetId(
 }
 
 bool _isActualSet(QuestionSet set) {
-  final examKind = set.examKind?.toLowerCase() ?? '';
-  // Full mock exam packages belong to Mock Exam mode, not level-filtered practice!
-  if (examKind == 'mock') return false;
+  if (set.examKind?.toLowerCase() == 'mock') return false;
   final haystack = '${set.id} ${set.title}'.toLowerCase();
-  return examKind == 'actual' ||
-      examKind == 'past' ||
-      examKind == 'real' ||
+  return haystack.contains('topik2-') ||
       haystack.contains('actual') ||
       haystack.contains('past') ||
       haystack.contains('real') ||
@@ -83,8 +79,12 @@ bool _isActualSet(QuestionSet set) {
       haystack.contains('회');
 }
 
-bool _isTopik83ActualSet(QuestionSet set) {
+bool _isTopikRoundSet(QuestionSet set, int round) {
   final haystack = '${set.id} ${set.title}'.toLowerCase();
-  final has83 = RegExp(r'(^|[^0-9])83([^0-9]|$)').hasMatch(haystack);
-  return has83 && haystack.contains('topik') && _isActualSet(set);
+  final hasRound = RegExp('(^|[^0-9])$round([^0-9]|\$)').hasMatch(haystack);
+  return hasRound && (haystack.contains('topik') || haystack.contains('회'));
+}
+
+bool _isTopik83ActualSet(QuestionSet set) {
+  return _isTopikRoundSet(set, 83) && _isActualSet(set);
 }
