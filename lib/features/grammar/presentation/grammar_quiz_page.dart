@@ -94,7 +94,7 @@ class _GrammarQuizPageState extends ConsumerState<GrammarQuizPage> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                '정답률 $percent%',
+                '${strings.accuracyLabel}: $percent%',
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
@@ -211,7 +211,7 @@ class _GrammarQuizPageState extends ConsumerState<GrammarQuizPage> {
                   children: [
                     // Question Prompt
                     Text(
-                      '다음 빈칸에 알맞은 문법 표현을 고르십시오.',
+                      strings.grammarQuizPrompt,
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -355,16 +355,18 @@ class _GrammarQuizPageState extends ConsumerState<GrammarQuizPage> {
                                   size: 20,
                                 ),
                                 const SizedBox(width: 8),
-                                Text(
-                                  _selectedOptionIndex == question.correctIndex
-                                      ? strings.correctAnswer
-                                      : '정답: ${question.options[question.correctIndex]}',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w800,
-                                    color: _selectedOptionIndex == question.correctIndex
-                                        ? const Color(0xFF16A34A)
-                                        : const Color(0xFFDC2626),
+                                Expanded(
+                                  child: Text(
+                                    _selectedOptionIndex == question.correctIndex
+                                        ? strings.correctAnswer
+                                        : '${strings.wrongAnswer}${question.options[question.correctIndex]}',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                      color: _selectedOptionIndex == question.correctIndex
+                                          ? const Color(0xFF16A34A)
+                                          : const Color(0xFFDC2626),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -380,7 +382,7 @@ class _GrammarQuizPageState extends ConsumerState<GrammarQuizPage> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              '원문: ${question.sentence}',
+                              '${strings.originalSentenceLabel}: ${question.sentence}',
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: Color(0xFF64748B),

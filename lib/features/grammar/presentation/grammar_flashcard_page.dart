@@ -112,7 +112,7 @@ class _GrammarFlashcardPageState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '총 $total개 문법 학습 완료!',
+              '${strings.grammarCount.replaceAll('{count}', '$total')} ${strings.completed}',
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
@@ -120,7 +120,7 @@ class _GrammarFlashcardPageState
               children: [
                 const Icon(Icons.check_circle, color: Colors.green, size: 20),
                 const SizedBox(width: 6),
-                Text('${strings.memorized}: ${_masteredIds.length}개'),
+                Text('${strings.memorized}: ${_masteredIds.length}'),
               ],
             ),
             const SizedBox(height: 6),
@@ -128,7 +128,7 @@ class _GrammarFlashcardPageState
               children: [
                 const Icon(Icons.replay, color: Colors.orange, size: 20),
                 const SizedBox(width: 6),
-                Text('${strings.needReview}: ${_reviewIds.length}개'),
+                Text('${strings.needReview}: ${_reviewIds.length}'),
               ],
             ),
           ],
@@ -277,9 +277,9 @@ class _GrammarFlashcardPageState
                 child: Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton.icon(
+                      child: OutlinedButton(
                         style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
                           foregroundColor: const Color(0xFFEA580C),
                           side: const BorderSide(color: Color(0xFFFED7AA), width: 1.5),
                           shape: RoundedRectangleBorder(
@@ -287,28 +287,48 @@ class _GrammarFlashcardPageState
                           ),
                         ),
                         onPressed: () => _onAnswer(currentItem, false, items.length),
-                        icon: const Icon(Icons.replay_rounded, size: 20),
-                        label: Text(
-                          strings.needReview,
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.replay_rounded, size: 20),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                strings.needReview,
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                    const SizedBox(width: 14),
+                    const SizedBox(width: 12),
                     Expanded(
-                      child: FilledButton.icon(
+                      child: FilledButton(
                         style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
                           backgroundColor: const Color(0xFF16A34A),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
                         ),
                         onPressed: () => _onAnswer(currentItem, true, items.length),
-                        icon: const Icon(Icons.check_circle_rounded, size: 20),
-                        label: Text(
-                          strings.memorized,
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.check_circle_rounded, size: 20),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                strings.memorized,
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -435,9 +455,12 @@ class _GrammarCardFront extends StatelessWidget {
             children: [
               const Icon(Icons.touch_app_outlined, size: 16, color: Color(0xFF94A3B8)),
               const SizedBox(width: 6),
-              Text(
-                strings.flipCardHint,
-                style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+              Flexible(
+                child: Text(
+                  strings.flipCardHint,
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                  textAlign: TextAlign.center,
+                ),
               ),
             ],
           ),
@@ -480,12 +503,14 @@ class _GrammarCardBack extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                item.pattern,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF7C3AED),
+              Expanded(
+                child: Text(
+                  item.pattern,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF7C3AED),
+                  ),
                 ),
               ),
               IconButton(

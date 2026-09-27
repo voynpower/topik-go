@@ -225,7 +225,11 @@ class _HomeHero extends StatelessWidget {
           const SizedBox(height: 14),
           const Divider(height: 1, color: Color(0xFFF1F5F9)),
           const SizedBox(height: 12),
-          Row(
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 6,
             children: [
               // Target Level Badge
               Container(
@@ -239,18 +243,21 @@ class _HomeHero extends StatelessWidget {
                   children: [
                     const Icon(Icons.flag_outlined, size: 14, color: Color(0xFF2563EB)),
                     const SizedBox(width: 5),
-                    Text(
-                      '${strings.targetLevelLabel}: TOPIK II ${strings.levelUnit.replaceAll('{level}', '$targetLevel')}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1D4ED8),
+                    Flexible(
+                      child: Text(
+                        '${strings.targetLevelLabel}: TOPIK II ${strings.levelUnit.replaceAll('{level}', '$targetLevel')}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1D4ED8),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Spacer(),
               // Daily Streak
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -263,12 +270,16 @@ class _HomeHero extends StatelessWidget {
                   children: [
                     const Text('🔥', style: TextStyle(fontSize: 13)),
                     const SizedBox(width: 4),
-                    Text(
-                      strings.streakDays.replaceAll('{days}', '7'),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFFC2410C),
+                    Flexible(
+                      child: Text(
+                        strings.streakDays.replaceAll('{days}', '7'),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFC2410C),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -1003,7 +1014,9 @@ class _SectionTitle extends StatelessWidget {
       children: [
         Icon(icon, size: 20, color: AppColors.mintDark),
         const SizedBox(width: 8),
-        Text(title, style: Theme.of(context).textTheme.titleMedium),
+        Expanded(
+          child: Text(title, style: Theme.of(context).textTheme.titleMedium),
+        ),
       ],
     );
   }
@@ -1019,7 +1032,8 @@ class _NextExamCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('yyyy.MM.dd (E)');
     final diff = schedule.examDate.difference(DateTime.now()).inDays;
-    final dDay = schedule.dDayLabel ?? strings.daysLeft.replaceAll('{days}', '$diff');
+    final dDay = schedule.dDayLabel ??
+        (diff == 0 ? 'D-Day' : (diff > 0 ? 'D-$diff' : 'D+${-diff}'));
     final examDate =
         schedule.examDateLabel ?? dateFormat.format(schedule.examDate);
     final registrationPeriod = schedule.registrationPeriodLabel;
@@ -1066,7 +1080,7 @@ class _NextExamCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '시험일: $examDate',
+                        '${strings.examDateLabel}: $examDate',
                         style: const TextStyle(
                           fontSize: 14,
                           color: AppColors.textSecondary,
@@ -1076,7 +1090,7 @@ class _NextExamCard extends StatelessWidget {
                           registrationPeriod.isNotEmpty) ...[
                         const SizedBox(height: 2),
                         Text(
-                          '접수기간: $registrationPeriod',
+                          '${strings.registrationPeriodLabel}: $registrationPeriod',
                           style: const TextStyle(
                             fontSize: 13,
                             color: AppColors.textSecondary,
@@ -1086,7 +1100,7 @@ class _NextExamCard extends StatelessWidget {
                       if (resultDate != null && resultDate.isNotEmpty) ...[
                         const SizedBox(height: 2),
                         Text(
-                          '결과발표: $resultDate',
+                          '${strings.resultDateLabel}: $resultDate',
                           style: const TextStyle(
                             fontSize: 13,
                             color: AppColors.textSecondary,
@@ -1097,7 +1111,7 @@ class _NextExamCard extends StatelessWidget {
                           schedule.feeLabel!.isNotEmpty) ...[
                         const SizedBox(height: 2),
                         Text(
-                          '응시료: ${schedule.feeLabel}',
+                          '${strings.examFeeLabel}: ${schedule.feeLabel}',
                           style: const TextStyle(
                             fontSize: 13,
                             color: AppColors.textSecondary,
@@ -1119,9 +1133,9 @@ class _NextExamCard extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  width: 74,
+                  constraints: const BoxConstraints(minWidth: 68),
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
                     color: AppColors.mintDark,
                     borderRadius: BorderRadius.circular(18),
@@ -1351,7 +1365,11 @@ class _StatusPanel extends StatelessWidget {
                     ),
                     if (children.isNotEmpty) ...[
                       const SizedBox(height: 12),
-                      Row(children: children),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: children,
+                      ),
                     ],
                   ],
                 ),
@@ -1372,25 +1390,22 @@ class _MetricPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-          decoration: BoxDecoration(
-            color: AppColors.bg.withValues(alpha: 0.9),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: AppColors.border.withValues(alpha: 0.7)),
-          ),
-          child: Text(
-            text,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.bg.withValues(alpha: 0.9),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: AppColors.border.withValues(alpha: 0.7)),
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
           ),
         ),
       ),
