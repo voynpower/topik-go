@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/vocabulary/data/vocabulary_repository.dart';
+import 'package:topik_go/features/vocabulary/domain/user_vocabulary_service.dart';
 
 enum VocabularyStudyMode {
   flashcard,
@@ -143,20 +144,21 @@ class VocabularyQuizQuestion {
 /// 학습용 단어 목록 프로바이더
 final studyWordsProvider =
     FutureProvider.family<List<VocabularyItem>, StudyWordSource>((ref, source) async {
+  final overrides = ref.watch(userVocabularyOverrideProvider);
   if (source.type == StudyWordSourceType.saved) {
     final bookmarks = await ref.watch(bookmarkRepositoryProvider).getVocabularyBookmarks();
     final words = bookmarks.map((b) => b.vocabulary).toList();
-    if (words.isNotEmpty) return words;
+    if (words.isNotEmpty) return overrides.applyOverrides(words);
 
     // 만약 북마크 단어가 없으면 전체 어휘에서 로드
     final fallback = await ref.watch(vocabularyRepositoryProvider).getVocabulary(
           const VocabularyQuery(limit: 50),
         );
-    return fallback.items;
+    return overrides.applyOverrides(fallback.items);
   } else {
     final response = await ref.watch(vocabularyRepositoryProvider).getVocabulary(
           const VocabularyQuery(limit: 50),
         );
-    return response.items;
+    return overrides.applyOverrides(response.items);
   }
 });

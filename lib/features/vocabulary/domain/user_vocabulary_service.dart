@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -139,16 +140,18 @@ class UserVocabularyNotifier extends Notifier<UserVocabularyOverrideState> {
     );
 
     // Background sync: attempt backend delete & unbookmark
-    try {
-      await ref.read(vocabularyRepositoryProvider).deleteVocabulary(id);
-    } catch (_) {
+    unawaited(() async {
       try {
-        await ref.read(bookmarkRepositoryProvider).setVocabularyBookmark(
-              vocabularyId: id,
-              bookmarked: false,
-            );
-      } catch (_) {}
-    }
+        await ref.read(vocabularyRepositoryProvider).deleteVocabulary(id);
+      } catch (_) {
+        try {
+          await ref.read(bookmarkRepositoryProvider).setVocabularyBookmark(
+                vocabularyId: id,
+                bookmarked: false,
+              );
+        } catch (_) {}
+      }
+    }());
   }
 
   Future<void> editWord(
@@ -188,21 +191,23 @@ class UserVocabularyNotifier extends Notifier<UserVocabularyOverrideState> {
     );
 
     // Background sync: attempt backend update
-    try {
-      await ref.read(vocabularyRepositoryProvider).updateVocabulary(
-            id,
-            word: word,
-            meaningKo: meaning,
-            meaningUserLang: meaning,
-          );
-    } catch (_) {}
-    try {
-      await ref.read(bookmarkRepositoryProvider).setVocabularyBookmark(
-            vocabularyId: id,
-            bookmarked: true,
-            meaningUserLang: meaning,
-          );
-    } catch (_) {}
+    unawaited(() async {
+      try {
+        await ref.read(vocabularyRepositoryProvider).updateVocabulary(
+              id,
+              word: word,
+              meaningKo: meaning,
+              meaningUserLang: meaning,
+            );
+      } catch (_) {}
+      try {
+        await ref.read(bookmarkRepositoryProvider).setVocabularyBookmark(
+              vocabularyId: id,
+              bookmarked: true,
+              meaningUserLang: meaning,
+            );
+      } catch (_) {}
+    }());
   }
 
   Future<void> addCustomWord({
@@ -233,13 +238,15 @@ class UserVocabularyNotifier extends Notifier<UserVocabularyOverrideState> {
     );
 
     // Background sync
-    try {
-      await ref.read(bookmarkRepositoryProvider).addVocabularyByWord(
-            word: word,
-            meaningUserLang: meaning,
-            level: 3,
-          );
-    } catch (_) {}
+    unawaited(() async {
+      try {
+        await ref.read(bookmarkRepositoryProvider).addVocabularyByWord(
+              word: word,
+              meaningUserLang: meaning,
+              level: 3,
+            );
+      } catch (_) {}
+    }());
   }
 }
 
