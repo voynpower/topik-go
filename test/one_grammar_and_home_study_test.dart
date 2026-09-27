@@ -13,6 +13,7 @@ import 'package:topik_go/features/users/data/user_profile.dart';
 import 'package:topik_go/features/users/data/user_repository.dart';
 import 'package:topik_go/features/vocabulary/data/vocabulary_repository.dart';
 import 'package:topik_go/features/vocabulary/domain/user_vocabulary_service.dart';
+import 'package:topik_go/features/vocabulary/domain/vocabulary_study_models.dart';
 
 void main() {
   group('OneGrammar & Home Study System Tests', () {
@@ -222,8 +223,8 @@ void main() {
       expect(find.text('받아쓰기'), findsOneWidget);
       expect(find.text('자동재생'), findsOneWidget);
 
-      // Verify Today's Word preview item
-      expect(find.text('도전하다'), findsOneWidget);
+      // Verify horizontal word preview is removed from HomePage
+      expect(find.text('도전하다'), findsNothing);
 
       // Verify Today's Grammar
       expect(find.text('오늘의 문법'), findsOneWidget);
@@ -241,29 +242,8 @@ void main() {
       expect(find.text('문법 7개'), findsOneWidget);
     });
 
-    testWidgets('HomePage immediately removes deleted words and reflects edits in Daily Word Challenge', (tester) async {
+    test('studyWordsProvider immediately removes deleted words and reflects edits in overrides', () async {
       SharedPreferences.setMockInitialValues({});
-      tester.view.physicalSize = const Size(1080, 2400);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
-
-      const mockUser = UserProfile(
-        id: 'u1',
-        email: 'test@topikgo.com',
-        nickname: '김토픽',
-        role: 'user',
-        languageCode: 'ko',
-        targetLevel: 5,
-        timezone: '+09:00',
-        fontScale: '1.00',
-        timerMode: 'countdown',
-        themeColor: 'mint',
-        homeLayout: 1,
-        practiceLayout: 1,
-      );
 
       const testVocabPage = VocabularyPage(
         items: [
@@ -289,47 +269,23 @@ void main() {
         total: 2,
       );
 
-      final mockGrammarPage = GrammarPage(
-        items: mockGrammarList,
-        page: 1,
-        limit: 1,
-        total: 1,
-      );
-
       final container = ProviderContainer(
         overrides: [
-          userProfileProvider.overrideWith((ref) async => mockUser),
-          vocabularyProvider.overrideWith((ref, query) async => testVocabPage),
-          grammarProvider.overrideWith((ref, query) async => mockGrammarPage),
-          examSchedulesProvider.overrideWith((ref) async => []),
-          bookmarkSummaryProvider.overrideWith((ref) async => const BookmarkSummary(questions: 0, vocabulary: 0, grammar: 0)),
-          bookmarkedVocabularyProvider.overrideWith((ref) async => []),
-          bookmarkedGrammarProvider.overrideWith((ref) async => []),
+          vocabularyRepositoryProvider.overrideWithValue(_FakeVocabRepo(testVocabPage)),
         ],
       );
       addTearDown(container.dispose);
 
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(
-            home: HomePage(),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Both words appear on home screen
-      expect(find.text('도전하다'), findsOneWidget);
-      expect(find.text('성공하다'), findsOneWidget);
+      final initialWords = await container.read(studyWordsProvider(const StudyWordSource.all()).future);
+      expect(initialWords.map((w) => w.word), containsAll(['도전하다', '성공하다']));
 
       // Now delete 'v1' ('도전하다') via userVocabularyOverrideProvider
       await container.read(userVocabularyOverrideProvider.notifier).deleteWord('v1');
-      await tester.pumpAndSettle();
 
-      // '도전하다' is removed from Home screen, '성공하다' remains
-      expect(find.text('도전하다'), findsNothing);
-      expect(find.text('성공하다'), findsOneWidget);
+      // '도전하다' is removed, '성공하다' remains
+      final wordsAfterDelete = await container.read(studyWordsProvider(const StudyWordSource.all()).future);
+      expect(wordsAfterDelete.map((w) => w.word), isNot(contains('도전하다')));
+      expect(wordsAfterDelete.map((w) => w.word), contains('성공하다'));
 
       // Edit 'v2' word and meaning
       await container.read(userVocabularyOverrideProvider.notifier).editWord(
@@ -337,12 +293,24 @@ void main() {
             word: '대성공하다',
             meaning: 'katta muvaffaqiyat',
           );
-      await tester.pumpAndSettle();
 
-      // Edited word and meaning are immediately reflected on Home screen
-      expect(find.text('대성공하다'), findsOneWidget);
-      expect(find.text('katta muvaffaqiyat'), findsOneWidget);
-      expect(find.text('성공하다'), findsNothing);
+      // Edited word and meaning are immediately reflected
+      final wordsAfterEdit = await container.read(studyWordsProvider(const StudyWordSource.all()).future);
+      final editedItem = wordsAfterEdit.firstWhere((w) => w.id == 'v2');
+      expect(editedItem.word, equals('대성공하다'));
+      expect(editedItem.meaningUserLang, equals('katta muvaffaqiyat'));
+      expect(wordsAfterEdit.map((w) => w.word), isNot(contains('성공하다')));
     });
   });
+}
+
+class _FakeVocabRepo implements VocabularyRepository {
+  final VocabularyPage page;
+  _FakeVocabRepo(this.page);
+
+  @override
+  Future<VocabularyPage> getVocabulary(VocabularyQuery query) async => page;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

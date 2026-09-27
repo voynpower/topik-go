@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -12,8 +11,6 @@ import 'package:topik_go/features/exam_schedule/data/exam_schedule_repository.da
 import 'package:topik_go/features/grammar/data/grammar_repository.dart';
 import 'package:topik_go/features/users/data/user_profile.dart';
 import 'package:topik_go/features/users/data/user_repository.dart';
-import 'package:topik_go/features/vocabulary/data/vocabulary_repository.dart';
-import 'package:topik_go/features/vocabulary/domain/user_vocabulary_service.dart';
 import 'package:topik_go/features/vocabulary/domain/vocabulary_study_models.dart';
 import 'package:topik_go/features/vocabulary/presentation/vocabulary_source_sheet.dart';
 
@@ -261,17 +258,13 @@ class _HomeHero extends StatelessWidget {
 // -------------------------------------------------------------
 // 2. Daily Word Section & OneVoca Hub
 // -------------------------------------------------------------
-class _DailyWordSection extends ConsumerWidget {
+class _DailyWordSection extends StatelessWidget {
   const _DailyWordSection({required this.strings});
 
   final AppStrings strings;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final vocabQuery = const VocabularyQuery(page: 1, limit: 10);
-    final vocabAsync = ref.watch(vocabularyProvider(vocabQuery));
-    final overrides = ref.watch(userVocabularyOverrideProvider);
-
+  Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.94),
@@ -396,62 +389,6 @@ class _DailyWordSection extends ConsumerWidget {
               ),
             ],
           ),
-
-          const SizedBox(height: 16),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-          const SizedBox(height: 14),
-
-          // Preview Carousel of Today's 10 Words
-          vocabAsync.when(
-            data: (page) {
-              final words = overrides.applyOverrides(page.items);
-              if (words.isEmpty) return const SizedBox.shrink();
-
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        strings.wordsCount.replaceAll('{count}', '${words.length}'),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF475569),
-                        ),
-                      ),
-                      Text(
-                        strings.flipCardHint,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    height: 98,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: words.length,
-                      separatorBuilder: (_, _) => const SizedBox(width: 10),
-                      itemBuilder: (context, index) {
-                        final word = words[index];
-                        return _TodayWordCard(word: word);
-                      },
-                    ),
-                  ),
-                ],
-              );
-            },
-            loading: () => const SizedBox(
-              height: 98,
-              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-            ),
-            error: (_, _) => const SizedBox.shrink(),
-          ),
         ],
       ),
     );
@@ -523,112 +460,6 @@ class _OneVocaLauncherTile extends StatelessWidget {
                       ),
                     ),
                   ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TodayWordCard extends ConsumerStatefulWidget {
-  const _TodayWordCard({required this.word});
-
-  final VocabularyItem word;
-
-  @override
-  ConsumerState<_TodayWordCard> createState() => _TodayWordCardState();
-}
-
-class _TodayWordCardState extends ConsumerState<_TodayWordCard> {
-  FlutterTts? _tts;
-
-  void _speak(String text) async {
-    _tts ??= FlutterTts()
-      ..setLanguage('ko-KR')
-      ..setSpeechRate(0.45);
-    await _tts?.stop();
-    await _tts?.speak(text);
-  }
-
-  @override
-  void dispose() {
-    _tts?.stop();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final overrides = ref.watch(userVocabularyOverrideProvider);
-    if (overrides.isDeleted(widget.word.id)) {
-      return const SizedBox.shrink();
-    }
-    final edit = overrides.getEdit(widget.word.id);
-    final item = edit != null
-        ? widget.word.copyWith(
-            word: edit.word.isNotEmpty ? edit.word : widget.word.word,
-            meaningKo: edit.meaning.isNotEmpty ? edit.meaning : widget.word.meaningKo,
-            meaningUserLang:
-                edit.meaning.isNotEmpty ? edit.meaning : widget.word.meaningUserLang,
-          )
-        : widget.word;
-
-    return Material(
-      color: const Color(0xFFF8FAFC),
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: () => context.push('/vocabulary/${item.id}'),
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          width: 140,
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      item.word,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                  ),
-                  InkWell(
-                    onTap: () => _speak(item.word),
-                    borderRadius: BorderRadius.circular(12),
-                    child: const Padding(
-                      padding: EdgeInsets.all(2),
-                      child: Icon(
-                        Icons.volume_up_outlined,
-                        size: 16,
-                        color: AppColors.mintDark,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              Text(
-                item.meaningUserLang ?? item.meaningKo,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF64748B),
-                  height: 1.25,
                 ),
               ),
             ],
