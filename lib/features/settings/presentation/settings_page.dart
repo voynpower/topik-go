@@ -137,6 +137,297 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
+  Future<void> _showAppInfoModal() async {
+    final currentLang = ref.read(currentLanguageProvider);
+    final isKorean = currentLang == 'ko';
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (bottomSheetContext) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 14,
+            bottom: MediaQuery.of(bottomSheetContext).padding.bottom + 20,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.black12,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Center(
+                  child: Container(
+                    width: 68,
+                    height: 68,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppColors.mint, AppColors.mintDark],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.mintDark.withValues(alpha: 0.25),
+                          blurRadius: 14,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.flutter_dash,
+                      color: Colors.white,
+                      size: 38,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Center(
+                  child: Text(
+                    'TOPIK GO',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.mintDark,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.mint.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      'v1.0.0 (Build 1)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.mintDark,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7FAF9),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.mint.withValues(alpha: 0.2)),
+                  ),
+                  child: Text(
+                    isKorean
+                        ? 'TopikGo는 한국어능력시험(TOPIK II)을 준비하는 글로벌 학습자를 위한 맞춤형 학습 플랫폼입니다. 영역별 기출 연습, 실전 모의고사, OneVoca/OneGrammar 학습 시스템 및 다국어 지원을 제공합니다.'
+                        : 'TopikGo is a smart TOPIK II learning mobile application for global Korean learners, offering practice sets, mock exams, OneVoca/OneGrammar study systems, and multilingual localization.',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      height: 1.5,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  isKorean ? '주요 학습 기능 (Key Features)' : 'Key Features',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _buildInfoFeatureRow(
+                  icon: Icons.auto_stories_outlined,
+                  title: isKorean ? '영역별 학습 & 기출 풀이' : 'Domain Practice (R/L/W)',
+                  description: isKorean
+                      ? '읽기, 듣기(오디오/TTS 플레이어 연동), 쓰기(단답/에세이) 실전 연습'
+                      : 'Reading, Listening with interactive audio, and Writing essay practice',
+                ),
+                _buildInfoFeatureRow(
+                  icon: Icons.timer_outlined,
+                  title: isKorean ? '실전 모의고사 & OMR' : 'Real Mock Exam & OMR',
+                  description: isKorean
+                      ? '실제 시험 시간 타이머, 연속 듣기 재생목록 및 OMR 자동 채점'
+                      : 'Real TOPIK exam timer, continuous listening playlist & automatic scoring',
+                ),
+                _buildInfoFeatureRow(
+                  icon: Icons.translate_outlined,
+                  title: isKorean ? 'OneVoca & OneGrammar' : 'OneVoca & OneGrammar',
+                  description: isKorean
+                      ? '플래시카드, 퀴즈, 받아쓰기, AI 예문 및 카테고리별 맞춤 문법 학습'
+                      : 'Flashcards, quizzes, dictation, AI sentences & category grammar hub',
+                ),
+                _buildInfoFeatureRow(
+                  icon: Icons.public_outlined,
+                  title: isKorean ? '9개국 글로벌 다국어 지원' : '9-Language Localization',
+                  description: isKorean
+                      ? '한국어, English, O\'zbekcha, Tiếng Việt, Русский, 中文, 日本語 등'
+                      : 'Korean, English, Uzbek, Vietnamese, Russian, Chinese, Japanese, and more',
+                ),
+                _buildInfoFeatureRow(
+                  icon: Icons.cloud_sync_outlined,
+                  title: isKorean ? '오프라인 캐싱 & 데이터 동기화' : 'Offline Storage & Sync',
+                  description: isKorean
+                      ? 'Drift/SQLite 로컬 데이터베이스 기반 오프라인 풀이 및 온라인 자동 동기화'
+                      : 'Drift/SQLite local database storage with automatic server synchronization',
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  isKorean ? '기술 스택 (Tech Stack)' : 'Tech Stack',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.black12),
+                  ),
+                  child: Column(
+                    children: [
+                      _buildTechRow('Framework', 'Flutter 3.41 / Dart 3.11'),
+                      const Divider(height: 14),
+                      _buildTechRow('Architecture', 'Feature-First Clean Architecture'),
+                      const Divider(height: 14),
+                      _buildTechRow('State Management', 'Flutter Riverpod'),
+                      const Divider(height: 14),
+                      _buildTechRow('Local DB & Storage', 'Drift (SQLite) & Secure Storage'),
+                      const Divider(height: 14),
+                      _buildTechRow('API & Cloud CDN', 'NestJS Backend / AWS CloudFront'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Center(
+                  child: Text(
+                    '© 2026 TopikGo Team. All rights reserved.',
+                    style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () => Navigator.of(bottomSheetContext).pop(),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.mintDark,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    minimumSize: const Size(double.infinity, 48),
+                  ),
+                  child: Text(
+                    isKorean ? '확인' : 'OK',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildInfoFeatureRow({
+    required IconData icon,
+    required String title,
+    required String description,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppColors.mint.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 18, color: AppColors.mintDark),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    height: 1.35,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTechRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final strings = ref.watch(appStringsProvider);
@@ -218,6 +509,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 icon: Icons.info_outline,
                 title: strings.appInfo,
                 value: strings.appInfoDesc,
+                onTap: _showAppInfoModal,
               ),
               const SizedBox(height: 18),
               _SectionTitle(icon: Icons.lock_outline, title: strings.accountSection),
