@@ -523,7 +523,7 @@ class _VocaWordCardState extends ConsumerState<VocaWordCard> {
                     index: _exampleIndex,
                     targetLang: currentLang,
                     predefinedExample: item.example,
-                    predefinedMeaning: item.exampleMeaning,
+                    predefinedMeaning: item.meaningUserLang ?? item.meaningKo,
                   )));
 
                   return aiAsync.when(

@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +13,24 @@ import 'package:topik_go/features/vocabulary/presentation/pages/voca_list_tab_vi
 import 'package:topik_go/features/vocabulary/presentation/pages/voca_study_hub_tab_view.dart';
 import 'package:topik_go/features/vocabulary/presentation/vocabulary_page.dart';
 import 'package:topik_go/features/vocabulary/presentation/widgets/voca_word_card.dart';
+
+class _FakeAiVocabRepo extends repo.VocabularyRepository {
+  _FakeAiVocabRepo() : super(Dio());
+
+  @override
+  Future<Map<String, dynamic>> getAiExampleSentence({
+    required String word,
+    String? meaning,
+    required String targetLang,
+    int index = 0,
+  }) async {
+    return {
+      'korean': '정원을 예쁘게 가꾸는 것은 마음을 편안하게 해 줍니다.',
+      'translation': "Bog'ni chiroyli parvarish qilish ko'ngilga xotirjamlik bag'ishlaydi.",
+      'contextTag': '일상 대화',
+    };
+  }
+}
 
 void main() {
   setUp(() {
@@ -35,6 +54,21 @@ void main() {
       );
       expect(ex1.korean, contains('가꾸다'));
       expect(ex1.korean, isNot(equals(ex0.korean)));
+    });
+
+    test('AiSentenceService uses VocabularyRepository to fetch real AI sentences', () async {
+      final fakeRepo = _FakeAiVocabRepo();
+      final result = await AiSentenceService.getExample(
+        word: '가꾸다_ai',
+        index: 0,
+        targetLang: 'uz',
+        predefinedMeaning: 'parvarish qilmoq',
+        repository: fakeRepo,
+      );
+
+      expect(result.korean, equals('정원을 예쁘게 가꾸는 것은 마음을 편안하게 해 줍니다.'));
+      expect(result.translation, contains("Bog'ni chiroyli parvarish"));
+      expect(result.contextTag, equals('일상 대화'));
     });
 
     test('WordMasteryNotifier defaults to hard and cycles statuses properly', () async {
@@ -80,6 +114,17 @@ void main() {
 
       await tester.pumpWidget(
         ProviderScope(
+          overrides: [
+            aiSentenceProvider.overrideWith((ref, param) async {
+              return AiSentenceService.getExample(
+                word: param.word,
+                index: param.index,
+                targetLang: param.targetLang,
+                predefinedExample: param.predefinedExample,
+                predefinedMeaning: param.predefinedMeaning,
+              );
+            }),
+          ],
           child: MaterialApp(
             home: Scaffold(
               body: VocaWordCard(
