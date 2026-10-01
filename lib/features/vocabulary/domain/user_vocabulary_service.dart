@@ -58,17 +58,21 @@ class UserVocabularyOverrideState {
       return item;
     }).toList();
 
-    // 3. Prepend custom created words (that aren't deleted and not already in list)
-    final existingIds = edited.map((e) => e.id).toSet();
-    final existingWords = edited.map((e) => e.word.trim()).toSet();
-    final nonDeletedCustom = customWords
-        .where((c) =>
-            !isDeleted(c.id) &&
-            !existingIds.contains(c.id) &&
-            !existingWords.contains(c.word.trim()))
+    // 3. Prepend custom and newly bookmarked words at the very top (front)
+    final validCustom = customWords
+        .where((c) => !isDeleted(c.id))
+        .toList();
+    final customIds = validCustom.map((c) => c.id).toSet();
+    final customWordsSet = validCustom.map((c) => c.word.trim()).toSet();
+
+    // Remove duplicates from edited list so customWords appear at the very front
+    final remainingEdited = edited
+        .where((item) =>
+            !customIds.contains(item.id) &&
+            !customWordsSet.contains(item.word.trim()))
         .toList();
 
-    return [...nonDeletedCustom, ...edited];
+    return [...validCustom, ...remainingEdited];
   }
 }
 
@@ -77,10 +81,18 @@ class UserVocabularyNotifier extends Notifier<UserVocabularyOverrideState> {
   static const _editedKey = 'user_edited_words_map';
   static const _customKey = 'user_custom_words_list';
 
+  Future<void>? _loadingFuture;
+
   @override
   UserVocabularyOverrideState build() {
-    _loadFromPrefs();
+    _loadingFuture = _loadFromPrefs();
     return const UserVocabularyOverrideState();
+  }
+
+  Future<void> _ensureLoaded() async {
+    if (_loadingFuture != null) {
+      await _loadingFuture;
+    }
   }
 
   Future<void> _loadFromPrefs() async {
@@ -115,13 +127,17 @@ class UserVocabularyNotifier extends Notifier<UserVocabularyOverrideState> {
     }
 
     state = UserVocabularyOverrideState(
-      deletedWordIds: deletedSet,
-      editedWords: editedMap,
-      customWords: customList,
+      deletedWordIds: {...deletedSet, ...state.deletedWordIds},
+      editedWords: {...editedMap, ...state.editedWords},
+      customWords: [
+        ...state.customWords,
+        ...customList.where((c) => !state.customWords.any((existing) => existing.id == c.id || existing.word.trim() == c.word.trim())),
+      ],
     );
   }
 
   Future<void> deleteWord(String id) async {
+    await _ensureLoaded();
     final nextDeleted = Set<String>.from(state.deletedWordIds)..add(id);
     final nextEdited = Map<String, EditedWordData>.from(state.editedWords)..remove(id);
     final nextCustom = state.customWords.where((c) => c.id != id).toList();
@@ -163,6 +179,7 @@ class UserVocabularyNotifier extends Notifier<UserVocabularyOverrideState> {
     required String word,
     required String meaning,
   }) async {
+    await _ensureLoaded();
     final nextEdited = Map<String, EditedWordData>.from(state.editedWords);
     nextEdited[id] = EditedWordData(word: word, meaning: meaning);
 
@@ -218,9 +235,11 @@ class UserVocabularyNotifier extends Notifier<UserVocabularyOverrideState> {
     required String word,
     required String meaning,
   }) async {
+    await _ensureLoaded();
+    final cleanWord = word.trim();
     final newItem = VocabularyItem(
       id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
-      word: word,
+      word: cleanWord,
       meaningKo: meaning,
       meaningUserLang: meaning,
       level: 3,
@@ -228,7 +247,11 @@ class UserVocabularyNotifier extends Notifier<UserVocabularyOverrideState> {
       isBookmarked: true,
     );
 
-    final nextCustom = [newItem, ...state.customWords];
+    // Place newly added word at the very top (index 0)
+    final filtered = state.customWords
+        .where((c) => c.word.trim() != cleanWord)
+        .toList();
+    final nextCustom = [newItem, ...filtered];
     state = UserVocabularyOverrideState(
       deletedWordIds: state.deletedWordIds,
       editedWords: state.editedWords,
@@ -245,7 +268,7 @@ class UserVocabularyNotifier extends Notifier<UserVocabularyOverrideState> {
     unawaited(() async {
       try {
         await ref.read(bookmarkRepositoryProvider).addVocabularyByWord(
-              word: word,
+              word: cleanWord,
               meaningUserLang: meaning,
               level: 3,
             );
@@ -254,17 +277,14 @@ class UserVocabularyNotifier extends Notifier<UserVocabularyOverrideState> {
   }
 
   Future<void> registerBookmarkedWord(VocabularyItem item) async {
+    await _ensureLoaded();
     final nextDeleted = Set<String>.from(state.deletedWordIds)..remove(item.id);
 
-    final existsInCustom = state.customWords.any((c) => c.id == item.id || c.word.trim() == item.word.trim());
-    final nextCustom = existsInCustom
-        ? state.customWords.map((c) {
-            if (c.id == item.id || c.word.trim() == item.word.trim()) {
-              return item.copyWith(isBookmarked: true);
-            }
-            return c;
-          }).toList()
-        : [item.copyWith(isBookmarked: true), ...state.customWords];
+    // Place newly bookmarked word at the very top (index 0)
+    final filtered = state.customWords
+        .where((c) => c.id != item.id && c.word.trim() != item.word.trim())
+        .toList();
+    final nextCustom = [item.copyWith(isBookmarked: true), ...filtered];
 
     state = UserVocabularyOverrideState(
       deletedWordIds: nextDeleted,
@@ -281,6 +301,7 @@ class UserVocabularyNotifier extends Notifier<UserVocabularyOverrideState> {
   }
 
   Future<void> removeBookmarkedWord(String id, [String? word]) async {
+    await _ensureLoaded();
     final nextCustom = state.customWords.where((c) {
       if (c.id == id) return false;
       if (word != null && word.trim().isNotEmpty && c.word.trim() == word.trim()) return false;

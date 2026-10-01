@@ -6,6 +6,7 @@ import 'package:topik_go/core/localization/app_strings.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/vocabulary/data/vocabulary_repository.dart' as repo;
 import 'package:topik_go/features/vocabulary/domain/ai_sentence_service.dart';
+import 'package:topik_go/features/vocabulary/domain/user_vocabulary_service.dart';
 import 'package:topik_go/features/vocabulary/domain/vocabulary_mastery_service.dart';
 import 'package:topik_go/features/vocabulary/presentation/pages/voca_list_tab_view.dart';
 import 'package:topik_go/features/vocabulary/presentation/pages/voca_study_hub_tab_view.dart';
@@ -456,6 +457,67 @@ void main() {
       expect(find.text('가족'), findsOneWidget);
       expect(find.text('학교'), findsOneWidget);
       expect(find.text('기후변화'), findsNothing);
+    });
+
+    testWidgets('Newly saved/added words are placed at the very top (front) of Smart Wordbook', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final oldSavedWord = BookmarkedVocabulary(
+        id: 'bm-old',
+        vocabulary: const repo.VocabularyItem(
+          id: 'v10',
+          word: '오래된단어',
+          meaningKo: '기존에 저장되었던 단어',
+          level: 1,
+          isDownloaded: false,
+          isBookmarked: true,
+        ),
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          bookmarkedVocabularyProvider.overrideWith((ref) async => [oldSavedWord]),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      // Simulate user bookmarking a new word during TOPIK study
+      const newlyStudiedWord = repo.VocabularyItem(
+        id: 'v999',
+        word: '새로배운단어',
+        meaningKo: '방금 지문에서 학습하여 저장한 단어',
+        level: 3,
+        isDownloaded: false,
+        isBookmarked: true,
+      );
+
+      await container.read(userVocabularyOverrideProvider.notifier).registerBookmarkedWord(newlyStudiedWord);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: VocaListTabView(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Both words should be shown
+      expect(find.text('새로배운단어'), findsOneWidget);
+      expect(find.text('오래된단어'), findsOneWidget);
+
+      // Verify that '새로배운단어' appears ABOVE (smaller y-position) than '오래된단어'
+      final newWordPos = tester.getTopLeft(find.text('새로배운단어'));
+      final oldWordPos = tester.getTopLeft(find.text('오래된단어'));
+      expect(newWordPos.dy, lessThan(oldWordPos.dy));
     });
   });
 }
