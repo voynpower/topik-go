@@ -63,12 +63,16 @@ class BookmarkedVocabulary {
 
   factory BookmarkedVocabulary.fromJson(Map<String, dynamic> json) {
     final rawVocabulary = json['vocabulary'];
+    final isBookmarked =
+        _asBoolOrNull(json['is_bookmarked'] ?? json['bookmarked']) ?? true;
+
+    final item = rawVocabulary is Map<String, dynamic>
+        ? VocabularyItem.fromJson(rawVocabulary)
+        : VocabularyItem.fromJson(json);
 
     return BookmarkedVocabulary(
       id: json['id']?.toString() ?? '',
-      vocabulary: rawVocabulary is Map<String, dynamic>
-          ? VocabularyItem.fromJson(rawVocabulary)
-          : VocabularyItem.fromJson(json),
+      vocabulary: item.copyWith(isBookmarked: isBookmarked),
     );
   }
 }

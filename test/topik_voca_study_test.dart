@@ -382,5 +382,80 @@ void main() {
       expect(find.text('공부하다'), findsNothing);
       expect(find.text('운동하다'), findsOneWidget);
     });
+
+    testWidgets('VocaListTabView correctly displays bookmarked words and supports toggling views', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      const globalWords = repo.VocabularyPage(
+        items: [
+          repo.VocabularyItem(
+            id: 'v1',
+            word: '가족',
+            meaningKo: '가족 구성원',
+            level: 1,
+            isDownloaded: false,
+            isBookmarked: false,
+          ),
+          repo.VocabularyItem(
+            id: 'v2',
+            word: '학교',
+            meaningKo: '배우는 곳',
+            level: 1,
+            isDownloaded: false,
+            isBookmarked: false,
+          ),
+        ],
+        page: 1,
+        limit: 20,
+        total: 2,
+      );
+
+      final savedWord = BookmarkedVocabulary(
+        id: 'bm-1',
+        vocabulary: const repo.VocabularyItem(
+          id: 'v99',
+          word: '기후변화',
+          meaningKo: '기후의 변화',
+          level: 3,
+          isDownloaded: false,
+          isBookmarked: true,
+        ),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            repo.vocabularyProvider.overrideWith((ref, query) async => globalWords),
+            bookmarkedVocabularyProvider.overrideWith((ref) async => [savedWord]),
+          ],
+          child: const MaterialApp(
+            home: VocaListTabView(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // By default when bookmarked words exist, saved words are shown immediately!
+      expect(find.text('기후변화'), findsOneWidget);
+      expect(find.text('가족'), findsNothing);
+
+      // Tap Star filter toggle button to switch to all words
+      final starFilterButton = find.byIcon(Icons.star_rounded).first;
+      expect(starFilterButton, findsOneWidget);
+      await tester.tap(starFilterButton);
+      await tester.pumpAndSettle();
+
+      // Now all global words should be shown!
+      expect(find.text('가족'), findsOneWidget);
+      expect(find.text('학교'), findsOneWidget);
+      expect(find.text('기후변화'), findsNothing);
+    });
   });
 }

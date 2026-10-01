@@ -60,8 +60,12 @@ class UserVocabularyOverrideState {
 
     // 3. Prepend custom created words (that aren't deleted and not already in list)
     final existingIds = edited.map((e) => e.id).toSet();
+    final existingWords = edited.map((e) => e.word.trim()).toSet();
     final nonDeletedCustom = customWords
-        .where((c) => !isDeleted(c.id) && !existingIds.contains(c.id))
+        .where((c) =>
+            !isDeleted(c.id) &&
+            !existingIds.contains(c.id) &&
+            !existingWords.contains(c.word.trim()))
         .toList();
 
     return [...nonDeletedCustom, ...edited];
@@ -247,6 +251,53 @@ class UserVocabularyNotifier extends Notifier<UserVocabularyOverrideState> {
             );
       } catch (_) {}
     }());
+  }
+
+  Future<void> registerBookmarkedWord(VocabularyItem item) async {
+    final nextDeleted = Set<String>.from(state.deletedWordIds)..remove(item.id);
+
+    final existsInCustom = state.customWords.any((c) => c.id == item.id || c.word.trim() == item.word.trim());
+    final nextCustom = existsInCustom
+        ? state.customWords.map((c) {
+            if (c.id == item.id || c.word.trim() == item.word.trim()) {
+              return item.copyWith(isBookmarked: true);
+            }
+            return c;
+          }).toList()
+        : [item.copyWith(isBookmarked: true), ...state.customWords];
+
+    state = UserVocabularyOverrideState(
+      deletedWordIds: nextDeleted,
+      editedWords: state.editedWords,
+      customWords: nextCustom,
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_deletedKey, nextDeleted.toList());
+    await prefs.setString(
+      _customKey,
+      jsonEncode(nextCustom.map((e) => e.toJson()).toList()),
+    );
+  }
+
+  Future<void> removeBookmarkedWord(String id, [String? word]) async {
+    final nextCustom = state.customWords.where((c) {
+      if (c.id == id) return false;
+      if (word != null && word.trim().isNotEmpty && c.word.trim() == word.trim()) return false;
+      return true;
+    }).toList();
+
+    state = UserVocabularyOverrideState(
+      deletedWordIds: state.deletedWordIds,
+      editedWords: state.editedWords,
+      customWords: nextCustom,
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _customKey,
+      jsonEncode(nextCustom.map((e) => e.toJson()).toList()),
+    );
   }
 }
 

@@ -9,7 +9,6 @@ import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/exam_schedule/data/exam_schedule_repository.dart';
 import 'package:topik_go/features/grammar/data/grammar_repository.dart';
-import 'package:topik_go/features/grammar/data/korean_grammar_master.dart';
 import 'package:topik_go/features/grammar/data/korean_grammar_service.dart';
 import 'package:topik_go/core/services/translation_service.dart';
 import 'package:topik_go/features/users/data/user_profile.dart';

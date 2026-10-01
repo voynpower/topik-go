@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:topik_go/features/admin/presentation/admin_question_sets_page.dart';
 import 'package:topik_go/features/bookmarks/presentation/bookmarked_grammar_page.dart';
 import 'package:topik_go/features/bookmarks/presentation/bookmarked_questions_page.dart';
-import 'package:topik_go/features/bookmarks/presentation/bookmarked_vocabulary_page.dart';
 import 'package:topik_go/features/auth/presentation/login_page.dart';
 import 'package:topik_go/features/auth/presentation/register_page.dart';
 import 'package:topik_go/features/explanation_video/presentation/explanation_video_list_page.dart';
@@ -114,7 +113,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/bookmarks/vocabulary',
-        builder: (context, state) => const BookmarkedVocabularyPage(),
+        builder: (context, state) => const VocabularyPage(initialTabIndex: 0, initialOnlySaved: true),
       ),
       GoRoute(
         path: '/bookmarks/grammar',
@@ -155,7 +154,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final tabParam = state.uri.queryParameters['tab'];
           final initialTab = tabParam == 'study' ? 1 : 0;
-          return VocabularyPage(initialTabIndex: initialTab);
+          final sourceParam = state.uri.queryParameters['source'];
+          final initialOnlySaved = sourceParam == 'all'
+              ? false
+              : (sourceParam == 'saved' ? true : null);
+          return VocabularyPage(
+            initialTabIndex: initialTab,
+            initialOnlySaved: initialOnlySaved,
+          );
         },
       ),
       GoRoute(

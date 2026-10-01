@@ -9,6 +9,7 @@ import 'package:topik_go/features/vocabulary/data/vocabulary_repository.dart';
 import 'package:topik_go/features/vocabulary/domain/ai_sentence_service.dart';
 import 'package:topik_go/features/vocabulary/domain/user_vocabulary_service.dart';
 import 'package:topik_go/features/vocabulary/domain/vocabulary_mastery_service.dart';
+import 'package:topik_go/features/vocabulary/domain/vocabulary_study_models.dart';
 
 class VocaWordCard extends ConsumerStatefulWidget {
   const VocaWordCard({
@@ -154,6 +155,8 @@ class _VocaWordCardState extends ConsumerState<VocaWordCard> {
                         );
                     ref.invalidate(vocabularyProvider);
                     ref.invalidate(bookmarkedVocabularyProvider);
+                    ref.invalidate(bookmarkSummaryProvider);
+                    ref.invalidate(studyWordsProvider);
                   },
                   child: Text(strings.save, style: const TextStyle(fontWeight: FontWeight.w700)),
                 ),
@@ -196,6 +199,7 @@ class _VocaWordCardState extends ConsumerState<VocaWordCard> {
               ref.invalidate(vocabularyProvider);
               ref.invalidate(bookmarkedVocabularyProvider);
               ref.invalidate(bookmarkSummaryProvider);
+              ref.invalidate(studyWordsProvider);
             },
             child: Text(strings.delete, style: const TextStyle(fontWeight: FontWeight.w700)),
           ),
@@ -459,6 +463,7 @@ class _VocaWordCardState extends ConsumerState<VocaWordCard> {
                                 ref.invalidate(vocabularyProvider);
                                 ref.invalidate(bookmarkedVocabularyProvider);
                                 ref.invalidate(bookmarkSummaryProvider);
+                                ref.invalidate(studyWordsProvider);
                               } finally {
                                 if (mounted) setState(() => _savingBookmark = false);
                               }

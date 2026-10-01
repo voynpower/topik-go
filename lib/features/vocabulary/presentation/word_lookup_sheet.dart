@@ -9,6 +9,8 @@ import 'package:topik_go/core/services/translation_service.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/grammar/data/grammar_repository.dart';
 import 'package:topik_go/features/vocabulary/data/vocabulary_repository.dart';
+import 'package:topik_go/features/vocabulary/domain/user_vocabulary_service.dart';
+import 'package:topik_go/features/vocabulary/domain/vocabulary_study_models.dart';
 
 /// 단어/문법 번역 및 내 단어장 자동 추가를 위한 미니 바텀시트
 Future<void> showWordLookupSheet(
@@ -73,6 +75,29 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
         .trim();
   }
 
+  String? _stripKoreanParticles(String word) {
+    if (word.length <= 1) return null;
+    const multiParticles = [
+      '에서는', '에게는', '으로는', '까지는', '부터는',
+      '에서', '에게', '으로', '까지', '부터',
+      '과의', '와의',
+    ];
+    for (final p in multiParticles) {
+      if (word.endsWith(p) && word.length > p.length) {
+        return word.substring(0, word.length - p.length);
+      }
+    }
+    const singleParticles = [
+      '은', '는', '이', '가', '을', '를', '에', '의', '와', '과', '도', '만', '로'
+    ];
+    for (final p in singleParticles) {
+      if (word.endsWith(p) && word.length > p.length) {
+        return word.substring(0, word.length - p.length);
+      }
+    }
+    return null;
+  }
+
   Future<void> _performSearch(String query) async {
     final term = _cleanWord(query);
     if (term.isEmpty) {
@@ -119,18 +144,50 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
       );
 
       final results = await Future.wait([vocabFuture, grammarFuture]);
-      final vocabPage = results[0] as VocabularyPage;
+      var vocabPage = results[0] as VocabularyPage;
       final grammarPage = results[1] as GrammarPage;
+
+      if (vocabPage.items.isEmpty) {
+        final stem = _stripKoreanParticles(term);
+        if (stem != null && stem != term && stem.isNotEmpty) {
+          try {
+            final fallbackPage = await vocabRepo.getVocabulary(
+              VocabularyQuery(q: stem, limit: 10),
+            );
+            if (fallbackPage.items.isNotEmpty) {
+              vocabPage = fallbackPage;
+            }
+          } catch (_) {}
+        }
+      }
+
+      final savedBookmarks =
+          ref.read(bookmarkedVocabularyProvider).asData?.value ?? [];
+      final savedVocabIds =
+          savedBookmarks.map((b) => b.vocabulary.id).toSet();
+      final savedGrammar =
+          ref.read(bookmarkedGrammarProvider).asData?.value ?? [];
+      final savedGrammarIds =
+          savedGrammar.map((b) => b.grammar.id).toSet();
+      final isCustomSaved =
+          savedBookmarks.any((b) => _cleanWord(b.vocabulary.word) == term);
 
       if (mounted) {
         setState(() {
           _vocabResults = vocabPage.items;
           _grammarResults = grammarPage.items;
           for (final item in _vocabResults) {
-            if (item.isBookmarked) _bookmarkedVocabIds.add(item.id);
+            if (item.isBookmarked || savedVocabIds.contains(item.id)) {
+              _bookmarkedVocabIds.add(item.id);
+            }
           }
           for (final item in _grammarResults) {
-            if (item.isBookmarked) _bookmarkedGrammarIds.add(item.id);
+            if (item.isBookmarked || savedGrammarIds.contains(item.id)) {
+              _bookmarkedGrammarIds.add(item.id);
+            }
+          }
+          if (isCustomSaved) {
+            _customWordBookmarked = true;
           }
           _loading = false;
         });
@@ -160,12 +217,17 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
     try {
       final repo = ref.read(bookmarkRepositoryProvider);
       final targetLang = ref.read(currentLanguageProvider);
-      String? translationToSave = item.meaningUserLang;
+      String? translationToSave;
       if (newStatus && targetLang != 'ko') {
-        if (translationToSave == null || translationToSave.isEmpty) {
-          translationToSave = _autoTranslation ??
-              await TranslationService.translate(text: item.word, targetLang: targetLang);
-        }
+        final translated = await TranslationService.translate(
+          text: item.word,
+          targetLang: targetLang,
+        );
+        translationToSave = (translated != null && translated.trim().isNotEmpty)
+            ? translated.trim()
+            : (item.meaningUserLang?.trim().isNotEmpty == true
+                ? item.meaningUserLang
+                : item.meaningKo);
       }
 
       await repo.setVocabularyBookmark(
@@ -173,8 +235,25 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
         bookmarked: newStatus,
         meaningUserLang: translationToSave,
       );
+
+      if (newStatus) {
+        await ref.read(userVocabularyOverrideProvider.notifier).registerBookmarkedWord(
+          item.copyWith(
+            meaningUserLang: translationToSave ?? item.meaningUserLang,
+            isBookmarked: true,
+          ),
+        );
+      } else {
+        await ref.read(userVocabularyOverrideProvider.notifier).removeBookmarkedWord(
+          item.id,
+          item.word,
+        );
+      }
+
       ref.invalidate(bookmarkSummaryProvider);
       ref.invalidate(bookmarkedVocabularyProvider);
+      ref.invalidate(vocabularyProvider);
+      ref.invalidate(studyWordsProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -219,8 +298,13 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
       final targetLang = ref.read(currentLanguageProvider);
       String? translationToSave;
       if (targetLang != 'ko') {
-        translationToSave = _autoTranslation ??
-            await TranslationService.translate(text: clean, targetLang: targetLang);
+        final translated = await TranslationService.translate(
+          text: clean,
+          targetLang: targetLang,
+        );
+        translationToSave = (translated != null && translated.trim().isNotEmpty)
+            ? translated.trim()
+            : _autoTranslation;
       }
 
       await repo.addVocabularyByWord(
@@ -228,8 +312,14 @@ class _WordLookupSheetState extends ConsumerState<WordLookupSheet> {
         meaningKo: clean,
         meaningUserLang: translationToSave,
       );
+      await ref.read(userVocabularyOverrideProvider.notifier).addCustomWord(
+        word: clean,
+        meaning: translationToSave ?? clean,
+      );
       ref.invalidate(bookmarkSummaryProvider);
       ref.invalidate(bookmarkedVocabularyProvider);
+      ref.invalidate(vocabularyProvider);
+      ref.invalidate(studyWordsProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
