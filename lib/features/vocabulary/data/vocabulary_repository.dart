@@ -263,6 +263,24 @@ class VocabularyRepository {
   Future<void> deleteVocabulary(String id) async {
     await _dio.delete('/vocabulary/$id');
   }
+
+  Future<Map<String, dynamic>> getAiExampleSentence({
+    required String word,
+    String? meaning,
+    required String targetLang,
+    int index = 0,
+  }) async {
+    final response = await _dio.post(
+      '/vocabulary/ai-example',
+      data: {
+        'word': word,
+        'meaning': ?meaning,
+        'targetLang': targetLang,
+        'index': index,
+      },
+    );
+    return response.data as Map<String, dynamic>;
+  }
 }
 
 final vocabularyRepositoryProvider = Provider<VocabularyRepository>((ref) {
