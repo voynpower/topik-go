@@ -146,9 +146,12 @@ final studyWordsProvider =
     FutureProvider.family<List<VocabularyItem>, StudyWordSource>((ref, source) async {
   final overrides = ref.watch(userVocabularyOverrideProvider);
   if (source.type == StudyWordSourceType.saved) {
-    final bookmarks = await ref.watch(bookmarkRepositoryProvider).getVocabularyBookmarks();
-    final words = bookmarks.map((b) => b.vocabulary).toList();
-    if (words.isNotEmpty) return overrides.applyOverrides(words);
+    final bookmarks = await ref.watch(bookmarkedVocabularyProvider.future);
+    final words = bookmarks
+        .map((b) => b.vocabulary.copyWith(isBookmarked: true))
+        .toList();
+    final combined = overrides.applyOverrides(words);
+    if (combined.isNotEmpty) return combined;
 
     // 만약 북마크 단어가 없으면 전체 어휘에서 로드
     final fallback = await ref.watch(vocabularyRepositoryProvider).getVocabulary(

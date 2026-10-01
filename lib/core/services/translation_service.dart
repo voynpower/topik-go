@@ -71,14 +71,92 @@ final currentLanguageProvider = NotifierProvider<LanguageNotifier, String>(() {
   return LanguageNotifier();
 });
 
-/// 외부 번역 서비스 (MyMemory Open API)
+/// 외부 번역 서비스 (Google Translate 1순위 + MyMemory 백업 + HTML 엔티티 디코딩)
 class TranslationService {
   static final Dio _dio = Dio(
     BaseOptions(
-      connectTimeout: const Duration(seconds: 4),
-      receiveTimeout: const Duration(seconds: 4),
+      connectTimeout: const Duration(seconds: 5),
+      receiveTimeout: const Duration(seconds: 5),
     ),
   );
+
+  /// HTML 엔티티 (&#39;, &quot;, &amp; 등)를 올바른 문자로 디코딩
+  static String unescapeHtml(String text) {
+    return text
+        .replaceAll('&quot;', '"')
+        .replaceAll('&apos;', "'")
+        .replaceAll('&#39;', "'")
+        .replaceAll('&#039;', "'")
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&nbsp;', ' ')
+        .replaceAllMapped(RegExp(r'&#(\d+);'), (m) {
+          final code = int.tryParse(m.group(1) ?? '');
+          return code != null ? String.fromCharCode(code) : m.group(0)!;
+        })
+        .replaceAllMapped(RegExp(r'&#x([0-9a-fA-F]+);', caseSensitive: false), (m) {
+          final code = int.tryParse(m.group(1) ?? '', radix: 16);
+          return code != null ? String.fromCharCode(code) : m.group(0)!;
+        });
+  }
+
+  /// 1순위: Google Translate 단일 번역 (고품질 신경망 번역, 따옴표/아포스트로피 왜곡 방지)
+  static Future<String?> _translateWithGoogle(String text, String targetLang) async {
+    final response = await _dio.get(
+      'https://translate.googleapis.com/translate_a/single',
+      queryParameters: {
+        'client': 'gtx',
+        'sl': 'ko',
+        'tl': targetLang,
+        'dt': 't',
+        'q': text,
+      },
+    );
+
+    if (response.statusCode == 200 && response.data is List) {
+      final list = response.data as List;
+      if (list.isNotEmpty && list[0] is List) {
+        final segments = list[0] as List;
+        final buffer = StringBuffer();
+        for (final seg in segments) {
+          if (seg is List && seg.isNotEmpty && seg[0] != null) {
+            buffer.write(seg[0].toString());
+          }
+        }
+        final result = buffer.toString().trim();
+        if (result.isNotEmpty && result.toLowerCase() != text.toLowerCase()) {
+          return unescapeHtml(result);
+        }
+      }
+    }
+    return null;
+  }
+
+  /// 2순위: MyMemory 오픈 API 백업
+  static Future<String?> _translateWithMyMemory(String text, String targetLang) async {
+    final response = await _dio.get(
+      'https://api.mymemory.translated.net/get',
+      queryParameters: {
+        'q': text,
+        'langpair': 'ko|$targetLang',
+      },
+    );
+
+    if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
+      final resData = response.data['responseData'];
+      if (resData is Map<String, dynamic>) {
+        final translated = resData['translatedText']?.toString().trim();
+        if (translated != null &&
+            translated.isNotEmpty &&
+            !translated.startsWith('MYMEMORY WARNING') &&
+            translated.toLowerCase() != text.toLowerCase()) {
+          return unescapeHtml(translated);
+        }
+      }
+    }
+    return null;
+  }
 
   /// 한국어 단어/문장을 대상 언어 코드로 번역
   static Future<String?> translate({
@@ -89,30 +167,22 @@ class TranslationService {
     if (clean.isEmpty) return null;
     if (targetLang == 'ko') return clean;
 
+    // 1. Google Translate 1순위
     try {
-      final response = await _dio.get(
-        'https://api.mymemory.translated.net/get',
-        queryParameters: {
-          'q': clean,
-          'langpair': 'ko|$targetLang',
-        },
-      );
-
-      if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
-        final resData = response.data['responseData'];
-        if (resData is Map<String, dynamic>) {
-          final translated = resData['translatedText']?.toString().trim();
-          if (translated != null &&
-              translated.isNotEmpty &&
-              !translated.startsWith('MYMEMORY WARNING') &&
-              translated.toLowerCase() != clean.toLowerCase()) {
-            return translated;
-          }
-        }
+      final gResult = await _translateWithGoogle(clean, targetLang);
+      if (gResult != null && gResult.isNotEmpty) {
+        return gResult;
       }
-    } catch (_) {
-      // 번역 실패 시 null 반환
-    }
+    } catch (_) {}
+
+    // 2. MyMemory 백업
+    try {
+      final mResult = await _translateWithMyMemory(clean, targetLang);
+      if (mResult != null && mResult.isNotEmpty) {
+        return mResult;
+      }
+    } catch (_) {}
+
     return null;
   }
 }

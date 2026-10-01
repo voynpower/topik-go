@@ -6,9 +6,14 @@ import 'package:topik_go/features/vocabulary/presentation/pages/voca_list_tab_vi
 import 'package:topik_go/features/vocabulary/presentation/pages/voca_study_hub_tab_view.dart';
 
 class VocabularyPage extends ConsumerStatefulWidget {
-  const VocabularyPage({super.key, this.initialTabIndex = 0});
+  const VocabularyPage({
+    super.key,
+    this.initialTabIndex = 0,
+    this.initialOnlySaved,
+  });
 
   final int initialTabIndex;
+  final bool? initialOnlySaved;
 
   @override
   ConsumerState<VocabularyPage> createState() => _VocabularyPageState();
@@ -108,9 +113,9 @@ class _VocabularyPageState extends ConsumerState<VocabularyPage>
       ),
       body: TabBarView(
         controller: _tabController,
-        children: const [
-          VocaListTabView(),
-          VocaStudyHubTabView(),
+        children: [
+          VocaListTabView(initialOnlySaved: widget.initialOnlySaved),
+          const VocaStudyHubTabView(),
         ],
       ),
     );

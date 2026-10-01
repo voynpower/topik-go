@@ -8,10 +8,16 @@ import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/vocabulary/data/vocabulary_repository.dart';
 import 'package:topik_go/features/vocabulary/domain/user_vocabulary_service.dart';
 import 'package:topik_go/features/vocabulary/domain/vocabulary_mastery_service.dart';
+import 'package:topik_go/features/vocabulary/domain/vocabulary_study_models.dart';
 import 'package:topik_go/features/vocabulary/presentation/widgets/voca_word_card.dart';
 
 class VocaListTabView extends ConsumerStatefulWidget {
-  const VocaListTabView({super.key});
+  const VocaListTabView({
+    super.key,
+    this.initialOnlySaved,
+  });
+
+  final bool? initialOnlySaved;
 
   @override
   ConsumerState<VocaListTabView> createState() => _VocaListTabViewState();
@@ -20,9 +26,31 @@ class VocaListTabView extends ConsumerStatefulWidget {
 class _VocaListTabViewState extends ConsumerState<VocaListTabView> {
   final _searchController = TextEditingController();
   int _page = 1;
-  bool _onlySaved = false;
+  bool? _onlySavedOverride;
   WordMasteryStatus? _statusFilter;
   bool _isSearching = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _onlySavedOverride = widget.initialOnlySaved;
+  }
+
+  void _setOnlySaved(bool value) {
+    setState(() {
+      _onlySavedOverride = value;
+      _page = 1;
+    });
+  }
+
+  void _toggleOnlySaved() {
+    final bookmarks = ref.read(bookmarkedVocabularyProvider).asData?.value ?? [];
+    final current = _onlySavedOverride ?? bookmarks.isNotEmpty;
+    setState(() {
+      _onlySavedOverride = !current;
+      _page = 1;
+    });
+  }
 
   VocabularyQuery get _query {
     return VocabularyQuery(
@@ -136,6 +164,8 @@ class _VocaListTabViewState extends ConsumerState<VocaListTabView> {
                         );
                     ref.invalidate(vocabularyProvider);
                     ref.invalidate(bookmarkedVocabularyProvider);
+                    ref.invalidate(bookmarkSummaryProvider);
+                    ref.invalidate(studyWordsProvider);
                   },
                   child: Text(strings.save, style: const TextStyle(fontWeight: FontWeight.w700)),
                 ),
@@ -154,6 +184,8 @@ class _VocaListTabViewState extends ConsumerState<VocaListTabView> {
     final bookmarksAsync = ref.watch(bookmarkedVocabularyProvider);
     final masteryMap = ref.watch(wordMasteryProvider);
     final overrides = ref.watch(userVocabularyOverrideProvider);
+    final bool onlySaved = _onlySavedOverride ??
+        ((bookmarksAsync.asData?.value.isNotEmpty ?? false));
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -161,7 +193,7 @@ class _VocaListTabViewState extends ConsumerState<VocaListTabView> {
         children: [
           // 1. Group Header & Controls
           Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: Row(
               children: [
                 // Word List Title
@@ -191,19 +223,117 @@ class _VocaListTabViewState extends ConsumerState<VocaListTabView> {
                     });
                   },
                 ),
-                // Only Bookmarked Filter Toggle
+                // Only Bookmarked Filter Toggle (quick star toggle)
                 IconButton(
+                  tooltip: onlySaved ? strings.allTopikVocab : strings.mySavedWordbook,
                   icon: Icon(
-                    _onlySaved ? Icons.star_rounded : Icons.star_outline_rounded,
-                    color: _onlySaved ? const Color(0xFFF59E0B) : const Color(0xFF64748B),
+                    onlySaved ? Icons.star_rounded : Icons.star_outline_rounded,
+                    color: onlySaved ? const Color(0xFFF59E0B) : const Color(0xFF64748B),
                     size: 22,
                   ),
-                  onPressed: () {
-                    setState(() {
-                      _onlySaved = !_onlySaved;
-                      _page = 1;
-                    });
-                  },
+                  onPressed: _toggleOnlySaved,
+                ),
+              ],
+            ),
+          ),
+
+          // Prominent 2-Segment Control: [ 🔖 내 저장 단어장 (N) ]  |  [ 📖 전체 TOPIK 어휘 ]
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () => _setOnlySaved(true),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: onlySaved ? Colors.white : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: onlySaved
+                            ? [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.06),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.bookmark_rounded,
+                            size: 16,
+                            color: onlySaved ? AppColors.mintDark : const Color(0xFF64748B),
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              '${strings.mySavedWordbook} (${bookmarksAsync.asData?.value.length ?? 0})',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: onlySaved ? FontWeight.w700 : FontWeight.w500,
+                                color: onlySaved ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => _setOnlySaved(false),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: !onlySaved ? Colors.white : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: !onlySaved
+                            ? [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.06),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.menu_book_rounded,
+                            size: 16,
+                            color: !onlySaved ? AppColors.mintDark : const Color(0xFF64748B),
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              strings.allTopikVocab,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: !onlySaved ? FontWeight.w700 : FontWeight.w500,
+                                color: !onlySaved ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -274,86 +404,243 @@ class _VocaListTabViewState extends ConsumerState<VocaListTabView> {
 
           // 3. Word Card List
           Expanded(
-            child: vocabulary.when(
-              data: (page) {
-                var items = overrides.applyOverrides(page.items);
+            child: onlySaved
+                ? bookmarksAsync.when(
+                    data: (bookmarks) {
+                      final savedWords = bookmarks
+                          .map((b) => b.vocabulary.copyWith(isBookmarked: true))
+                          .toList();
+                      var items = overrides.applyOverrides(savedWords);
 
-                // Bookmarked Filter
-                if (_onlySaved) {
-                  final savedIds = bookmarksAsync.asData?.value.map((b) => b.id).toSet() ?? {};
-                  items = items.where((it) => savedIds.contains(it.id) || it.isBookmarked).toList();
-                }
+                      // Search filter
+                      final q = _searchController.text.trim().toLowerCase();
+                      if (q.isNotEmpty) {
+                        items = items.where((it) {
+                          final w = it.word.toLowerCase();
+                          final m = it.meaningKo.toLowerCase();
+                          final u = it.meaningUserLang?.toLowerCase() ?? '';
+                          return w.contains(q) || m.contains(q) || u.contains(q);
+                        }).toList();
+                      }
 
-                // Status Filter
-                if (_statusFilter != null) {
-                  items = items.where((it) {
-                    final st = masteryMap[it.id] ?? WordMasteryStatus.hard;
-                    return st == _statusFilter;
-                  }).toList();
-                }
+                      // Status Filter
+                      if (_statusFilter != null) {
+                        items = items.where((it) {
+                          final st = masteryMap[it.id] ?? WordMasteryStatus.hard;
+                          return st == _statusFilter;
+                        }).toList();
+                      }
 
-                if (items.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.style_outlined, size: 54, color: Color(0xFF94A3B8)),
-                        const SizedBox(height: 14),
-                        Text(
-                          strings.noBookmarks,
-                          style: const TextStyle(color: Color(0xFF64748B), fontSize: 15),
+                      if (items.isEmpty) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 32),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.bookmark_border_rounded, size: 54, color: Color(0xFF94A3B8)),
+                                const SizedBox(height: 14),
+                                Text(
+                                  strings.noBookmarks,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF0F172A),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  strings.mySavedWordbookDesc,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Color(0xFF64748B),
+                                    fontSize: 13,
+                                    height: 1.4,
+                                  ),
+                                ),
+                                const SizedBox(height: 18),
+                                FilledButton.tonalIcon(
+                                  onPressed: () => _setOnlySaved(false),
+                                  icon: const Icon(Icons.menu_book_rounded, size: 16),
+                                  label: Text(strings.allTopikVocab),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+
+                      const pageSize = 30;
+                      final totalPages = (items.length / pageSize).ceil().clamp(1, 999);
+                      final currentPage = _page.clamp(1, totalPages);
+                      final pagedItems = items.skip((currentPage - 1) * pageSize).take(pageSize).toList();
+
+                      return RefreshIndicator(
+                        onRefresh: () async {
+                          ref.invalidate(bookmarkedVocabularyProvider);
+                          ref.invalidate(bookmarkSummaryProvider);
+                          ref.invalidate(vocabularyProvider);
+                        },
+                        child: ListView(
+                          padding: const EdgeInsets.fromLTRB(16, 6, 16, 80),
+                          children: [
+                            ...pagedItems.map((item) => VocaWordCard(item: item, strings: strings)),
+                            // Pagination
+                            if (totalPages > 1)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    OutlinedButton(
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppColors.mintDark,
+                                        side: const BorderSide(color: AppColors.border),
+                                      ),
+                                      onPressed: currentPage > 1
+                                          ? () => setState(() => _page = currentPage - 1)
+                                          : null,
+                                      child: Text(strings.prev),
+                                    ),
+                                    Text(
+                                      '$currentPage / $totalPages',
+                                      style: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                                    ),
+                                    OutlinedButton(
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppColors.mintDark,
+                                        side: const BorderSide(color: AppColors.border),
+                                      ),
+                                      onPressed: currentPage < totalPages
+                                          ? () => setState(() => _page = currentPage + 1)
+                                          : null,
+                                      child: Text(strings.next),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
                         ),
-                      ],
+                      );
+                    },
+                    loading: () => const Center(
+                      child: CircularProgressIndicator(color: AppColors.mintDark),
                     ),
-                  );
-                }
-
-                return ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 80),
-                  children: [
-                    ...items.map((item) => VocaWordCard(item: item, strings: strings)),
-                    // Pagination
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    error: (err, _) => Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          OutlinedButton(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.mintDark,
-                              side: const BorderSide(color: AppColors.border),
-                            ),
-                            onPressed: page.page > 1 ? () => setState(() => _page = _page - 1) : null,
-                            child: Text(strings.prev),
-                          ),
                           Text(
-                            '${page.page} / ${(page.total / page.limit).ceil().clamp(1, 999)}',
-                            style: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                            apiErrorMessage(err, missingApiMessage: strings.error),
+                            style: const TextStyle(color: Color(0xFF64748B)),
                           ),
+                          const SizedBox(height: 12),
                           OutlinedButton(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.mintDark,
-                              side: const BorderSide(color: AppColors.border),
-                            ),
-                            onPressed: page.page * page.limit < page.total ? () => setState(() => _page = _page + 1) : null,
-                            child: Text(strings.next),
+                            onPressed: () => ref.invalidate(bookmarkedVocabularyProvider),
+                            child: Text(strings.retry),
                           ),
                         ],
                       ),
                     ),
-                  ],
-                );
-              },
-              loading: () => const Center(
-                child: CircularProgressIndicator(color: AppColors.mintDark),
-              ),
-              error: (err, _) => Center(
-                child: Text(
-                  apiErrorMessage(err, missingApiMessage: strings.error),
-                  style: const TextStyle(color: Color(0xFF64748B)),
-                ),
-              ),
-            ),
+                  )
+                : vocabulary.when(
+                    data: (page) {
+                      final savedVocabIds = bookmarksAsync.asData?.value
+                              .map((b) => b.vocabulary.id)
+                              .where((id) => id.isNotEmpty)
+                              .toSet() ??
+                          {};
+
+                      final mappedItems = page.items.map((it) {
+                        final isSaved = savedVocabIds.contains(it.id);
+                        return isSaved != it.isBookmarked
+                            ? it.copyWith(isBookmarked: isSaved)
+                            : it;
+                      }).toList();
+
+                      var items = overrides.applyOverrides(mappedItems);
+
+                      // Status Filter
+                      if (_statusFilter != null) {
+                        items = items.where((it) {
+                          final st = masteryMap[it.id] ?? WordMasteryStatus.hard;
+                          return st == _statusFilter;
+                        }).toList();
+                      }
+
+                      if (items.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.style_outlined, size: 54, color: Color(0xFF94A3B8)),
+                              const SizedBox(height: 14),
+                              Text(
+                                strings.noBookmarks,
+                                style: const TextStyle(color: Color(0xFF64748B), fontSize: 15),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      return RefreshIndicator(
+                        onRefresh: () async {
+                          ref.invalidate(vocabularyProvider);
+                          ref.invalidate(bookmarkedVocabularyProvider);
+                          ref.invalidate(bookmarkSummaryProvider);
+                        },
+                        child: ListView(
+                          padding: const EdgeInsets.fromLTRB(16, 6, 16, 80),
+                          children: [
+                            ...items.map((item) => VocaWordCard(item: item, strings: strings)),
+                            // Pagination
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: AppColors.mintDark,
+                                      side: const BorderSide(color: AppColors.border),
+                                    ),
+                                    onPressed: page.page > 1
+                                        ? () => setState(() => _page = _page - 1)
+                                        : null,
+                                    child: Text(strings.prev),
+                                  ),
+                                  Text(
+                                    '${page.page} / ${(page.total / page.limit).ceil().clamp(1, 999)}',
+                                    style: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                                  ),
+                                  OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: AppColors.mintDark,
+                                      side: const BorderSide(color: AppColors.border),
+                                    ),
+                                    onPressed: page.page * page.limit < page.total
+                                        ? () => setState(() => _page = _page + 1)
+                                        : null,
+                                    child: Text(strings.next),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    loading: () => const Center(
+                      child: CircularProgressIndicator(color: AppColors.mintDark),
+                    ),
+                    error: (err, _) => Center(
+                      child: Text(
+                        apiErrorMessage(err, missingApiMessage: strings.error),
+                        style: const TextStyle(color: Color(0xFF64748B)),
+                      ),
+                    ),
+                  ),
           ),
         ],
       ),
