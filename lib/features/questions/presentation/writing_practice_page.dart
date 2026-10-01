@@ -1378,20 +1378,34 @@ class _ProgressHeader extends ConsumerWidget {
                 isBookmarked ? Icons.bookmark : Icons.bookmark_border,
                 color: isBookmarked ? Colors.orange : Colors.grey,
               ),
+              tooltip: isBookmarked ? '다시 풀 문제에서 해제' : '다시 풀 문제로 저장',
               onPressed: () async {
                 try {
+                  final targetBookmark = !isBookmarked;
                   await ref
                       .read(bookmarkRepositoryProvider)
                       .setQuestionBookmark(
                         questionId: question.id,
-                        bookmarked: !isBookmarked,
+                        bookmarked: targetBookmark,
                       );
                   ref.invalidate(bookmarkSummaryProvider);
                   ref.invalidate(bookmarkedQuestionsProvider);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          targetBookmark
+                              ? '다시 풀 문제에 저장되었습니다.'
+                              : '다시 풀 문제에서 제외되었습니다.',
+                        ),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
                 } catch (e) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('북마크 저장 실패: $e')),
+                      SnackBar(content: Text('다시 풀 문제 저장 실패: $e')),
                     );
                   }
                 }

@@ -1,13 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:topik_go/features/admin/presentation/admin_question_sets_page.dart';
-import 'package:topik_go/features/bookmarks/presentation/bookmarked_grammar_page.dart';
 import 'package:topik_go/features/bookmarks/presentation/bookmarked_questions_page.dart';
 import 'package:topik_go/features/auth/presentation/login_page.dart';
 import 'package:topik_go/features/auth/presentation/register_page.dart';
 import 'package:topik_go/features/explanation_video/presentation/explanation_video_list_page.dart';
 import 'package:topik_go/features/explanation_video/presentation/video_player_page.dart';
 import 'package:topik_go/features/grammar/domain/grammar_study_models.dart';
+import 'package:topik_go/features/grammar/data/korean_grammar_master.dart';
 import 'package:topik_go/features/grammar/presentation/grammar_detail_page.dart';
 import 'package:topik_go/features/grammar/presentation/grammar_flashcard_page.dart';
 import 'package:topik_go/features/grammar/presentation/grammar_list_page.dart';
@@ -117,11 +117,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/bookmarks/grammar',
-        builder: (context, state) => const BookmarkedGrammarPage(),
+        builder: (context, state) => const GrammarListPage(initialLevelGroup: GrammarLevelGroup.saved),
       ),
       GoRoute(
         path: '/grammar',
-        builder: (context, state) => const GrammarListPage(),
+        builder: (context, state) {
+          final levelParam = state.uri.queryParameters['level'];
+          final initialLevel = levelParam == 'saved'
+              ? GrammarLevelGroup.saved
+              : GrammarLevelGroup.all;
+          return GrammarListPage(initialLevelGroup: initialLevel);
+        },
       ),
       GoRoute(
         path: '/grammar/flashcard',

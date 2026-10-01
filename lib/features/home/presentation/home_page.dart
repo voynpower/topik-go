@@ -102,20 +102,16 @@ class HomePage extends ConsumerWidget {
                 ),
               ),
 
-              // 6. Bookmarks Summary Dashboard
+              // 6. Review Hub Dashboard
               bookmarkSummary.when(
                 data: (summary) => _StatusPanel(
-                  icon: Icons.bookmark_border_rounded,
+                  icon: Icons.history_edu_rounded,
                   iconColor: const Color(0xFFD07A21),
                   backgroundColor: const Color(0xFFFFF1DC),
                   title: strings.bookmarksSummary,
                   subtitle: strings.bookmarksSummaryDesc,
-                  onTap: () => context.push('/bookmarks/questions'),
+                  onTap: () => context.push('/bookmarks/vocabulary'),
                   children: [
-                    _MetricPill(
-                      text: strings.questionsCount.replaceAll('{count}', '${summary.questions}'),
-                      onTap: () => context.push('/bookmarks/questions'),
-                    ),
                     _MetricPill(
                       text: strings.vocabCount.replaceAll('{count}', '${summary.vocabulary}'),
                       onTap: () => context.push('/bookmarks/vocabulary'),
@@ -124,17 +120,21 @@ class HomePage extends ConsumerWidget {
                       text: strings.grammarCount.replaceAll('{count}', '${summary.grammar}'),
                       onTap: () => context.push('/bookmarks/grammar'),
                     ),
+                    _MetricPill(
+                      text: strings.questionsCount.replaceAll('{count}', '${summary.questions}'),
+                      onTap: () => context.push('/bookmarks/questions'),
+                    ),
                   ],
                 ),
                 loading: () => _StatusPanel(
-                  icon: Icons.bookmark_border_rounded,
+                  icon: Icons.history_edu_rounded,
                   iconColor: const Color(0xFFD07A21),
                   backgroundColor: const Color(0xFFFFF1DC),
                   title: strings.bookmarksSummary,
                   subtitle: strings.loading,
                 ),
                 error: (_, _) => _StatusPanel(
-                  icon: Icons.bookmark_border_rounded,
+                  icon: Icons.history_edu_rounded,
                   iconColor: const Color(0xFFD07A21),
                   backgroundColor: const Color(0xFFFFF1DC),
                   title: strings.bookmarksSummary,
