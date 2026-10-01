@@ -326,7 +326,7 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
                         },
                         contextMenuBuilder: (context, selectableRegionState) {
                           final buttonItems = [
-                            if (_selectedText.isNotEmpty)
+                            if (_selectedText.isNotEmpty) ...[
                               ContextMenuButtonItem(
                                 onPressed: () {
                                   final term = _selectedText;
@@ -336,8 +336,9 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
                                     initialWord: term,
                                   );
                                 },
-                                label: '단어장 추가 (+)',
+                                label: '단어 검색 (+)',
                               ),
+                            ],
                             ...selectableRegionState.contextMenuButtonItems,
                           ];
                           return AdaptiveTextSelectionToolbar.buttonItems(

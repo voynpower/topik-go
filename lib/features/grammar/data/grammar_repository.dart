@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:topik_go/core/network/dio_provider.dart';
+import 'package:topik_go/features/grammar/data/korean_grammar_master.dart';
 
 class GrammarItem {
   const GrammarItem({
@@ -14,6 +15,19 @@ class GrammarItem {
     required this.isDownloaded,
     required this.isBookmarked,
     this.level,
+    this.category,
+    this.meaningKo,
+    this.meaningUz,
+    this.meaningRu,
+    this.meaningEn,
+    this.explanationKo,
+    this.explanationUz,
+    this.explanationRu,
+    this.explanationEn,
+    this.conjugationRule,
+    this.comparisons = const [],
+    this.richExamples = const [],
+    this.quizzes = const [],
   });
 
   final String id;
@@ -24,19 +38,109 @@ class GrammarItem {
   final bool isDownloaded;
   final bool isBookmarked;
   final int? level;
+  final String? category;
+  final String? meaningKo;
+  final String? meaningUz;
+  final String? meaningRu;
+  final String? meaningEn;
+  final String? explanationKo;
+  final String? explanationUz;
+  final String? explanationRu;
+  final String? explanationEn;
+  final String? conjugationRule;
+  final List<ConfusingGrammarComparison> comparisons;
+  final List<MasterGrammarExample> richExamples;
+  final List<MasterGrammarQuiz> quizzes;
 
   factory GrammarItem.fromJson(Map<String, dynamic> json) {
+    final comparisons = (json['comparisons_json'] as List?)
+            ?.map((c) => ConfusingGrammarComparison.fromJson(Map<String, dynamic>.from(c)))
+            .toList() ??
+        const <ConfusingGrammarComparison>[];
+
+    final richExamples = (json['examples_json'] as List?)
+            ?.map((e) {
+              if (e is Map) return MasterGrammarExample.fromJson(Map<String, dynamic>.from(e));
+              if (e is String) return MasterGrammarExample(korean: e);
+              return null;
+            })
+            .whereType<MasterGrammarExample>()
+            .toList() ??
+        const <MasterGrammarExample>[];
+
+    final quizzes = (json['quizzes_json'] as List?)
+            ?.map((q) => MasterGrammarQuiz.fromJson(Map<String, dynamic>.from(q)))
+            .toList() ??
+        const <MasterGrammarQuiz>[];
+
     return GrammarItem(
       id: json['id']?.toString() ?? '',
       pattern: _firstString(json, const ['pattern', 'title', 'grammar']) ?? '',
       description:
-          _firstString(json, const ['description', 'meaning', 'explanation']) ??
+          _firstString(json, const ['description', 'meaning_ko', 'meaning', 'explanation']) ??
           '',
       examples: _stringList(json['examples_json'] ?? json['examples']),
       tags: _stringList(json['tags_json'] ?? json['tags']),
       isDownloaded: _asBool(json['is_downloaded']),
       isBookmarked: _asBool(json['is_bookmarked'] ?? json['bookmarked']),
       level: _asInt(json['level']),
+      category: json['category']?.toString(),
+      meaningKo: json['meaning_ko']?.toString(),
+      meaningUz: json['meaning_uz']?.toString(),
+      meaningRu: json['meaning_ru']?.toString(),
+      meaningEn: json['meaning_en']?.toString(),
+      explanationKo: json['explanation_ko']?.toString(),
+      explanationUz: json['explanation_uz']?.toString(),
+      explanationRu: json['explanation_ru']?.toString(),
+      explanationEn: json['explanation_en']?.toString(),
+      conjugationRule: json['conjugation_rule']?.toString(),
+      comparisons: comparisons,
+      richExamples: richExamples,
+      quizzes: quizzes,
+    );
+  }
+
+  String getMeaning(String langCode) {
+    if (langCode == 'ko' && (meaningKo?.isNotEmpty ?? false)) return meaningKo!;
+    if (langCode == 'uz' && (meaningUz?.isNotEmpty ?? false)) return meaningUz!;
+    if (langCode == 'ru' && (meaningRu?.isNotEmpty ?? false)) return meaningRu!;
+    if (langCode == 'en' && (meaningEn?.isNotEmpty ?? false)) return meaningEn!;
+    if (langCode != 'ko' && (meaningEn?.isNotEmpty ?? false)) return meaningEn!;
+    if (meaningKo?.isNotEmpty ?? false) return meaningKo!;
+    return description;
+  }
+
+  String getExplanation(String langCode) {
+    if (langCode == 'ko' && (explanationKo?.isNotEmpty ?? false)) return explanationKo!;
+    if (langCode == 'uz' && (explanationUz?.isNotEmpty ?? false)) return explanationUz!;
+    if (langCode == 'ru' && (explanationRu?.isNotEmpty ?? false)) return explanationRu!;
+    if (langCode == 'en' && (explanationEn?.isNotEmpty ?? false)) return explanationEn!;
+    if (langCode != 'ko' && (explanationEn?.isNotEmpty ?? false)) return explanationEn!;
+    if (explanationKo?.isNotEmpty ?? false) return explanationKo!;
+    return description;
+  }
+
+  MasterGrammarItem toMasterGrammarItem() {
+    return MasterGrammarItem(
+      id: id,
+      pattern: pattern,
+      level: level ?? 1,
+      category: category ?? (tags.isNotEmpty ? tags.first : '기타'),
+      meaningKo: meaningKo ?? description,
+      meaningUz: meaningUz,
+      meaningRu: meaningRu,
+      meaningEn: meaningEn,
+      explanationKo: explanationKo ?? description,
+      explanationUz: explanationUz,
+      explanationRu: explanationRu,
+      explanationEn: explanationEn,
+      conjugationRule: conjugationRule ?? pattern,
+      comparisons: comparisons,
+      examples: richExamples.isNotEmpty
+          ? richExamples
+          : examples.map((e) => MasterGrammarExample(korean: e)).toList(),
+      quizzes: quizzes,
+      tags: tags,
     );
   }
 }
@@ -72,9 +176,10 @@ class GrammarPage {
 }
 
 class GrammarQuery {
-  const GrammarQuery({this.level, this.q, this.page = 1, this.limit = 20});
+  const GrammarQuery({this.level, this.category, this.q, this.page = 1, this.limit = 20});
 
   final int? level;
+  final String? category;
   final String? q;
   final int page;
   final int limit;
@@ -82,6 +187,7 @@ class GrammarQuery {
   Map<String, Object> toQueryParameters() {
     return {
       'level': ?level,
+      if (category != null && category!.trim().isNotEmpty) 'category': category!.trim(),
       if (q != null && q!.trim().isNotEmpty) 'q': q!.trim(),
       'page': page,
       'limit': limit,
@@ -93,13 +199,14 @@ class GrammarQuery {
     return identical(this, other) ||
         other is GrammarQuery &&
             other.level == level &&
+            other.category == category &&
             other.q == q &&
             other.page == page &&
             other.limit == limit;
   }
 
   @override
-  int get hashCode => Object.hash(level, q, page, limit);
+  int get hashCode => Object.hash(level, category, q, page, limit);
 }
 
 class GrammarRepository {
@@ -242,14 +349,21 @@ List<String> _stringList(Object? value) {
 
 String _stringListItem(Object? item) {
   if (item is Map) {
-    final ko = item['ko']?.toString().trim();
-    final en = item['en']?.toString().trim();
-    if (ko != null && ko.isNotEmpty && en != null && en.isNotEmpty) {
-      return '$ko\n$en';
+    final ko = (item['korean'] ?? item['ko'])?.toString().trim();
+    final en = (item['english'] ?? item['en'])?.toString().trim();
+    final uz = (item['uzbek'] ?? item['uz'])?.toString().trim();
+    final ru = (item['russian'] ?? item['ru'])?.toString().trim();
+
+    if (ko != null && ko.isNotEmpty) {
+      if (en != null && en.isNotEmpty) return '$ko\n$en';
+      if (uz != null && uz.isNotEmpty) return '$ko\n$uz';
+      if (ru != null && ru.isNotEmpty) return '$ko\n$ru';
+      return ko;
     }
-    if (ko != null && ko.isNotEmpty) return ko;
     if (en != null && en.isNotEmpty) return en;
-    return item.values.map((value) => value.toString()).join('\n');
+    if (uz != null && uz.isNotEmpty) return uz;
+    if (ru != null && ru.isNotEmpty) return ru;
+    return item['text']?.toString() ?? '';
   }
   return item?.toString() ?? '';
 }

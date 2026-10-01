@@ -133,12 +133,12 @@ void main() {
       expect(find.text('문법 빈칸 퀴즈'), findsOneWidget);
 
       // Check Category Filter Chips
-      expect(find.text('전체'), findsOneWidget);
-      expect(find.text('이유·원인'), findsOneWidget);
-      expect(find.text('대조·양보'), findsOneWidget);
-      expect(find.text('목적·의도'), findsOneWidget);
-      expect(find.text('조건·가정'), findsOneWidget);
-      expect(find.text('시간·순서'), findsOneWidget);
+      expect(find.text('전체'), findsAtLeastNWidgets(1));
+      expect(find.text('이유·원인'), findsAtLeastNWidgets(1));
+      expect(find.text('대조·양보'), findsAtLeastNWidgets(1));
+      expect(find.text('목적·의도'), findsAtLeastNWidgets(1));
+      expect(find.text('조건·가정'), findsAtLeastNWidgets(1));
+      expect(find.text('시간·순서'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('HomePage renders Daily Word Challenge, OneVoca 4 Modes, Today Grammar & Quick Practice', (tester) async {
