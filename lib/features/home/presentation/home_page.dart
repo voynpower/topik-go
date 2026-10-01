@@ -9,6 +9,9 @@ import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/exam_schedule/data/exam_schedule_repository.dart';
 import 'package:topik_go/features/grammar/data/grammar_repository.dart';
+import 'package:topik_go/features/grammar/data/korean_grammar_master.dart';
+import 'package:topik_go/features/grammar/data/korean_grammar_service.dart';
+import 'package:topik_go/core/services/translation_service.dart';
 import 'package:topik_go/features/users/data/user_profile.dart';
 import 'package:topik_go/features/users/data/user_repository.dart';
 import 'package:topik_go/features/vocabulary/domain/vocabulary_study_models.dart';
@@ -481,6 +484,7 @@ class _TodayGrammarSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final grammarAsync = ref.watch(grammarProvider(const GrammarQuery(page: 1, limit: 1)));
+    final targetLang = ref.watch(currentLanguageProvider);
 
     return Container(
       decoration: BoxDecoration(
@@ -569,7 +573,54 @@ class _TodayGrammarSection extends ConsumerWidget {
               final grammar = page.items.isNotEmpty ? page.items.first : null;
               if (grammar == null) return const SizedBox.shrink();
 
-              final firstExample = grammar.examples.isNotEmpty ? grammar.examples.first : '';
+              final masterItem = ref.watch(masterGrammarDetailProvider(grammar.id)) ??
+                  ref.watch(masterGrammarDetailProvider(grammar.pattern)) ??
+                  grammar.toMasterGrammarItem();
+
+              // Meaning translated to the configured language
+              final meaningText = masterItem.getMeaning(targetLang);
+
+              // Extract clean Korean example and single translation according to targetLang
+              String koreanExample = '';
+              String exampleTranslation = '';
+
+              if (masterItem.examples.isNotEmpty) {
+                final ex = masterItem.examples.first;
+                koreanExample = ex.korean.trim();
+                if (targetLang != 'ko') {
+                  exampleTranslation = ex.getTranslation(targetLang).trim();
+                }
+              } else if (grammar.richExamples.isNotEmpty) {
+                final ex = grammar.richExamples.first;
+                koreanExample = ex.korean.trim();
+                if (targetLang != 'ko') {
+                  exampleTranslation = ex.getTranslation(targetLang).trim();
+                }
+              } else if (grammar.examples.isNotEmpty) {
+                final raw = grammar.examples.first.trim();
+                final lines = raw.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+                if (lines.isNotEmpty) {
+                  koreanExample = lines.first;
+                  if (targetLang != 'ko' && lines.length > 1) {
+                    exampleTranslation = lines.sublist(1).join(' ');
+                  }
+                }
+              }
+
+              // In case koreanExample itself contained newlines (from legacy unparsed data)
+              if (koreanExample.contains('\n')) {
+                final lines = koreanExample.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+                if (lines.isNotEmpty) {
+                  koreanExample = lines.first;
+                  if (targetLang != 'ko' && exampleTranslation.isEmpty && lines.length > 1) {
+                    exampleTranslation = lines.sublist(1).join(' ');
+                  }
+                }
+              }
+
+              final displayCategory = masterItem.category.isNotEmpty
+                  ? masterItem.category
+                  : (grammar.tags.isNotEmpty ? grammar.tags.first : '');
 
               return Container(
                 padding: const EdgeInsets.all(14),
@@ -599,7 +650,7 @@ class _TodayGrammarSection extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        if (grammar.tags.isNotEmpty)
+                        if (displayCategory.isNotEmpty)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
@@ -607,7 +658,7 @@ class _TodayGrammarSection extends ConsumerWidget {
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              grammar.tags.first,
+                              displayCategory,
                               style: const TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
@@ -626,7 +677,7 @@ class _TodayGrammarSection extends ConsumerWidget {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      grammar.description,
+                      meaningText,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -635,7 +686,7 @@ class _TodayGrammarSection extends ConsumerWidget {
                         height: 1.35,
                       ),
                     ),
-                    if (firstExample.isNotEmpty) ...[
+                    if (koreanExample.isNotEmpty) ...[
                       const SizedBox(height: 10),
                       Container(
                         width: double.infinity,
@@ -651,13 +702,29 @@ class _TodayGrammarSection extends ConsumerWidget {
                             const Text('💬', style: TextStyle(fontSize: 12)),
                             const SizedBox(width: 6),
                             Expanded(
-                              child: Text(
-                                firstExample,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFF475569),
-                                  fontStyle: FontStyle.italic,
-                                ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    koreanExample,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF334155),
+                                    ),
+                                  ),
+                                  if (exampleTranslation.isNotEmpty) ...[
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      exampleTranslation,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF64748B),
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                           ],

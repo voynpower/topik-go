@@ -473,7 +473,7 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
                         },
                         contextMenuBuilder: (context, selectableRegionState) {
                           final buttonItems = [
-                            if (_selectedText.isNotEmpty)
+                            if (_selectedText.isNotEmpty) ...[
                               ContextMenuButtonItem(
                                 onPressed: () {
                                   final term = _selectedText;
@@ -483,8 +483,9 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
                                     initialWord: term,
                                   );
                                 },
-                                label: '단어장 추가 (+)',
+                                label: '단어 검색 (+)',
                               ),
+                            ],
                             ...selectableRegionState.contextMenuButtonItems,
                           ];
                           return AdaptiveTextSelectionToolbar.buttonItems(

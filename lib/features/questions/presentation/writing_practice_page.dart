@@ -136,15 +136,16 @@ class _WritingPracticePageState extends ConsumerState<WritingPracticePage> {
                   },
                   contextMenuBuilder: (context, selectableRegionState) {
                     final buttonItems = [
-                      if (_selectedWord.isNotEmpty)
+                      if (_selectedWord.isNotEmpty) ...[
                         ContextMenuButtonItem(
                           onPressed: () {
                             final term = _selectedWord;
                             selectableRegionState.hideToolbar();
                             showWordLookupSheet(context, initialWord: term);
                           },
-                          label: '${strings.addToVocabulary} (+)',
+                          label: '단어 검색 (+)',
                         ),
+                      ],
                       ...selectableRegionState.contextMenuButtonItems,
                     ];
                     return AdaptiveTextSelectionToolbar.buttonItems(

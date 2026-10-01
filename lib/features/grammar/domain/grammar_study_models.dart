@@ -2,6 +2,8 @@ import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/grammar/data/grammar_repository.dart';
+import 'package:topik_go/features/grammar/data/korean_grammar_service.dart';
+import 'package:topik_go/features/grammar/domain/user_grammar_service.dart';
 
 enum GrammarStudyMode {
   flashcard,
@@ -11,18 +13,25 @@ enum GrammarStudyMode {
 enum GrammarSourceType {
   all,
   saved,
+  custom,
 }
 
 class GrammarStudySource {
   const GrammarStudySource.all()
       : type = GrammarSourceType.all,
+        items = const [],
         title = '전체 TOPIK 필수 문법';
 
   const GrammarStudySource.saved()
       : type = GrammarSourceType.saved,
+        items = const [],
         title = '내 저장 문법';
 
+  const GrammarStudySource.custom(this.items, {this.title = '문법 집중 학습'})
+      : type = GrammarSourceType.custom;
+
   final GrammarSourceType type;
+  final List<GrammarItem> items;
   final String title;
 
   @override
@@ -30,19 +39,37 @@ class GrammarStudySource {
       identical(this, other) ||
       other is GrammarStudySource &&
           runtimeType == other.runtimeType &&
-          type == other.type;
+          type == other.type &&
+          (type != GrammarSourceType.custom || items == other.items);
 
   @override
-  int get hashCode => type.hashCode;
+  int get hashCode => Object.hash(type, items);
 }
 
 final studyGrammarProvider = FutureProvider.family<List<GrammarItem>, GrammarStudySource>((ref, source) async {
+  if (source.type == GrammarSourceType.custom) {
+    return source.items;
+  }
+
+  final userGrammarItems = ref.watch(userGrammarProvider).toGrammarItems();
+
   if (source.type == GrammarSourceType.saved) {
-    final bookmarks = await ref.watch(bookmarkedGrammarProvider.future);
-    return bookmarks.map((b) => b.grammar).toList();
+    try {
+      final bookmarksAsync = ref.watch(bookmarkedGrammarProvider);
+      final bookmarkedItems = bookmarksAsync.asData?.value.map((b) => b.grammar).toList() ?? <GrammarItem>[];
+      final combined = <GrammarItem>[...userGrammarItems, ...bookmarkedItems];
+      final seen = <String>{};
+      return combined.where((g) => seen.add(g.pattern)).toList();
+    } catch (_) {
+      return userGrammarItems;
+    }
   } else {
-    final page = await ref.watch(grammarProvider(const GrammarQuery(page: 1, limit: 100)).future);
-    return page.items;
+    final masterList = ref.watch(masterGrammarListProvider).map((m) => m.toGrammarItem()).toList();
+    final pageAsync = ref.watch(grammarProvider(const GrammarQuery(page: 1, limit: 100)));
+    final pageItems = pageAsync.asData?.value.items ?? <GrammarItem>[];
+    final combined = <GrammarItem>[...userGrammarItems, ...masterList, ...pageItems];
+    final seen = <String>{};
+    return combined.where((g) => seen.add(g.pattern)).toList();
   }
 });
 

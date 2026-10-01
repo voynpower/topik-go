@@ -6,6 +6,7 @@ import 'package:topik_go/core/localization/app_strings.dart';
 import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/grammar/domain/grammar_study_models.dart';
+import 'package:topik_go/features/grammar/domain/user_grammar_service.dart';
 
 class GrammarSourceSheet extends ConsumerWidget {
   const GrammarSourceSheet({
@@ -59,7 +60,13 @@ class GrammarSourceSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final strings = ref.watch(appStringsProvider);
     final bookmarksAsync = ref.watch(bookmarkedGrammarProvider);
-    final savedCount = bookmarksAsync.asData?.value.length ?? 0;
+    final userSavedGrammars = ref.watch(userGrammarProvider).savedGrammars;
+    final bookmarksList = bookmarksAsync.asData?.value ?? [];
+    final uniquePatterns = <String>{
+      ...userSavedGrammars.map((g) => g.pattern),
+      ...bookmarksList.map((b) => b.grammar.pattern),
+    };
+    final savedCount = uniquePatterns.length;
 
     return Container(
       decoration: const BoxDecoration(
