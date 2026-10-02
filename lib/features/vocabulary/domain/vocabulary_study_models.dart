@@ -141,27 +141,13 @@ class VocabularyQuizQuestion {
   }
 }
 
-/// 학습용 단어 목록 프로바이더
+/// 학습용 단어 목록 프로바이더 (스마트 단어장의 저장 단어 기준)
 final studyWordsProvider =
     FutureProvider.family<List<VocabularyItem>, StudyWordSource>((ref, source) async {
   final overrides = ref.watch(userVocabularyOverrideProvider);
-  if (source.type == StudyWordSourceType.saved) {
-    final bookmarks = await ref.watch(bookmarkedVocabularyProvider.future);
-    final words = bookmarks
-        .map((b) => b.vocabulary.copyWith(isBookmarked: true))
-        .toList();
-    final combined = overrides.applyOverrides(words);
-    if (combined.isNotEmpty) return combined;
-
-    // 만약 북마크 단어가 없으면 전체 어휘에서 로드
-    final fallback = await ref.watch(vocabularyRepositoryProvider).getVocabulary(
-          const VocabularyQuery(limit: 50),
-        );
-    return overrides.applyOverrides(fallback.items);
-  } else {
-    final response = await ref.watch(vocabularyRepositoryProvider).getVocabulary(
-          const VocabularyQuery(limit: 50),
-        );
-    return overrides.applyOverrides(response.items);
-  }
+  final bookmarks = await ref.watch(bookmarkRepositoryProvider).getVocabularyBookmarks();
+  final words = bookmarks
+      .map((b) => b.vocabulary.copyWith(isBookmarked: true))
+      .toList();
+  return overrides.applyOverrides(words);
 });

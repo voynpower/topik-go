@@ -185,7 +185,7 @@ class _QuestionDetailPageState extends ConsumerState<QuestionDetailPage> {
       ref.invalidate(bookmarkSummaryProvider);
       ref.invalidate(bookmarkedQuestionsProvider);
       ref.invalidate(bookmarkedQuestionIdsProvider);
-      _showMessage(bookmarked ? '북마크에 저장되었습니다.' : '북마크가 해제되었습니다.');
+      _showMessage(bookmarked ? '다시 풀 문제에 저장되었습니다.' : '다시 풀 문제에서 제외되었습니다.');
     } catch (error) {
       _showMessage(error.toString());
     } finally {
@@ -222,7 +222,7 @@ class _BookmarkButton extends ConsumerWidget {
       data: (ids) {
         final bookmarked = ids.contains(questionId);
         return IconButton(
-          tooltip: bookmarked ? '북마크 해제' : '북마크',
+          tooltip: bookmarked ? '다시 풀 문제에서 해제' : '다시 풀 문제로 저장',
           onPressed: saving ? null : () => onToggle(questionId, !bookmarked),
           icon: Icon(bookmarked ? Icons.bookmark : Icons.bookmark_border),
         );
@@ -236,7 +236,7 @@ class _BookmarkButton extends ConsumerWidget {
         ),
       ),
       error: (_, _) => IconButton(
-        tooltip: '북마크',
+        tooltip: '다시 풀 문제로 저장',
         onPressed: saving ? null : () => onToggle(questionId, true),
         icon: const Icon(Icons.bookmark_border),
       ),

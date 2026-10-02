@@ -271,6 +271,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          bookmarkRepositoryProvider.overrideWithValue(_FakeBookmarkRepo(testVocabPage.items)),
           vocabularyRepositoryProvider.overrideWithValue(_FakeVocabRepo(testVocabPage)),
         ],
       );
@@ -304,12 +305,37 @@ void main() {
   });
 }
 
+class _FakeBookmarkRepo implements BookmarkRepository {
+  final List<VocabularyItem> items;
+  _FakeBookmarkRepo([this.items = const []]);
+
+  @override
+  Future<List<BookmarkedVocabulary>> getVocabularyBookmarks() async {
+    return items
+        .map((item) => BookmarkedVocabulary(id: 'bm-${item.id}', vocabulary: item))
+        .toList();
+  }
+
+  @override
+  Future<void> setVocabularyBookmark({
+    required String vocabularyId,
+    required bool bookmarked,
+    String? meaningUserLang,
+  }) async {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class _FakeVocabRepo implements VocabularyRepository {
   final VocabularyPage page;
   _FakeVocabRepo(this.page);
 
   @override
   Future<VocabularyPage> getVocabulary(VocabularyQuery query) async => page;
+
+  @override
+  Future<void> deleteVocabulary(String id) async {}
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

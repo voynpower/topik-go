@@ -14,7 +14,12 @@ import 'package:topik_go/features/grammar/domain/user_grammar_service.dart';
 import 'package:topik_go/features/grammar/presentation/grammar_source_sheet.dart';
 
 class GrammarListPage extends ConsumerStatefulWidget {
-  const GrammarListPage({super.key});
+  const GrammarListPage({
+    super.key,
+    this.initialLevelGroup = GrammarLevelGroup.all,
+  });
+
+  final GrammarLevelGroup initialLevelGroup;
 
   @override
   ConsumerState<GrammarListPage> createState() => _GrammarListPageState();
@@ -22,8 +27,14 @@ class GrammarListPage extends ConsumerStatefulWidget {
 
 class _GrammarListPageState extends ConsumerState<GrammarListPage> {
   final _searchController = TextEditingController();
-  GrammarLevelGroup _selectedLevelGroup = GrammarLevelGroup.all;
+  late GrammarLevelGroup _selectedLevelGroup;
   GrammarCategoryType _selectedCategory = GrammarCategoryType.all;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedLevelGroup = widget.initialLevelGroup;
+  }
 
   @override
   void dispose() {

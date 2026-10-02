@@ -30,7 +30,6 @@ class _VocaWordCardState extends ConsumerState<VocaWordCard> {
   bool _isAiExpanded = false; // 문제 3: AI 아이콘 버튼을 눌러야 AI 예문 표시
   int _exampleIndex = 0;
   bool _showTranslation = true;
-  bool _savingBookmark = false;
   FlutterTts? _tts;
 
   void _speak(String text) async {
@@ -196,6 +195,10 @@ class _VocaWordCardState extends ConsumerState<VocaWordCard> {
             onPressed: () async {
               Navigator.of(dialogCtx).pop();
               await ref.read(userVocabularyOverrideProvider.notifier).deleteWord(item.id);
+              ref.read(bookmarkRepositoryProvider).setVocabularyBookmark(
+                    vocabularyId: item.id,
+                    bookmarked: false,
+                  ).catchError((_) {});
               ref.invalidate(vocabularyProvider);
               ref.invalidate(bookmarkedVocabularyProvider);
               ref.invalidate(bookmarkSummaryProvider);
@@ -440,37 +443,10 @@ class _VocaWordCardState extends ConsumerState<VocaWordCard> {
                 ),
                 const SizedBox(height: 8),
 
-                // Action Buttons Row (문제 3: 플래시카드 아이콘 대신 AI 아이콘 버튼!)
+                // Action Buttons Row (AI 예문 & 발음 듣기)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    // Bookmark Star
-                    IconButton(
-                      icon: Icon(
-                        item.isBookmarked ? Icons.star_rounded : Icons.star_outline_rounded,
-                        color: item.isBookmarked ? const Color(0xFFFBBF24) : const Color(0xFF94A3B8),
-                        size: 24,
-                      ),
-                      onPressed: _savingBookmark
-                          ? null
-                          : () async {
-                              setState(() => _savingBookmark = true);
-                              try {
-                                await ref.read(bookmarkRepositoryProvider).setVocabularyBookmark(
-                                      vocabularyId: item.id,
-                                      bookmarked: !item.isBookmarked,
-                                    );
-                                ref.invalidate(vocabularyProvider);
-                                ref.invalidate(bookmarkedVocabularyProvider);
-                                ref.invalidate(bookmarkSummaryProvider);
-                                ref.invalidate(studyWordsProvider);
-                              } finally {
-                                if (mounted) setState(() => _savingBookmark = false);
-                              }
-                            },
-                    ),
-                    const SizedBox(width: 4),
-
                     // AI Example Toggle Button (문제 3)
                     IconButton(
                       tooltip: strings.aiExample,
