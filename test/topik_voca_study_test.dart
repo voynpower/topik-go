@@ -177,27 +177,22 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      const mockPage = repo.VocabularyPage(
-        items: [
-          repo.VocabularyItem(
-            id: 'v1',
-            word: '성공하다',
-            meaningKo: '목적한 바를 이루다',
-            level: 3,
-            isDownloaded: false,
-            isBookmarked: false,
-          ),
-        ],
-        page: 1,
-        limit: 20,
-        total: 1,
+      final savedWord = BookmarkedVocabulary(
+        id: 'bm-1',
+        vocabulary: const repo.VocabularyItem(
+          id: 'v1',
+          word: '성공하다',
+          meaningKo: '목적한 바를 이루다',
+          level: 3,
+          isDownloaded: false,
+          isBookmarked: true,
+        ),
       );
 
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            repo.vocabularyProvider.overrideWith((ref, query) async => mockPage),
-            bookmarkedVocabularyProvider.overrideWith((ref) async => []),
+            bookmarkedVocabularyProvider.overrideWith((ref) async => [savedWord]),
           ],
           child: const MaterialApp(
             home: VocabularyPage(),
@@ -370,37 +365,37 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      const mockPage = repo.VocabularyPage(
-        items: [
-          repo.VocabularyItem(
+      final mockSavedWords = [
+        BookmarkedVocabulary(
+          id: 'bm-1',
+          vocabulary: const repo.VocabularyItem(
             id: 'v10',
             word: '공부하다',
             meaningKo: '학문이나 기술을 배우고 익히다',
             level: 3,
             isDownloaded: false,
-            isBookmarked: false,
+            isBookmarked: true,
           ),
-          repo.VocabularyItem(
+        ),
+        BookmarkedVocabulary(
+          id: 'bm-2',
+          vocabulary: const repo.VocabularyItem(
             id: 'v20',
             word: '운동하다',
             meaningKo: '몸을 움직여 운동을 하다',
             level: 3,
             isDownloaded: false,
-            isBookmarked: false,
+            isBookmarked: true,
           ),
-        ],
-        page: 1,
-        limit: 20,
-        total: 2,
-      );
+        ),
+      ];
 
       final strings = AppStrings.of('ko');
 
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            repo.vocabularyProvider.overrideWith((ref, query) async => mockPage),
-            bookmarkedVocabularyProvider.overrideWith((ref) async => []),
+            bookmarkedVocabularyProvider.overrideWith((ref) async => mockSavedWords),
           ],
           child: const MaterialApp(
             home: VocaListTabView(),
@@ -429,7 +424,7 @@ void main() {
       expect(find.text('운동하다'), findsOneWidget);
     });
 
-    testWidgets('VocaListTabView correctly displays bookmarked words and supports toggling views', (
+    testWidgets('VocaListTabView displays saved words without exposing global words', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(1080, 2400);
@@ -438,30 +433,6 @@ void main() {
         tester.view.resetPhysicalSize();
         tester.view.resetDevicePixelRatio();
       });
-
-      const globalWords = repo.VocabularyPage(
-        items: [
-          repo.VocabularyItem(
-            id: 'v1',
-            word: '가족',
-            meaningKo: '가족 구성원',
-            level: 1,
-            isDownloaded: false,
-            isBookmarked: false,
-          ),
-          repo.VocabularyItem(
-            id: 'v2',
-            word: '학교',
-            meaningKo: '배우는 곳',
-            level: 1,
-            isDownloaded: false,
-            isBookmarked: false,
-          ),
-        ],
-        page: 1,
-        limit: 20,
-        total: 2,
-      );
 
       final savedWord = BookmarkedVocabulary(
         id: 'bm-1',
@@ -478,7 +449,6 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            repo.vocabularyProvider.overrideWith((ref, query) async => globalWords),
             bookmarkedVocabularyProvider.overrideWith((ref) async => [savedWord]),
           ],
           child: const MaterialApp(
@@ -488,20 +458,21 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // By default when bookmarked words exist, saved words are shown immediately!
+      // Smart Wordbook only shows saved words!
       expect(find.text('기후변화'), findsOneWidget);
       expect(find.text('가족'), findsNothing);
 
-      // Tap Star filter toggle button to switch to all words
-      final starFilterButton = find.byIcon(Icons.star_rounded).first;
-      expect(starFilterButton, findsOneWidget);
-      await tester.tap(starFilterButton);
+      // Open search and search for an un-saved word
+      final searchToggle = find.byIcon(Icons.search);
+      await tester.tap(searchToggle);
       await tester.pumpAndSettle();
 
-      // Now all global words should be shown!
-      expect(find.text('가족'), findsOneWidget);
-      expect(find.text('학교'), findsOneWidget);
-      expect(find.text('기후변화'), findsNothing);
+      await tester.enterText(find.byType(TextField), '가족');
+      await tester.pumpAndSettle();
+
+      // Global dictionary words are never shown in Smart Wordbook
+      expect(find.byType(VocaWordCard), findsNothing);
+      expect(find.text('검색 결과가 없습니다'), findsOneWidget);
     });
 
     testWidgets('Newly saved/added words are placed at the very top (front) of Smart Wordbook', (

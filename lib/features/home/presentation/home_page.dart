@@ -13,8 +13,6 @@ import 'package:topik_go/features/grammar/data/korean_grammar_service.dart';
 import 'package:topik_go/core/services/translation_service.dart';
 import 'package:topik_go/features/users/data/user_profile.dart';
 import 'package:topik_go/features/users/data/user_repository.dart';
-import 'package:topik_go/features/vocabulary/domain/vocabulary_study_models.dart';
-import 'package:topik_go/features/vocabulary/presentation/vocabulary_source_sheet.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -363,7 +361,7 @@ class _DailyWordSection extends StatelessWidget {
                 bgColor: const Color(0xFFE9F7EF),
                 title: strings.flashcard,
                 desc: strings.flashcardDesc,
-                onTap: () => VocabularySourceSheet.show(context, VocabularyStudyMode.flashcard),
+                onTap: () => context.push('/vocabulary/flashcard?source=saved'),
               ),
               _OneVocaLauncherTile(
                 icon: Icons.check_circle_outline,
@@ -371,7 +369,7 @@ class _DailyWordSection extends StatelessWidget {
                 bgColor: const Color(0xFFEAF1FF),
                 title: strings.quiz,
                 desc: strings.quizDesc,
-                onTap: () => VocabularySourceSheet.show(context, VocabularyStudyMode.quiz),
+                onTap: () => context.push('/vocabulary/quiz?source=saved'),
               ),
               _OneVocaLauncherTile(
                 icon: Icons.edit_note,
@@ -379,7 +377,7 @@ class _DailyWordSection extends StatelessWidget {
                 bgColor: const Color(0xFFFFF1DC),
                 title: strings.dictation,
                 desc: strings.dictationDesc,
-                onTap: () => VocabularySourceSheet.show(context, VocabularyStudyMode.dictation),
+                onTap: () => context.push('/vocabulary/dictation?source=saved'),
               ),
               _OneVocaLauncherTile(
                 icon: Icons.headphones_outlined,
@@ -387,7 +385,7 @@ class _DailyWordSection extends StatelessWidget {
                 bgColor: const Color(0xFFF3E8FF),
                 title: strings.autoplay,
                 desc: strings.autoplayDesc,
-                onTap: () => VocabularySourceSheet.show(context, VocabularyStudyMode.autoplay),
+                onTap: () => context.push('/vocabulary/autoplay?source=saved'),
               ),
             ],
           ),

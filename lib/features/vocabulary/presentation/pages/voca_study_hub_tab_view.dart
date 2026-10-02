@@ -7,13 +7,17 @@ import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/vocabulary/domain/vocabulary_mastery_service.dart';
 import 'package:topik_go/features/vocabulary/domain/vocabulary_study_models.dart';
-import 'package:topik_go/features/vocabulary/presentation/vocabulary_source_sheet.dart';
-
 class VocaStudyHubTabView extends ConsumerWidget {
   const VocaStudyHubTabView({super.key});
 
   void _openStudyMode(BuildContext context, VocabularyStudyMode mode) {
-    VocabularySourceSheet.show(context, mode);
+    final route = switch (mode) {
+      VocabularyStudyMode.flashcard => '/vocabulary/flashcard?source=saved',
+      VocabularyStudyMode.quiz => '/vocabulary/quiz?source=saved',
+      VocabularyStudyMode.dictation => '/vocabulary/dictation?source=saved',
+      VocabularyStudyMode.autoplay => '/vocabulary/autoplay?source=saved',
+    };
+    context.push(route);
   }
 
   @override

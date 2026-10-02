@@ -223,7 +223,37 @@ class _VocabularyFlashcardPageState
         data: (items) {
           if (items.isEmpty) {
             return Center(
-              child: Text(strings.noBookmarks, style: const TextStyle(color: Color(0xFF64748B))),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.style_outlined, size: 56, color: Color(0xFF94A3B8)),
+                    const SizedBox(height: 16),
+                    Text(
+                      strings.noBookmarks,
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      '토픽 문제 풀이 중 모르는 단어를 터치하여 단어장에 저장하면 플래시카드로 복습할 수 있습니다.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.5),
+                    ),
+                    const SizedBox(height: 24),
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.mintDark,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () => context.push('/practice'),
+                      icon: const Icon(Icons.school_outlined, size: 18),
+                      label: const Text('토픽 문제 풀러 가기', style: TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                  ],
+                ),
+              ),
             );
           }
 
