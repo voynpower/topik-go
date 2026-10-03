@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/core/localization/app_strings.dart';
 import 'package:topik_go/core/localization/app_strings_provider.dart';
+import 'package:topik_go/core/topik_mode/topik_mode_provider.dart';
+import 'package:topik_go/core/topik_mode/topik_mode_toggle.dart';
 
 class PracticePage extends ConsumerWidget {
   const PracticePage({super.key});
@@ -11,12 +13,33 @@ class PracticePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final strings = ref.watch(appStringsProvider);
+    final topikMode = ref.watch(topikModeProvider);
+
+    final readingTitle = topikMode.isTopik1
+        ? strings.readingPractice.replaceAll('TOPIK II', 'TOPIK I')
+        : strings.readingPractice;
+    final readingDesc = topikMode.isTopik1
+        ? strings.readingPracticeDesc.replaceAll('TOPIK II', 'TOPIK I')
+        : strings.readingPracticeDesc;
+
+    final listeningTitle = topikMode.isTopik1
+        ? strings.listeningPractice.replaceAll('TOPIK II', 'TOPIK I')
+        : strings.listeningPractice;
+    final listeningDesc = topikMode.isTopik1
+        ? strings.listeningPracticeDesc.replaceAll('TOPIK II', 'TOPIK I')
+        : strings.listeningPracticeDesc;
 
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: Text(strings.practiceTitle),
         backgroundColor: Colors.transparent,
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 16),
+            child: TopikModeToggle(isCompact: true),
+          ),
+        ],
       ),
       body: DecoratedBox(
         decoration: const BoxDecoration(
@@ -41,26 +64,27 @@ class PracticePage extends ConsumerWidget {
                 icon: Icons.menu_book_outlined,
                 iconColor: const Color(0xFF1D8F86),
                 backgroundColor: const Color(0xFFE8F8F3),
-                title: strings.readingPractice,
-                subtitle: strings.readingPracticeDesc,
+                title: readingTitle,
+                subtitle: readingDesc,
                 onTap: () => context.push('/reading-practice'),
               ),
               _MenuTile(
                 icon: Icons.headphones_outlined,
                 iconColor: const Color(0xFF2E6BD9),
                 backgroundColor: const Color(0xFFEAF1FF),
-                title: strings.listeningPractice,
-                subtitle: strings.listeningPracticeDesc,
+                title: listeningTitle,
+                subtitle: listeningDesc,
                 onTap: () => context.push('/listening-practice'),
               ),
-              _MenuTile(
-                icon: Icons.edit_note_outlined,
-                iconColor: const Color(0xFFD07A21),
-                backgroundColor: const Color(0xFFFFF1DC),
-                title: strings.writingPractice,
-                subtitle: strings.writingPracticeDesc,
-                onTap: () => context.push('/writing-practice'),
-              ),
+              if (topikMode.hasWriting)
+                _MenuTile(
+                  icon: Icons.edit_note_outlined,
+                  iconColor: const Color(0xFFD07A21),
+                  backgroundColor: const Color(0xFFFFF1DC),
+                  title: strings.writingPractice,
+                  subtitle: strings.writingPracticeDesc,
+                  onTap: () => context.push('/writing-practice'),
+                ),
               const SizedBox(height: 18),
               _SectionTitle(
                 icon: Icons.auto_stories_outlined,

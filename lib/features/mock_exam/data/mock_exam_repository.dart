@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:topik_go/core/network/dio_provider.dart';
+import 'package:topik_go/core/topik_mode/topik_mode_provider.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart';
 import 'package:topik_go/features/question_sets/data/question_set_repository.dart';
 import 'package:topik_go/features/questions/data/question_repository.dart';
@@ -388,86 +389,118 @@ class MockExamRepository {
   Future<MockExamDetail> loadFullTopikExam({
     required WidgetRef ref,
     required String round,
-    int totalDurationSeconds = 180 * 60,
+    TopikMode mode = TopikMode.topik2,
+    int? totalDurationSeconds,
   }) async {
     final sets = await ref
         .read(questionSetsProvider.future)
         .catchError((_) => <QuestionSet>[]);
     final questionRepo = ref.read(questionRepositoryProvider);
 
+    final isTopik1 = mode == TopikMode.topik1;
+    final prefix = isTopik1 ? 'topik1' : 'topik2';
+    final effectiveDuration =
+        totalDurationSeconds ?? (isTopik1 ? 100 * 60 : 180 * 60);
+
     bool isMatch(QuestionSet set) {
       final haystack = '${set.id} ${set.title}'.toLowerCase();
-      return RegExp('(^|[^0-9])$round([^0-9]|\$)').hasMatch(haystack);
+      final hasRound = RegExp('(^|[^0-9])$round([^0-9]|\$)').hasMatch(haystack);
+      final hasMode = isTopik1
+          ? (haystack.contains('topik1') ||
+              haystack.contains('topik 1') ||
+              haystack.contains('topik i ') ||
+              haystack.contains('topik i-'))
+          : (haystack.contains('topik2') ||
+              haystack.contains('topik 2') ||
+              haystack.contains('topik ii'));
+      return hasRound && hasMode;
     }
 
     final listeningSet = sets.cast<QuestionSet?>().firstWhere(
       (s) => s != null && s.section.toLowerCase() == 'listening' && isMatch(s),
       orElse: () => null,
     );
-    final listeningSetId = listeningSet?.id ?? 'topik2-$round-listening';
-
-    final writingSet = sets.cast<QuestionSet?>().firstWhere(
-      (s) => s != null && s.section.toLowerCase() == 'writing' && isMatch(s),
-      orElse: () => null,
-    );
-    final writingSetId = writingSet?.id ?? 'topik2-$round-writing';
+    final listeningSetId = listeningSet?.id ?? '$prefix-$round-listening';
 
     final readingSet = sets.cast<QuestionSet?>().firstWhere(
       (s) => s != null && s.section.toLowerCase() == 'reading' && isMatch(s),
       orElse: () => null,
     );
-    final readingSetId = readingSet?.id ?? 'topik2-$round-reading';
+    final readingSetId = readingSet?.id ?? '$prefix-$round-reading';
 
-    final responses = await Future.wait([
+    final listeningLimit = isTopik1 ? 30 : 50;
+    final readingLimit = isTopik1 ? 40 : 50;
+
+    final futures = <Future<QuestionPage>>[
       questionRepo
           .getAllQuestionsForPracticeSet(
             section: 'listening',
             setId: listeningSetId,
-            maxItems: 50,
+            maxItems: listeningLimit,
           )
           .catchError(
-            (_) => const QuestionPage(
-              items: [],
+            (_) => QuestionPage(
+              items: const [],
               total: 0,
               page: 1,
-              limit: 50,
+              limit: listeningLimit,
             ),
           ),
-      questionRepo
-          .getAllQuestionsForPracticeSet(
-            section: 'writing',
-            setId: writingSetId,
-            maxItems: 4,
-          )
-          .catchError(
-            (_) => const QuestionPage(
-              items: [],
-              total: 0,
-              page: 1,
-              limit: 4,
+    ];
+
+    if (!isTopik1) {
+      final writingSet = sets.cast<QuestionSet?>().firstWhere(
+        (s) => s != null && s.section.toLowerCase() == 'writing' && isMatch(s),
+        orElse: () => null,
+      );
+      final writingSetId = writingSet?.id ?? 'topik2-$round-writing';
+      futures.add(
+        questionRepo
+            .getAllQuestionsForPracticeSet(
+              section: 'writing',
+              setId: writingSetId,
+              maxItems: 4,
+            )
+            .catchError(
+              (_) => const QuestionPage(
+                items: [],
+                total: 0,
+                page: 1,
+                limit: 4,
+              ),
             ),
-          ),
+      );
+    }
+
+    futures.add(
       questionRepo
           .getAllQuestionsForPracticeSet(
             section: 'reading',
             setId: readingSetId,
-            maxItems: 50,
+            maxItems: readingLimit,
           )
           .catchError(
-            (_) => const QuestionPage(
-              items: [],
+            (_) => QuestionPage(
+              items: const [],
               total: 0,
               page: 1,
-              limit: 50,
+              limit: readingLimit,
             ),
           ),
-    ]);
+    );
+
+    final responses = await Future.wait(futures);
 
     final listeningQuestions = List<Question>.from(responses[0].items)
       ..sort((a, b) => a.questionNumber.compareTo(b.questionNumber));
-    final writingQuestions = List<Question>.from(responses[1].items)
-      ..sort((a, b) => a.questionNumber.compareTo(b.questionNumber));
-    final readingQuestions = List<Question>.from(responses[2].items)
+
+    final writingQuestions = isTopik1
+        ? <Question>[]
+        : (List<Question>.from(responses[1].items)
+            ..sort((a, b) => a.questionNumber.compareTo(b.questionNumber)));
+
+    final readingIndex = isTopik1 ? 1 : 2;
+    final readingQuestions = List<Question>.from(responses[readingIndex].items)
       ..sort((a, b) => a.questionNumber.compareTo(b.questionNumber));
 
     final combinedQuestions = [
@@ -476,25 +509,26 @@ class MockExamRepository {
       ...readingQuestions,
     ];
 
-    String sessionId = 'topik-$round-${DateTime.now().millisecondsSinceEpoch}';
+    String sessionId = '$prefix-$round-${DateTime.now().millisecondsSinceEpoch}';
     try {
       final remoteDetail = await createSession(
         setId: listeningSetId,
-        remainingSeconds: totalDurationSeconds,
+        remainingSeconds: effectiveDuration,
       );
       if (remoteDetail.session.id.isNotEmpty) {
         sessionId = remoteDetail.session.id;
       }
     } catch (_) {}
 
+    final examLabel = isTopik1 ? 'TOPIK I' : 'TOPIK II';
     final session = MockExamSession(
       id: sessionId,
-      setId: 'topik-$round',
+      setId: '$prefix-$round',
       status: 'in_progress',
       currentIndex: 0,
-      remainingSeconds: totalDurationSeconds,
+      remainingSeconds: effectiveDuration,
       totalQuestions: combinedQuestions.length,
-      title: 'TOPIK II · 제$round회',
+      title: '$examLabel · 제$round회',
     );
 
     return MockExamDetail(

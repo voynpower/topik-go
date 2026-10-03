@@ -70,7 +70,8 @@ String? readResolvedPracticeSetId(
 bool _isActualSet(QuestionSet set) {
   if (set.examKind?.toLowerCase() == 'mock') return false;
   final haystack = '${set.id} ${set.title}'.toLowerCase();
-  return haystack.contains('topik2-') ||
+  return haystack.contains('topik1-') ||
+      haystack.contains('topik2-') ||
       haystack.contains('actual') ||
       haystack.contains('past') ||
       haystack.contains('real') ||

@@ -4,6 +4,7 @@ class PrefsKeys {
   static const preferredLanguageCode = 'preferred_language_code';
   static const targetTopikLevel = 'target_topik_level';
   static const onboardingCompleted = 'onboarding_completed';
+  static const activeTopikMode = 'active_topik_mode';
   static const accessToken = 'access_token';
   static const refreshToken = 'refresh_token';
 }

@@ -4,6 +4,8 @@ import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/core/localization/app_strings.dart';
 import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/core/network/api_media_url.dart';
+import 'package:topik_go/core/topik_mode/topik_mode_provider.dart';
+import 'package:topik_go/core/topik_mode/topik_mode_toggle.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart';
 import 'package:topik_go/features/questions/data/question_repository.dart';
@@ -48,10 +50,10 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
   int _currentGroupIndex = 0;
   final Map<String, String> _selectedAnswers = {};
   _PracticeSummary? _summary;
-  String _selectedRoundId = 'topik2-102-reading';
+  String? _selectedRoundId;
   String _selectedText = '';
 
-  Widget _buildRoundSelector() {
+  Widget _buildRoundSelector(String currentRoundId, bool isTopik1) {
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -60,17 +62,23 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
         physics: const BouncingScrollPhysics(),
         child: Row(
           children: [
-            _roundChip('topik2-102-reading', '제102회 기출 읽기 (50문항)'),
-            const SizedBox(width: 8),
-            _roundChip('topik2-83-reading', '제83회 기출 읽기 (50문항)'),
+            if (isTopik1) ...[
+              _roundChip('topik1-102-reading', '제102회 기출 읽기 (40문항)', currentRoundId),
+              const SizedBox(width: 8),
+              _roundChip('topik1-83-reading', '제83회 기출 읽기 (40문항)', currentRoundId),
+            ] else ...[
+              _roundChip('topik2-102-reading', '제102회 기출 읽기 (50문항)', currentRoundId),
+              const SizedBox(width: 8),
+              _roundChip('topik2-83-reading', '제83회 기출 읽기 (50문항)', currentRoundId),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _roundChip(String id, String label) {
-    final isSelected = _selectedRoundId == id;
+  Widget _roundChip(String id, String label, String currentRoundId) {
+    final isSelected = currentRoundId == id;
     return ChoiceChip(
       label: Text(label),
       selected: isSelected,
@@ -84,7 +92,7 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
         color: isSelected ? AppColors.mintDark : Colors.black12,
       ),
       onSelected: (_) {
-        if (_selectedRoundId != id) {
+        if (currentRoundId != id) {
           setState(() {
             _selectedRoundId = id;
             _currentGroupIndex = 0;
@@ -228,7 +236,13 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
     );
   }
 
-  int? _getGroupEndForReading(int qNum) {
+  int? _getGroupEndForReading(int qNum, {bool isTopik1 = false}) {
+    if (isTopik1) {
+      if (qNum >= 49 && qNum <= 69 && qNum.isOdd) {
+        return qNum + 1;
+      }
+      return null;
+    }
     if (qNum == 19) return 20;
     if (qNum == 21) return 22;
     if (qNum == 23) return 24;
@@ -243,6 +257,7 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
     final sorted = List<Question>.from(questions)
       ..sort((a, b) => a.questionNumber.compareTo(b.questionNumber));
 
+    final isTopik1 = sorted.any((x) => x.setId?.contains('topik1') ?? false);
     final groups = <ReadingQuestionGroup>[];
     final handled = <String>{};
 
@@ -251,7 +266,7 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
       if (handled.contains(q.id)) continue;
 
       final qNum = q.questionNumber;
-      final groupEnd = _getGroupEndForReading(qNum);
+      final groupEnd = _getGroupEndForReading(qNum, isTopik1: isTopik1);
 
       if (groupEnd != null) {
         final subList = sorted
@@ -321,7 +336,8 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
       }
     }
 
-    final canonical = _canonicalPassageForRound(_selectedRoundId, startNumber);
+    final round = _selectedRoundId ?? (questions.isNotEmpty ? (questions.first.setId ?? 'topik2-102-reading') : 'topik2-102-reading');
+    final canonical = _canonicalPassageForRound(round, startNumber);
     if (canonical != null) return canonical;
 
     for (final q in questions) {
@@ -341,7 +357,8 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
     final p = q.passageText?.trim();
     if (q.questionNumber == 41 &&
         (p == null || p.length < 10 || p == '4' || p.trim() == '4.')) {
-      return _canonicalPassageForRound(_selectedRoundId, 41);
+      final round = _selectedRoundId ?? (q.setId ?? 'topik2-102-reading');
+      return _canonicalPassageForRound(round, 41);
     }
     if (p != null && p.isNotEmpty && !_isQuestionPromptText(p)) {
       return p;
@@ -373,8 +390,9 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
     if (cleaned == '${q.questionNumber}번' ||
         cleaned == '${q.questionNumber}번 문항' ||
         cleaned == '${q.questionNumber}.') {
+      final round = _selectedRoundId ?? (q.setId ?? 'topik2-102-reading');
       final canonical = _canonicalPromptForRound(
-        _selectedRoundId,
+        round,
         q.questionNumber,
       );
       if (canonical != null) return canonical;
@@ -388,7 +406,8 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
     if (q.questionNumber == 46 &&
         q.options.isNotEmpty &&
         q.options.first.text == '㉠') {
-      final canonicalList = _canonicalOptionsForQ46(_selectedRoundId);
+      final round = _selectedRoundId ?? (q.setId ?? 'topik2-102-reading');
+      final canonicalList = _canonicalOptionsForQ46(round);
       return List<QuestionOption>.generate(
         4,
         (i) => QuestionOption(
@@ -404,11 +423,20 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
   @override
   Widget build(BuildContext context) {
     final strings = ref.watch(appStringsProvider);
+    final mode = ref.watch(topikModeProvider);
+    final isTopik1 = mode == TopikMode.topik1;
+    final defaultRound =
+        isTopik1 ? 'topik1-102-reading' : 'topik2-102-reading';
+    final currentRoundId = (_selectedRoundId != null &&
+            _selectedRoundId!.startsWith(isTopik1 ? 'topik1' : 'topik2'))
+        ? _selectedRoundId!
+        : defaultRound;
+
     final questionsAsync = ref.watch(
       practiceQuestionsProvider(
         PracticeSetQuestionsKey(
           section: ReadingPracticeSet.section,
-          setId: _selectedRoundId,
+          setId: currentRoundId,
         ),
       ),
     );
@@ -423,6 +451,10 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
             tooltip: strings.searchWordOrGrammar,
             onPressed: () => showWordLookupSheet(context),
           ),
+          const Padding(
+            padding: EdgeInsets.only(right: 12),
+            child: TopikModeToggle(isCompact: true),
+          ),
         ],
       ),
       body: questionsAsync.when(
@@ -430,7 +462,7 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
           if (page.items.isEmpty) {
             return Column(
               children: [
-                _buildRoundSelector(),
+                _buildRoundSelector(currentRoundId, isTopik1),
                 const Expanded(
                   child: Center(child: Text('읽기 문제를 불러올 수 없습니다.')),
                 ),
@@ -446,7 +478,7 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
 
           return Column(
             children: [
-              _buildRoundSelector(),
+              _buildRoundSelector(currentRoundId, isTopik1),
               _ProgressHeader(
                 rangeLabel: currentGroup.rangeLabel,
                 currentGroupIndex: safeGroupIndex + 1,

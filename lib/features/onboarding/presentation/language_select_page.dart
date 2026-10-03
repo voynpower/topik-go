@@ -44,9 +44,10 @@ class _LanguageSelectPageState extends State<LanguageSelectPage> {
   Future<void> _saveLanguageAndContinue() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(PrefsKeys.preferredLanguageCode, selected);
+    await prefs.setBool(PrefsKeys.onboardingCompleted, true);
 
     if (!mounted) return;
-    context.go('/goal-level');
+    context.go('/auth/login');
   }
 
   @override
