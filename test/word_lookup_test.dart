@@ -401,6 +401,81 @@ void main() {
       expect(totalQ, 50);
     });
 
+    test('ListeningQuestionGroup pairs TOPIK 1 questions 25 to 30 correctly (27 groups total)', () {
+      final sampleQuestions = List<Question>.generate(
+        30,
+        (i) => Question(
+          id: 'topik1-102-listening-q${i + 1}',
+          setId: 'topik1-102-listening',
+          section: 'listening',
+          questionType: 'multiple_choice',
+          questionNumber: i + 1,
+          prompt: 'Question ${i + 1}',
+          options: const [],
+          correctAnswer: '1',
+          explanation: '',
+          media: const [],
+        ),
+      );
+
+      final handled = <String>{};
+      final groups = <ListeningQuestionGroup>[];
+
+      for (int i = 0; i < sampleQuestions.length; i++) {
+        final q = sampleQuestions[i];
+        if (handled.contains(q.id)) continue;
+        final qNum = q.questionNumber;
+        int? groupEnd;
+        // TOPIK I: only 25~26, 27~28, 29~30
+        if (qNum >= 25 && qNum <= 29 && qNum.isOdd) {
+          groupEnd = qNum + 1;
+        }
+
+        if (groupEnd != null) {
+          final subList = sampleQuestions
+              .where((x) => x.questionNumber >= qNum && x.questionNumber <= groupEnd!)
+              .toList();
+          for (final item in subList) {
+            handled.add(item.id);
+          }
+          groups.add(
+            ListeningQuestionGroup(
+              id: 'group-$qNum-$groupEnd',
+              questions: subList,
+            ),
+          );
+          continue;
+        }
+
+        handled.add(q.id);
+        groups.add(
+          ListeningQuestionGroup(
+            id: q.id,
+            questions: [q],
+          ),
+        );
+      }
+
+      // Q1 to Q24 are individual (24 groups)
+      for (int i = 1; i <= 24; i++) {
+        final g = groups.firstWhere((x) => x.startNumber == i);
+        expect(g.questions.length, 1);
+        expect(g.rangeLabel, '$i번');
+      }
+
+      // Q25 to Q30 are 3 pairs (3 groups)
+      for (int i = 25; i <= 29; i += 2) {
+        final g = groups.firstWhere((x) => x.startNumber == i);
+        expect(g.questions.length, 2);
+        expect(g.rangeLabel, '$i~${i + 1}번');
+      }
+
+      // Total groups: 24 + 3 = 27 groups
+      expect(groups.length, 27);
+      final totalQ = groups.fold<int>(0, (sum, g) => sum + g.questions.length);
+      expect(totalQ, 30);
+    });
+
     testWidgets('WordLookupSheet renders search results without level badges', (
       tester,
     ) async {
@@ -499,6 +574,129 @@ void main() {
       expect(find.text("O'zbekcha"), findsOneWidget);
       expect(find.text('한국어'), findsOneWidget);
       expect(find.text('Русский'), findsOneWidget);
+    });
+
+    testWidgets('ListeningPracticePage does not duplicate transcript in AnswerResultCard', (tester) async {
+      final sampleQuestions = [
+        const Question(
+          id: 'topik2-102-listening-q4',
+          setId: 'topik2-102-listening',
+          section: 'listening',
+          questionType: 'multiple_choice',
+          questionNumber: 4,
+          prompt: '4. 다음을 듣고 이어질 수 있는 말로 가장 알맞은 것을 고르십시오.',
+          options: [
+            QuestionOption(id: 'opt-1', label: '1', text: '선택지 1'),
+            QuestionOption(id: 'opt-2', label: '2', text: '선택지 2'),
+            QuestionOption(id: 'opt-3', label: '3', text: '선택지 3'),
+            QuestionOption(id: 'opt-4', label: '4', text: '선택지 4'),
+          ],
+          correctAnswer: '1',
+          explanation: '[듣기 대본]\n남자: 우산이 있어요?\n여자 : 네, 있어요.\n\n[정답 해설] 정답은 1번입니다.',
+          media: [],
+        ),
+      ];
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            practiceQuestionsProvider(
+              const PracticeSetQuestionsKey(
+                section: 'listening',
+                setId: 'topik2-102-listening',
+              ),
+            ).overrideWith(
+              (ref) async => QuestionPage(
+                items: sampleQuestions,
+                page: 1,
+                limit: 1,
+                total: 1,
+              ),
+            ),
+          ],
+          child: const MaterialApp(
+            home: ListeningPracticePage(),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // TranscriptCard is rendered (icon or button label)
+      expect(find.byIcon(Icons.description_outlined), findsOneWidget);
+
+      // Select option 1
+      await tester.tap(find.text('선택지 1'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // AnswerResultCard displays "정답입니다!" and "정답: 1번"
+      expect(find.text('정답입니다!'), findsOneWidget);
+      expect(find.text('정답: 1번'), findsOneWidget);
+
+      // Verify that dialogue text "남자: 우산이 있어요?" is NOT duplicated in AnswerResultCard
+      // (It only appears if the user expands the dedicated TranscriptCard)
+      expect(find.textContaining('남자: 우산이 있어요?'), findsNothing);
+    });
+
+    testWidgets('ListeningPracticePage preserves meaningful explanation rationale in AnswerResultCard', (tester) async {
+      final sampleQuestions = [
+        const Question(
+          id: 'topik2-102-listening-q4',
+          setId: 'topik2-102-listening',
+          section: 'listening',
+          questionType: 'multiple_choice',
+          questionNumber: 4,
+          prompt: '4. 다음을 듣고 이어질 수 있는 말로 가장 알맞은 것을 고르십시오.',
+          options: [
+            QuestionOption(id: 'opt-1', label: '1', text: '선택지 1'),
+            QuestionOption(id: 'opt-2', label: '2', text: '선택지 2'),
+            QuestionOption(id: 'opt-3', label: '3', text: '선택지 3'),
+            QuestionOption(id: 'opt-4', label: '4', text: '선택지 4'),
+          ],
+          correctAnswer: '1',
+          explanation: '[듣기 대본]\n남자: 회의가 언제예요?\n여자: 내일 오후 두 시예요.\n\n[정답 해설] 정답은 1번입니다. 여자가 회의 시간을 명확히 안내하고 있기 때문입니다.',
+          media: [],
+        ),
+      ];
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            practiceQuestionsProvider(
+              const PracticeSetQuestionsKey(
+                section: 'listening',
+                setId: 'topik2-102-listening',
+              ),
+            ).overrideWith(
+              (ref) async => QuestionPage(
+                items: sampleQuestions,
+                page: 1,
+                limit: 1,
+                total: 1,
+              ),
+            ),
+          ],
+          child: const MaterialApp(
+            home: ListeningPracticePage(),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Select option 1
+      await tester.tap(find.text('선택지 1'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // The script is stripped out
+      expect(find.textContaining('남자: 회의가 언제예요?'), findsNothing);
+
+      // The real explanation rationale is shown cleanly
+      expect(find.textContaining('여자가 회의 시간을 명확히 안내하고 있기 때문입니다.'), findsOneWidget);
     });
   });
 }
