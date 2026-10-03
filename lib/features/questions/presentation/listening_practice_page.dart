@@ -145,7 +145,9 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
       int? groupEnd;
 
       if (isTopik1) {
-        if (qNum >= 17 && qNum <= 29 && qNum.isOdd) {
+        // TOPIK I Listening: Questions 1~24 are single questions with individual dialogues.
+        // Only questions 25-26, 27-28, and 29-30 share a listening passage in pairs.
+        if (qNum >= 25 && qNum <= 29 && qNum.isOdd) {
           groupEnd = qNum + 1;
         }
       } else {
@@ -1571,6 +1573,22 @@ class _AnswerResultCard extends StatelessWidget {
   String _cleanExplanation(String? raw) {
     if (raw == null || raw.trim().isEmpty) return '';
     var text = raw.trim();
+
+    // 듣기 대본 부분 분리 및 제거 (대본은 하단 _TranscriptCard에서 전담 표시)
+    if (text.contains('[정답 해설]')) {
+      final parts = text.split('[정답 해설]');
+      text = parts.length > 1 ? parts[1].trim() : '';
+    } else if (text.contains('[해설]')) {
+      final parts = text.split('[해설]');
+      text = parts.length > 1 ? parts[1].trim() : '';
+    } else if (text.contains('[Explanation]')) {
+      final parts = text.split('[Explanation]');
+      text = parts.length > 1 ? parts[1].trim() : '';
+    } else if (text.contains('[듣기 대본]') || text.contains('[Transcript]')) {
+      // 별도 해설 없이 대본만 있는 경우
+      return '';
+    }
+
     text = text
         .replaceAll(RegExp(r'---PAGE \d+---', caseSensitive: false), '')
         .replaceAll(RegExp(r'TOPIK\s*제?\d*회?.*', caseSensitive: false), '')
@@ -1583,6 +1601,21 @@ class _AnswerResultCard extends StatelessWidget {
         .replaceAll(RegExp(r'^\s*[①②③④\d\s\.\)]+$', multiLine: true), '')
         .replaceAll(RegExp(r'\n{3,}'), '\n\n')
         .trim();
+
+    // 상단에 이미 '정답입니다!' 및 '정답: X번', '정답 선택지'가 표시되므로
+    // 단순 '정답은 X번입니다.' 중복 문구만 있는 경우 카드 표시 생략
+    final redundantMatch = RegExp(
+      r'^(?:정답(?:은)?\s*[①②③④\d]번?(?:입니다)?\.?|Answer:\s*[①②③④\d]\.?)\s*',
+      caseSensitive: false,
+    );
+    if (redundantMatch.hasMatch(text)) {
+      final remaining = text.replaceFirst(redundantMatch, '').trim();
+      if (remaining.isEmpty) {
+        return '';
+      }
+      text = remaining;
+    }
+
     return text;
   }
 }
