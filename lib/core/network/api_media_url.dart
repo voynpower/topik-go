@@ -17,12 +17,25 @@ String resolveApiMediaUrl(String url) {
   final u = url.trim();
   if (u.isEmpty) return u;
   final lower = u.toLowerCase();
-  if (lower.startsWith('http://') || lower.startsWith('https://')) return u;
-  if (u.startsWith('//')) return 'https:$u';
-  final base = resolvedMediaBaseUrl.endsWith('/')
-      ? resolvedMediaBaseUrl.substring(0, resolvedMediaBaseUrl.length - 1)
-      : resolvedMediaBaseUrl;
-  final path = u.startsWith('/') ? u : '/$u';
-  return '$base$path';
+  String resolved;
+  if (lower.startsWith('http://') || lower.startsWith('https://')) {
+    resolved = u;
+  } else if (u.startsWith('//')) {
+    resolved = 'https:$u';
+  } else {
+    final base = resolvedMediaBaseUrl.endsWith('/')
+        ? resolvedMediaBaseUrl.substring(0, resolvedMediaBaseUrl.length - 1)
+        : resolvedMediaBaseUrl;
+    final path = u.startsWith('/') ? u : '/$u';
+    resolved = '$base$path';
+  }
+
+  if (resolved.contains('topik1-102') &&
+      resolved.contains('reading-q4') &&
+      !resolved.contains('?')) {
+    resolved = '$resolved?v=2';
+  }
+
+  return resolved;
 }
 
