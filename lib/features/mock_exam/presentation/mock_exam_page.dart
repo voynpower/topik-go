@@ -103,7 +103,9 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
             _audioPosition = Duration.zero;
             _audioDuration = Duration.zero;
           });
-          _scrollToQuestion(currentId);
+          if (player.playing) {
+            _scrollToQuestion(currentId);
+          }
         }
       }
     });
@@ -231,14 +233,56 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
   }
 
   void _scrollToQuestion(String questionId) {
-    final key = _questionKeys[questionId];
-    if (key?.currentContext != null) {
+    final key = _questionKeys.putIfAbsent(questionId, () => GlobalKey());
+    if (key.currentContext != null) {
       Scrollable.ensureVisible(
-        key!.currentContext!,
+        key.currentContext!,
         duration: const Duration(milliseconds: 350),
         curve: Curves.easeInOut,
         alignment: 0.05,
       );
+      return;
+    }
+
+    final questions = _detail?.questions ?? [];
+    final index = questions.indexWhere((q) => q.id == questionId);
+    if (index != -1 && _scrollController.hasClients) {
+      double estimatedOffset = 0.0;
+      String? prevSection;
+      for (int i = 0; i < index; i++) {
+        final sec = questions[i].section.toLowerCase();
+        if (sec != prevSection) {
+          estimatedOffset += 120.0;
+          prevSection = sec;
+        }
+        if (sec == 'listening') {
+          estimatedOffset += 480.0;
+        } else if (sec == 'writing') {
+          estimatedOffset += 650.0;
+        } else {
+          estimatedOffset += 620.0;
+        }
+      }
+      final maxScroll = _scrollController.position.maxScrollExtent;
+      final clampedOffset = estimatedOffset.clamp(0.0, maxScroll);
+      _scrollController
+          .animateTo(
+        clampedOffset,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      )
+          .then((_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (key.currentContext != null) {
+            Scrollable.ensureVisible(
+              key.currentContext!,
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOut,
+              alignment: 0.05,
+            );
+          }
+        });
+      });
     }
   }
 
@@ -781,7 +825,8 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
                     children: [
                       if (listeningQuestions.isNotEmpty) ...[
                         _buildSectionGrid(
-                          title: '🎧 듣기 (1~50번)',
+                          title:
+                              '🎧 듣기 (${listeningQuestions.first.questionNumber}~${listeningQuestions.last.questionNumber}번)',
                           questions: listeningQuestions,
                           onTapQuestion: (q) {
                             Navigator.of(ctx).pop();
@@ -792,10 +837,12 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
                       ],
                       if (writingQuestions.isNotEmpty) ...[
                         _buildSectionGrid(
-                          title: '✍️ 쓰기 (51~54번)',
+                          title:
+                              '✍️ 쓰기 (${writingQuestions.first.questionNumber}~${writingQuestions.last.questionNumber}번)',
                           questions: writingQuestions,
                           onTapQuestion: (q) {
                             Navigator.of(ctx).pop();
+                            _audioPlayer?.pause();
                             _scrollToQuestion(q.id);
                           },
                         ),
@@ -803,10 +850,12 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
                       ],
                       if (readingQuestions.isNotEmpty) ...[
                         _buildSectionGrid(
-                          title: '📖 읽기 (1~50번)',
+                          title:
+                              '📖 읽기 (${readingQuestions.first.questionNumber}~${readingQuestions.last.questionNumber}번)',
                           questions: readingQuestions,
                           onTapQuestion: (q) {
                             Navigator.of(ctx).pop();
+                            _audioPlayer?.pause();
                             _scrollToQuestion(q.id);
                           },
                         ),
@@ -2313,8 +2362,7 @@ class _ExamPanel extends ConsumerWidget {
                 _QuestionImage(media: image),
                 const SizedBox(height: 14),
               ],
-            ],
-            if (question.passageText?.trim().isNotEmpty ?? false) ...[
+            ] else if (question.passageText?.trim().isNotEmpty ?? false) ...[
               _PassageBox(text: question.passageText!.trim()),
               const SizedBox(height: 16),
             ],
@@ -2388,8 +2436,7 @@ class _ExamPanel extends ConsumerWidget {
                 _QuestionImage(media: image),
                 const SizedBox(height: 14),
               ],
-            ],
-            if (question.passageText?.trim().isNotEmpty ?? false) ...[
+            ] else if (question.passageText?.trim().isNotEmpty ?? false) ...[
               _PassageBox(text: question.passageText!.trim()),
               const SizedBox(height: 14),
             ],
@@ -3278,6 +3325,16 @@ class _ReviewQuestionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final question = item.question;
+    final reviewImages =
+        (question?.media ?? const <QuestionMedia>[]).where((m) {
+      final type = m.mediaType.toLowerCase();
+      final url = m.url.toLowerCase();
+      return type.contains('image') ||
+          url.endsWith('.png') ||
+          url.endsWith('.jpg') ||
+          url.endsWith('.jpeg') ||
+          url.endsWith('.webp');
+    }).toList();
     final isWriting = question?.section.toLowerCase() == 'writing';
     final selectedAnswer = item.answer?.selectedAnswer?.trim();
     final correctAnswer = question?.correctAnswer?.trim();
@@ -3364,19 +3421,12 @@ class _ReviewQuestionCard extends StatelessWidget {
                 ),
               ),
             ],
-            for (final img in (question?.media ?? const <QuestionMedia>[]).where((m) {
-              final type = m.mediaType.toLowerCase();
-              final url = m.url.toLowerCase();
-              return type.contains('image') ||
-                  url.endsWith('.png') ||
-                  url.endsWith('.jpg') ||
-                  url.endsWith('.jpeg') ||
-                  url.endsWith('.webp');
-            })) ...[
-              const SizedBox(height: 10),
-              _QuestionImage(media: img),
-            ],
-            if (question?.section.toLowerCase() != 'listening' &&
+            if (reviewImages.isNotEmpty) ...[
+              for (final img in reviewImages) ...[
+                const SizedBox(height: 10),
+                _QuestionImage(media: img),
+              ],
+            ] else if (question?.section.toLowerCase() != 'listening' &&
                 (question?.passageText?.trim().isNotEmpty ?? false)) ...[
               const SizedBox(height: 12),
               _PassageBox(text: question!.passageText!.trim()),
