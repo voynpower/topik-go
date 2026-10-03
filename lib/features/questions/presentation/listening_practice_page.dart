@@ -5,6 +5,8 @@ import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/core/localization/app_strings.dart';
 import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/core/network/api_media_url.dart';
+import 'package:topik_go/core/topik_mode/topik_mode_provider.dart';
+import 'package:topik_go/core/topik_mode/topik_mode_toggle.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart';
 import 'package:topik_go/features/questions/data/listening_practice_set.dart';
@@ -50,10 +52,10 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
   int _currentGroupIndex = 0;
   final Map<String, String> _selectedAnswers = {};
   _PracticeSummary? _summary;
-  String _selectedRoundId = 'topik2-102-listening';
+  String? _selectedRoundId;
   String _selectedText = '';
 
-  Widget _buildRoundSelector() {
+  Widget _buildRoundSelector(String currentRoundId, bool isTopik1) {
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -62,17 +64,23 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
         physics: const BouncingScrollPhysics(),
         child: Row(
           children: [
-            _roundChip('topik2-102-listening', '제102회 기출 듣기 (50문항)'),
-            const SizedBox(width: 8),
-            _roundChip('topik2-83-listening', '제83회 기출 듣기 (50문항)'),
+            if (isTopik1) ...[
+              _roundChip('topik1-102-listening', '제102회 기출 듣기 (30문항)', currentRoundId),
+              const SizedBox(width: 8),
+              _roundChip('topik1-83-listening', '제83회 기출 듣기 (30문항)', currentRoundId),
+            ] else ...[
+              _roundChip('topik2-102-listening', '제102회 기출 듣기 (50문항)', currentRoundId),
+              const SizedBox(width: 8),
+              _roundChip('topik2-83-listening', '제83회 기출 듣기 (50문항)', currentRoundId),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _roundChip(String id, String label) {
-    final isSelected = _selectedRoundId == id;
+  Widget _roundChip(String id, String label, String currentRoundId) {
+    final isSelected = currentRoundId == id;
     return ChoiceChip(
       label: Text(label),
       selected: isSelected,
@@ -86,7 +94,7 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
         color: isSelected ? AppColors.mintDark : Colors.black12,
       ),
       onSelected: (_) {
-        if (_selectedRoundId != id) {
+        if (currentRoundId != id) {
           setState(() {
             _selectedRoundId = id;
             _currentGroupIndex = 0;
@@ -106,7 +114,10 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
       return audio;
     }
     // Fallback CDN audio
-    final round = _selectedRoundId.contains('83') ? 'topik2-83' : 'topik2-102';
+    final isTopik1 = question.setId?.contains('topik1') ?? false;
+    final roundPrefix = isTopik1 ? 'topik1' : 'topik2';
+    final roundNum = question.setId?.contains('83') == true ? '83' : '102';
+    final round = '$roundPrefix-$roundNum';
     final pad = question.questionNumber.toString().padLeft(2, '0');
     final cdnUrl =
         'https://d361q8q8o0g3r7.cloudfront.net/topik/$round/listening-q$pad.mp3';
@@ -122,6 +133,7 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
     final sorted = List<Question>.from(questions)
       ..sort((a, b) => a.questionNumber.compareTo(b.questionNumber));
 
+    final isTopik1 = sorted.any((x) => x.setId?.contains('topik1') ?? false);
     final groups = <ListeningQuestionGroup>[];
     final handled = <String>{};
 
@@ -132,9 +144,15 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
       final qNum = q.questionNumber;
       int? groupEnd;
 
-      // Official TOPIK II listening pairs: 21-22, 23-24, ... up to 49-50
-      if (qNum >= 21 && qNum <= 49 && qNum.isOdd) {
-        groupEnd = qNum + 1;
+      if (isTopik1) {
+        if (qNum >= 17 && qNum <= 29 && qNum.isOdd) {
+          groupEnd = qNum + 1;
+        }
+      } else {
+        // Official TOPIK II listening pairs: 21-22, 23-24, ... up to 49-50
+        if (qNum >= 21 && qNum <= 49 && qNum.isOdd) {
+          groupEnd = qNum + 1;
+        }
       }
 
       if (groupEnd != null) {
@@ -261,11 +279,20 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
   @override
   Widget build(BuildContext context) {
     final strings = ref.watch(appStringsProvider);
+    final mode = ref.watch(topikModeProvider);
+    final isTopik1 = mode == TopikMode.topik1;
+    final defaultRound =
+        isTopik1 ? 'topik1-102-listening' : 'topik2-102-listening';
+    final currentRoundId = (_selectedRoundId != null &&
+            _selectedRoundId!.startsWith(isTopik1 ? 'topik1' : 'topik2'))
+        ? _selectedRoundId!
+        : defaultRound;
+
     final questions = ref.watch(
       practiceQuestionsProvider(
         PracticeSetQuestionsKey(
           section: ListeningPracticeSet.section,
-          setId: _selectedRoundId,
+          setId: currentRoundId,
         ),
       ),
     );
@@ -280,6 +307,10 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
             tooltip: strings.searchWordOrGrammar,
             onPressed: () => showWordLookupSheet(context),
           ),
+          const Padding(
+            padding: EdgeInsets.only(right: 12),
+            child: TopikModeToggle(isCompact: true),
+          ),
         ],
       ),
       body: questions.when(
@@ -287,7 +318,7 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
           if (page.items.isEmpty) {
             return Column(
               children: [
-                _buildRoundSelector(),
+                _buildRoundSelector(currentRoundId, isTopik1),
                 const Expanded(
                   child: Center(child: Text('듣기 문제를 불러올 수 없습니다.')),
                 ),
@@ -302,7 +333,7 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
 
           return Column(
             children: [
-              _buildRoundSelector(),
+              _buildRoundSelector(currentRoundId, isTopik1),
               _ProgressHeader(
                 rangeLabel: currentGroup.rangeLabel,
                 currentGroupIndex: safeGroupIndex + 1,
@@ -423,7 +454,7 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
             practiceQuestionsProvider(
               PracticeSetQuestionsKey(
                 section: ListeningPracticeSet.section,
-                setId: _selectedRoundId,
+                setId: currentRoundId,
               ),
             ),
           ),
@@ -521,7 +552,10 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
     required ValueChanged<String> onSelect,
   }) {
     final markers = ['①', '②', '③', '④'];
-    final round = _selectedRoundId.contains('83') ? 'topik2-83' : 'topik2-102';
+    final isTopik1 = question.setId?.contains('topik1') ?? false;
+    final roundPrefix = isTopik1 ? 'topik1' : 'topik2';
+    final roundNum = question.setId?.contains('83') == true ? '83' : '102';
+    final round = '$roundPrefix-$roundNum';
     final qNum = question.questionNumber;
 
     return GridView.builder(

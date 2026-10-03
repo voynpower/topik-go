@@ -9,6 +9,8 @@ import 'package:topik_go/core/localization/app_strings.dart';
 import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/core/network/api_error_message.dart';
 import 'package:topik_go/core/network/api_media_url.dart';
+import 'package:topik_go/core/topik_mode/topik_mode_provider.dart';
+import 'package:topik_go/core/topik_mode/topik_mode_toggle.dart';
 import 'package:topik_go/features/explanation_video/data/explanation_video_repository.dart';
 import 'package:topik_go/features/mock_exam/data/mock_exam_repository.dart';
 import 'package:topik_go/features/mock_exam/data/mock_exam_history_repository.dart';
@@ -418,8 +420,15 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
                 const SizedBox(height: 28),
                 historyAsync.when(
                   data: (history) {
+                    final mode = ref.watch(topikModeProvider);
+                    final isTopik1 = mode == TopikMode.topik1;
                     final filtered = history
-                        .where((h) => h.round == round)
+                        .where((h) {
+                          final matchesRound = h.round == round;
+                          final isH1 = h.title.contains('TOPIK I') ||
+                              h.sections.length == 2;
+                          return matchesRound && (isTopik1 ? isH1 : !isH1);
+                        })
                         .toList();
                     return _ExamHistorySection(
                       history: filtered,
@@ -444,6 +453,12 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
     }
 
     // ── Phase: Card selection (TOPIK 83 / 102) ──
+    final mode = ref.watch(topikModeProvider);
+    final isTopik1 = mode == TopikMode.topik1;
+    final modeLabel = isTopik1 ? 'TOPIK I' : 'TOPIK II';
+    final modeSubtitle =
+        isTopik1 ? 'TOPIK I · 초급 (1~2급)' : 'TOPIK II · 중·고급 (3~6급)';
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       body: _GradientBackground(
@@ -458,15 +473,15 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
               const SizedBox(height: 24),
               _TopikSelectCard(
                 round: '83',
-                title: 'TOPIK 제83회',
-                subtitle: 'TOPIK II · 중·고급 (3~6급)',
+                title: '$modeLabel 제83회',
+                subtitle: modeSubtitle,
                 onTap: () => setState(() => _selectedRound = '83'),
               ),
               const SizedBox(height: 14),
               _TopikSelectCard(
                 round: '102',
-                title: 'TOPIK 제102회',
-                subtitle: 'TOPIK II · 중·고급 (3~6급)',
+                title: '$modeLabel 제102회',
+                subtitle: modeSubtitle,
                 onTap: () => setState(() => _selectedRound = '102'),
               ),
             ],
@@ -509,6 +524,9 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
   }
 
   Future<void> _startExam(String round) async {
+    final mode = ref.read(topikModeProvider);
+    final isTopik1 = mode == TopikMode.topik1;
+    final totalDuration = isTopik1 ? 6000 : 10800; // 100분 vs 180분
     await _run(() async {
       _stopAndDisposeAudio();
       _examStartTime = DateTime.now();
@@ -516,7 +534,8 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
       final detail = await repository.loadFullTopikExam(
         ref: ref,
         round: round,
-        totalDurationSeconds: 10800, // 180분 = 10,800초
+        mode: mode,
+        totalDurationSeconds: totalDuration,
       );
 
       setState(() {
@@ -644,15 +663,19 @@ class _MockExamPageState extends ConsumerState<MockExamPage> {
           : result;
 
       final now = DateTime.now();
+      final mode = ref.read(topikModeProvider);
+      final isTopik1 = mode == TopikMode.topik1;
+      final modeLabel = isTopik1 ? 'TOPIK I' : 'TOPIK II';
+      final totalSeconds = isTopik1 ? 6000 : 10800;
       final historyItem = MockExamHistoryItem(
         id: detail.session.id,
-        title: detail.session.title ?? 'TOPIK II 제${_selectedRound ?? '83'}회',
+        title: detail.session.title ?? '$modeLabel 제${_selectedRound ?? '83'}회',
         round: _selectedRound ?? '83',
         startedAt: _examStartTime ??
-            now.subtract(Duration(seconds: 10800 - _remainingSeconds)),
+            now.subtract(Duration(seconds: totalSeconds - _remainingSeconds)),
         endedAt: now,
         isAutoSubmit: isAutoSubmit,
-        sections: const ['L', 'R', 'W'],
+        sections: isTopik1 ? const ['L', 'R'] : const ['L', 'R', 'W'],
         scorePercent: finalResult.summary.scorePercent,
         correctCount: finalResult.summary.correctCount,
         totalQuestions: finalResult.summary.totalQuestions,
@@ -921,26 +944,32 @@ class _RealExamHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFFE5E7EB)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-            color: const Color(0xFF1F2937),
-            onPressed: onBack,
-          ),
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+                color: const Color(0xFF1F2937),
+                onPressed: onBack,
+              ),
+            ),
+            const TopikModeToggle(isCompact: true),
+          ],
         ),
         const SizedBox(height: 16),
         Text(
@@ -966,7 +995,7 @@ class _RealExamHeader extends StatelessWidget {
   }
 }
 
-class _StartScreenHeader extends StatelessWidget {
+class _StartScreenHeader extends ConsumerWidget {
   const _StartScreenHeader({
     super.key,
     required this.round,
@@ -979,7 +1008,10 @@ class _StartScreenHeader extends StatelessWidget {
   final AppStrings strings;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(topikModeProvider);
+    final modeLabel = mode == TopikMode.topik1 ? 'TOPIK I' : 'TOPIK II';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1006,7 +1038,7 @@ class _StartScreenHeader extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Text(
-          'TOPIK 제$round회',
+          '$modeLabel 제$round회',
           style: const TextStyle(
             fontSize: 26,
             fontWeight: FontWeight.w900,
@@ -1028,7 +1060,7 @@ class _StartScreenHeader extends StatelessWidget {
   }
 }
 
-class _TopikSelectCard extends StatelessWidget {
+class _TopikSelectCard extends ConsumerWidget {
   const _TopikSelectCard({
     super.key,
     required this.round,
@@ -1043,7 +1075,18 @@ class _TopikSelectCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(topikModeProvider);
+    final isTopik1 = mode == TopikMode.topik1;
+    final badgeText = isTopik1 ? 'TOPIK I' : 'TOPIK II';
+    final badgeColor =
+        isTopik1 ? const Color(0xFF2E6BD9) : const Color(0xFF1D8F86);
+    final badgeBg =
+        isTopik1 ? const Color(0xFFEFF6FF) : const Color(0xFFE8F8F5);
+    final summaryText = isTopik1
+        ? '듣기 30 · 읽기 40 (총 100분)'
+        : '듣기 50 · 쓰기 4 · 읽기 50 (총 180분)';
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1076,13 +1119,13 @@ class _TopikSelectCard extends StatelessWidget {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE8F8F5),
+                        color: badgeBg,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Text(
-                        'TOPIK II',
+                      child: Text(
+                        badgeText,
                         style: TextStyle(
-                          color: Color(0xFF1D8F86),
+                          color: badgeColor,
                           fontWeight: FontWeight.w800,
                           fontSize: 13,
                         ),
@@ -1134,17 +1177,17 @@ class _TopikSelectCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: const Color(0xFFF3F4F6)),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
                       Icon(
                         Icons.timer_outlined,
                         size: 16,
-                        color: Color(0xFF1D8F86),
+                        color: badgeColor,
                       ),
-                      SizedBox(width: 6),
+                      const SizedBox(width: 6),
                       Text(
-                        '듣기 50 · 쓰기 4 · 읽기 50 (총 180분)',
-                        style: TextStyle(
+                        summaryText,
+                        style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
                           color: Color(0xFF374151),
@@ -1162,7 +1205,7 @@ class _TopikSelectCard extends StatelessWidget {
   }
 }
 
-class _RealExamCard extends StatelessWidget {
+class _RealExamCard extends ConsumerWidget {
   const _RealExamCard({
     super.key,
     required this.round,
@@ -1177,7 +1220,14 @@ class _RealExamCard extends StatelessWidget {
   final AppStrings strings;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(topikModeProvider);
+    final isTopik1 = mode == TopikMode.topik1;
+    final badgeColor =
+        isTopik1 ? const Color(0xFF2E6BD9) : const Color(0xFF1D8F86);
+    final badgeBg =
+        isTopik1 ? const Color(0xFFEFF6FF) : const Color(0xFFE8F8F5);
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -1201,22 +1251,22 @@ class _RealExamCard extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE8F8F5),
+                  color: badgeBg,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text(
-                  'TOPIK II',
+                child: Text(
+                  isTopik1 ? 'TOPIK I' : 'TOPIK II',
                   style: TextStyle(
-                    color: Color(0xFF1D8F86),
+                    color: badgeColor,
                     fontWeight: FontWeight.w800,
                     fontSize: 13,
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              const Text(
-                '중·고급 (3~6급 판정)',
-                style: TextStyle(
+              Text(
+                isTopik1 ? '초급 (1~2급 판정)' : '중·고급 (3~6급 판정)',
+                style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
                   color: Color(0xFF1F2937),
@@ -1232,30 +1282,36 @@ class _RealExamCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: const Color(0xFFF3F4F6)),
             ),
-            child: const Column(
+            child: Column(
               children: [
                 _ExamSectionRow(
                   section: '듣기',
-                  count: '50문항',
-                  time: '60분',
+                  count: isTopik1 ? '30문항' : '50문항',
+                  time: isTopik1 ? '40분' : '60분',
                   icon: Icons.headphones_outlined,
                 ),
-                Divider(height: 16, color: Color(0xFFE5E7EB)),
-                _ExamSectionRow(
-                  section: '쓰기',
-                  count: '4문항',
-                  time: '50분',
-                  icon: Icons.edit_note_outlined,
-                ),
-                Divider(height: 16, color: Color(0xFFE5E7EB)),
+                if (!isTopik1) ...[
+                  const Divider(height: 16, color: Color(0xFFE5E7EB)),
+                  const _ExamSectionRow(
+                    section: '쓰기',
+                    count: '4문항',
+                    time: '50분',
+                    icon: Icons.edit_note_outlined,
+                  ),
+                ],
+                const Divider(height: 16, color: Color(0xFFE5E7EB)),
                 _ExamSectionRow(
                   section: '읽기',
-                  count: '50문항',
-                  time: '70분',
+                  count: isTopik1 ? '40문항' : '50문항',
+                  time: isTopik1 ? '60분' : '70분',
                   icon: Icons.menu_book_outlined,
                 ),
-                SizedBox(height: 12),
-                _ExamTotalTimeRow(),
+                const SizedBox(height: 12),
+                _ExamTotalTimeRow(
+                  totalMinutes: isTopik1 ? 100 : 180,
+                  totalQuestions: isTopik1 ? 70 : 104,
+                  totalPoints: isTopik1 ? 200 : 300,
+                ),
               ],
             ),
           ),
@@ -1298,7 +1354,16 @@ class _RealExamCard extends StatelessWidget {
 }
 
 class _ExamTotalTimeRow extends StatelessWidget {
-  const _ExamTotalTimeRow({super.key});
+  const _ExamTotalTimeRow({
+    super.key,
+    this.totalMinutes = 180,
+    this.totalQuestions = 104,
+    this.totalPoints = 300,
+  });
+
+  final int totalMinutes;
+  final int totalQuestions;
+  final int totalPoints;
 
   @override
   Widget build(BuildContext context) {
@@ -1308,17 +1373,16 @@ class _ExamTotalTimeRow extends StatelessWidget {
         color: const Color(0xFFE8F8F5),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: const Row(
+      child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.timer_outlined, size: 18, color: Color(0xFF1D8F86)),
-          SizedBox(width: 6),
+          const Icon(Icons.timer_outlined, size: 18, color: Color(0xFF1D8F86)),
+          const SizedBox(width: 6),
           Text(
-            '총 시험 시간 180분',
-            style: TextStyle(
+            '총 시험 시간 $totalMinutes분 ($totalQuestions문항 · 총 $totalPoints점)',
+            style: const TextStyle(
               color: Color(0xFF1D8F86),
               fontWeight: FontWeight.w800,
-              fontSize: 14,
             ),
           ),
         ],
@@ -2077,16 +2141,23 @@ class _ExamPanel extends ConsumerWidget {
         .where((q) => q.section.toLowerCase() == 'reading')
         .toList();
 
+    final mode = ref.watch(topikModeProvider);
+    final isTopik1 = mode == TopikMode.topik1;
+
     return ListView(
       controller: scrollController,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
       children: [
         if (listening.isNotEmpty) ...[
-          const _SectionHeaderBanner(
-            title: '제1교시 · 듣기 영역 (1~50번)',
-            subtitle: '문제를 잘 듣고 질문에 맞는 답을 고르십시오. (각 2점)',
+          _SectionHeaderBanner(
+            title: isTopik1
+                ? '듣기 영역 (${listening.first.questionNumber}~${listening.last.questionNumber}번)'
+                : '제1교시 · 듣기 영역 (1~50번)',
+            subtitle: isTopik1
+                ? '문제를 잘 듣고 질문에 맞는 답을 고르십시오. (총 100점)'
+                : '문제를 잘 듣고 질문에 맞는 답을 고르십시오. (각 2점)',
             icon: Icons.headphones_rounded,
-            badgeColor: Color(0xFF2E6BD9),
+            badgeColor: const Color(0xFF2E6BD9),
           ),
           for (final q in listening) ...[
             _buildListeningQuestionCard(context, q),
@@ -2108,11 +2179,15 @@ class _ExamPanel extends ConsumerWidget {
         ],
         if (reading.isNotEmpty) ...[
           const SizedBox(height: 12),
-          const _SectionHeaderBanner(
-            title: '제2교시 · 읽기 영역 (1~50번)',
-            subtitle: '다음 글을 읽고 알맞은 것을 고르십시오. (각 2점)',
+          _SectionHeaderBanner(
+            title: isTopik1
+                ? '읽기 영역 (${reading.first.questionNumber}~${reading.last.questionNumber}번)'
+                : '제2교시 · 읽기 영역 (1~50번)',
+            subtitle: isTopik1
+                ? '다음 글을 읽고 알맞은 것을 고르십시오. (총 100점)'
+                : '다음 글을 읽고 알맞은 것을 고르십시오. (각 2점)',
             icon: Icons.menu_book_rounded,
-            badgeColor: Color(0xFF0D9488),
+            badgeColor: const Color(0xFF0D9488),
           ),
           for (final q in reading) ...[
             _buildReadingQuestionCard(context, q),
@@ -2795,6 +2870,55 @@ class _ResultCardState extends State<_ResultCard> {
         ? (summary.scorePercent / 100).clamp(0.0, 1.0)
         : 0.0;
 
+    final isTopik1 = (widget.result.session.setId?.contains('topik1') ?? false) ||
+        (widget.result.session.title?.contains('TOPIK I') ?? false);
+    final maxScore = isTopik1 ? 200 : 300;
+    final convertedScore = isTopik1
+        ? (summary.scorePercent * 2.0).round()
+        : (summary.scorePercent * 3.0).round();
+
+    final String gradeLabel;
+    final Color gradeColor;
+    final bool isPassed;
+
+    if (isTopik1) {
+      if (convertedScore >= 140) {
+        gradeLabel = '2급 합격 🎉';
+        gradeColor = const Color(0xFF1D8F86);
+        isPassed = true;
+      } else if (convertedScore >= 80) {
+        gradeLabel = '1급 합격 🎉';
+        gradeColor = const Color(0xFF2E6BD9);
+        isPassed = true;
+      } else {
+        gradeLabel = '불합격 (1급 기준 80점)';
+        gradeColor = const Color(0xFFDC2626);
+        isPassed = false;
+      }
+    } else {
+      if (convertedScore >= 230) {
+        gradeLabel = '6급 합격 🎉';
+        gradeColor = const Color(0xFF7C3AED);
+        isPassed = true;
+      } else if (convertedScore >= 190) {
+        gradeLabel = '5급 합격 🎉';
+        gradeColor = const Color(0xFF1D8F86);
+        isPassed = true;
+      } else if (convertedScore >= 150) {
+        gradeLabel = '4급 합격 🎉';
+        gradeColor = const Color(0xFF2E6BD9);
+        isPassed = true;
+      } else if (convertedScore >= 120) {
+        gradeLabel = '3급 합격 🎉';
+        gradeColor = const Color(0xFFF59E0B);
+        isPassed = true;
+      } else {
+        gradeLabel = '불합격 (3급 기준 120점)';
+        gradeColor = const Color(0xFFDC2626);
+        isPassed = false;
+      }
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2850,6 +2974,50 @@ class _ResultCardState extends State<_ResultCard> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: gradeColor.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border:
+                        Border.all(color: gradeColor.withValues(alpha: 0.25)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            isPassed
+                                ? Icons.emoji_events_rounded
+                                : Icons.info_outline,
+                            size: 20,
+                            color: gradeColor,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            gradeLabel,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: gradeColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        '$convertedScore점 / $maxScore점',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: gradeColor,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 18),
                 ClipRRect(

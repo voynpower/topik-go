@@ -13,6 +13,8 @@ import 'package:topik_go/features/grammar/data/korean_grammar_service.dart';
 import 'package:topik_go/core/services/translation_service.dart';
 import 'package:topik_go/features/users/data/user_profile.dart';
 import 'package:topik_go/features/users/data/user_repository.dart';
+import 'package:topik_go/core/topik_mode/topik_mode_provider.dart';
+import 'package:topik_go/core/topik_mode/topik_mode_toggle.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -29,6 +31,12 @@ class HomePage extends ConsumerWidget {
       appBar: AppBar(
         title: Text(strings.homeTitle),
         backgroundColor: Colors.transparent,
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 16),
+            child: TopikModeToggle(isCompact: true),
+          ),
+        ],
       ),
       body: DecoratedBox(
         decoration: const BoxDecoration(
@@ -747,13 +755,15 @@ class _TodayGrammarSection extends ConsumerWidget {
 // -------------------------------------------------------------
 // 4. Quick Practice Shortcuts
 // -------------------------------------------------------------
-class _QuickPracticeSection extends StatelessWidget {
+class _QuickPracticeSection extends ConsumerWidget {
   const _QuickPracticeSection({required this.strings});
 
   final AppStrings strings;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final topikMode = ref.watch(topikModeProvider);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -783,16 +793,18 @@ class _QuickPracticeSection extends StatelessWidget {
                 onTap: () => context.push('/listening-practice'),
               ),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _QuickPracticeButton(
-                icon: Icons.edit_note_outlined,
-                color: const Color(0xFFD07A21),
-                bgColor: const Color(0xFFFFF1DC),
-                label: strings.writingShort,
-                onTap: () => context.push('/writing-practice'),
+            if (topikMode.hasWriting) ...[
+              const SizedBox(width: 10),
+              Expanded(
+                child: _QuickPracticeButton(
+                  icon: Icons.edit_note_outlined,
+                  color: const Color(0xFFD07A21),
+                  bgColor: const Color(0xFFFFF1DC),
+                  label: strings.writingShort,
+                  onTap: () => context.push('/writing-practice'),
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ],

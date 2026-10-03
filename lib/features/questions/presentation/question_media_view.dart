@@ -36,6 +36,7 @@ bool isVisualChoiceQuestion(Question question) {
 
 /// TOPIK II listening questions 1–3 always present picture options.
 bool isListeningPictureQuestion(Question question) {
+  if (question.setId?.contains('topik1') == true) return false;
   final number = question.questionNumber;
   if (number <= 0 || number > 3) return false;
   final section = question.section.toLowerCase();
