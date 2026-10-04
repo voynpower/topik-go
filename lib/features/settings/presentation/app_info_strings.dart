@@ -65,7 +65,7 @@ class AppInfoData {
   static const AppInfoData _ko = AppInfoData(
     locale: 'ko',
     version: 'v1.0.0 (최신 버전)',
-    description: 'TOPIK GO는 한국어능력시험(TOPIK II) 목표 등급 달성을 위한 글로벌 학습 플랫폼입니다.',
+    description: 'TOPIK GO는 한국어능력시험(TOPIK I & TOPIK II) 목표 등급 달성을 위한 글로벌 학습 플랫폼입니다.',
     featuresTitle: '주요 기능',
     features: [
       AppInfoFeatureItem(
@@ -101,7 +101,7 @@ class AppInfoData {
   static const AppInfoData _en = AppInfoData(
     locale: 'en',
     version: 'v1.0.0 (Latest Version)',
-    description: 'TOPIK GO is a global learning platform designed to help you achieve your target TOPIK II level.',
+    description: 'TOPIK GO is a global learning platform designed to help you achieve your target TOPIK I & TOPIK II level.',
     featuresTitle: 'Key Features',
     features: [
       AppInfoFeatureItem(
