@@ -1,4 +1,4 @@
-package com.example.topik_go
+package com.topikgo.app
 
 import io.flutter.embedding.android.FlutterActivity
 

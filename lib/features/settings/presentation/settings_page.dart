@@ -178,11 +178,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     width: 68,
                     height: 68,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppColors.mint, AppColors.mintDark],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
@@ -192,10 +187,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         ),
                       ],
                     ),
-                    child: const Icon(
-                      Icons.flutter_dash,
-                      color: Colors.white,
-                      size: 38,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: Image.asset(
+                        'assets/icon/app_icon.png',
+                        width: 68,
+                        height: 68,
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
                 ),
@@ -239,8 +238,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   ),
                   child: Text(
                     isKorean
-                        ? 'TopikGo는 한국어능력시험(TOPIK II)을 준비하는 글로벌 학습자를 위한 맞춤형 학습 플랫폼입니다. 영역별 기출 연습, 실전 모의고사, OneVoca/OneGrammar 학습 시스템 및 다국어 지원을 제공합니다.'
-                        : 'TopikGo is a smart TOPIK II learning mobile application for global Korean learners, offering practice sets, mock exams, OneVoca/OneGrammar study systems, and multilingual localization.',
+                        ? 'TopikGo는 한국어능력시험(TOPIK I & TOPIK II)을 준비하는 글로벌 학습자를 위한 맞춤형 학습 플랫폼입니다. 영역별 기출 연습, 실전 모의고사, OneVoca/OneGrammar 학습 시스템 및 다국어 지원을 제공합니다.'
+                        : 'TopikGo is a smart TOPIK I & TOPIK II learning mobile application for global Korean learners, offering practice sets, mock exams, OneVoca/OneGrammar study systems, and multilingual localization.',
                     style: const TextStyle(
                       fontSize: 13,
                       height: 1.5,
