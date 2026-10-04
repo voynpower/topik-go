@@ -9,6 +9,7 @@ import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/core/services/translation_service.dart';
 import 'package:topik_go/features/auth/application/auth_controller.dart';
 import 'package:topik_go/features/auth/data/auth_repository.dart';
+import 'package:topik_go/features/settings/presentation/app_info_strings.dart';
 import 'package:topik_go/features/users/data/admin_user_repository.dart';
 import 'package:topik_go/features/users/data/user_profile.dart';
 import 'package:topik_go/features/users/data/user_repository.dart';
@@ -139,7 +140,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Future<void> _showAppInfoModal() async {
     final currentLang = ref.read(currentLanguageProvider);
-    final isKorean = currentLang == 'ko';
+    final info = AppInfoData.of(currentLang);
 
     await showModalBottomSheet<void>(
       context: context,
@@ -219,9 +220,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       color: AppColors.mint.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Text(
-                      'v1.0.0 (Build 1)',
-                      style: TextStyle(
+                    child: Text(
+                      info.version,
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                         color: AppColors.mintDark,
@@ -231,26 +232,25 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 const SizedBox(height: 18),
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF7FAF9),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.mint.withValues(alpha: 0.2)),
+                    border: Border.all(color: AppColors.mint.withValues(alpha: 0.25)),
                   ),
                   child: Text(
-                    isKorean
-                        ? 'TopikGo는 한국어능력시험(TOPIK II)을 준비하는 글로벌 학습자를 위한 맞춤형 학습 플랫폼입니다. 영역별 기출 연습, 실전 모의고사, OneVoca/OneGrammar 학습 시스템 및 다국어 지원을 제공합니다.'
-                        : 'TopikGo is a smart TOPIK II learning mobile application for global Korean learners, offering practice sets, mock exams, OneVoca/OneGrammar study systems, and multilingual localization.',
+                    info.description,
                     style: const TextStyle(
                       fontSize: 13,
                       height: 1.5,
+                      fontWeight: FontWeight.w600,
                       color: AppColors.textPrimary,
                     ),
                   ),
                 ),
                 const SizedBox(height: 18),
                 Text(
-                  isKorean ? '주요 학습 기능 (Key Features)' : 'Key Features',
+                  info.featuresTitle,
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
@@ -258,80 +258,53 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                _buildInfoFeatureRow(
-                  icon: Icons.auto_stories_outlined,
-                  title: isKorean ? '영역별 학습 & 기출 풀이' : 'Domain Practice (R/L/W)',
-                  description: isKorean
-                      ? '읽기, 듣기(오디오/TTS 플레이어 연동), 쓰기(단답/에세이) 실전 연습'
-                      : 'Reading, Listening with interactive audio, and Writing essay practice',
-                ),
-                _buildInfoFeatureRow(
-                  icon: Icons.timer_outlined,
-                  title: isKorean ? '실전 모의고사 & OMR' : 'Real Mock Exam & OMR',
-                  description: isKorean
-                      ? '실제 시험 시간 타이머, 연속 듣기 재생목록 및 OMR 자동 채점'
-                      : 'Real TOPIK exam timer, continuous listening playlist & automatic scoring',
-                ),
-                _buildInfoFeatureRow(
-                  icon: Icons.translate_outlined,
-                  title: isKorean ? 'OneVoca & OneGrammar' : 'OneVoca & OneGrammar',
-                  description: isKorean
-                      ? '플래시카드, 퀴즈, 받아쓰기, AI 예문 및 카테고리별 맞춤 문법 학습'
-                      : 'Flashcards, quizzes, dictation, AI sentences & category grammar hub',
-                ),
-                _buildInfoFeatureRow(
-                  icon: Icons.public_outlined,
-                  title: isKorean ? '9개국 글로벌 다국어 지원' : '9-Language Localization',
-                  description: isKorean
-                      ? '한국어, English, O\'zbekcha, Tiếng Việt, Русский, 中文, 日本語 등'
-                      : 'Korean, English, Uzbek, Vietnamese, Russian, Chinese, Japanese, and more',
-                ),
-                _buildInfoFeatureRow(
-                  icon: Icons.cloud_sync_outlined,
-                  title: isKorean ? '오프라인 캐싱 & 데이터 동기화' : 'Offline Storage & Sync',
-                  description: isKorean
-                      ? 'Drift/SQLite 로컬 데이터베이스 기반 오프라인 풀이 및 온라인 자동 동기화'
-                      : 'Drift/SQLite local database storage with automatic server synchronization',
+                ...info.features.map(
+                  (feat) => _buildInfoFeatureRow(
+                    icon: feat.icon,
+                    title: feat.title,
+                    description: feat.description,
+                  ),
                 ),
                 const SizedBox(height: 14),
-                Text(
-                  isKorean ? '기술 스택 (Tech Stack)' : 'Tech Stack',
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Colors.black12),
                   ),
-                  child: Column(
+                  child: Row(
                     children: [
-                      _buildTechRow('Framework', 'Flutter 3.41 / Dart 3.11'),
-                      const Divider(height: 14),
-                      _buildTechRow('Architecture', 'Feature-First Clean Architecture'),
-                      const Divider(height: 14),
-                      _buildTechRow('State Management', 'Flutter Riverpod'),
-                      const Divider(height: 14),
-                      _buildTechRow('Local DB & Storage', 'Drift (SQLite) & Secure Storage'),
-                      const Divider(height: 14),
-                      _buildTechRow('API & Cloud CDN', 'NestJS Backend / AWS CloudFront'),
+                      const Icon(Icons.code_rounded, size: 16, color: AppColors.textSecondary),
+                      const SizedBox(width: 8),
+                      Text(
+                        info.techTitle,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        info.techInfo,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.mintDark,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 18),
-                const Center(
+                const SizedBox(height: 16),
+                Center(
                   child: Text(
-                    '© 2026 TopikGo Team. All rights reserved.',
-                    style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                    info.copyright,
+                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
                 FilledButton(
                   onPressed: () => Navigator.of(bottomSheetContext).pop(),
                   style: FilledButton.styleFrom(
@@ -340,7 +313,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     minimumSize: const Size(double.infinity, 48),
                   ),
                   child: Text(
-                    isKorean ? '확인' : 'OK',
+                    info.confirmButton,
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -397,34 +370,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildTechRow(String label, String value) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textSecondary,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            value,
-            textAlign: TextAlign.end,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -524,13 +469,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 icon: Icons.logout_outlined,
                 title: strings.logout,
                 value: '',
-                onTap: () async {
-                  await ref.read(authRepositoryProvider).logout();
-                  ref.invalidate(userProfileProvider);
-                  if (context.mounted) {
-                    context.go('/auth/login');
-                  }
-                },
+                onTap: _logout,
               ),
               ...profile.maybeWhen(
                 data: (user) => user.isAdmin
@@ -750,6 +689,48 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(success ? '비밀번호가 변경되었습니다.' : '비밀번호 변경에 실패했습니다.')),
     );
+  }
+
+  Future<void> _logout() async {
+    final strings = ref.read(appStringsProvider);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: Text(
+            strings.logout,
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+          content: Text(
+            strings.logoutConfirm,
+            style: const TextStyle(fontSize: 14, height: 1.4),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(strings.no),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.mintDark,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: Text(strings.yes),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    await ref.read(authRepositoryProvider).logout();
+    ref.invalidate(userProfileProvider);
+    if (!mounted) return;
+    context.go('/auth/login');
   }
 }
 
