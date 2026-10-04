@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
+import 'package:topik_go/core/localization/app_strings_provider.dart';
+import 'package:topik_go/core/services/translation_service.dart';
 import 'package:topik_go/features/auth/application/auth_controller.dart';
 import 'package:topik_go/features/users/data/user_repository.dart';
 
@@ -26,11 +28,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Future<void> _login() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
+    final strings = ref.read(appStringsProvider);
 
     if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('이메일과 비밀번호를 입력해주세요.')));
+      ).showSnackBar(SnackBar(content: Text(_getRequiredFieldsMessage(strings.locale))));
       return;
     }
 
@@ -39,6 +42,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         .login(email, password);
 
     if (success && mounted) {
+      await ref.read(currentLanguageProvider.notifier).syncWithProfile();
       ref.invalidate(userProfileProvider);
       context.go('/main/home');
     }
@@ -51,14 +55,107 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         : await controller.loginWithKakao();
 
     if (success && mounted) {
+      await ref.read(currentLanguageProvider.notifier).syncWithProfile();
       ref.invalidate(userProfileProvider);
       context.go('/main/home');
+    }
+  }
+
+  static String _getPasswordHint(String code) {
+    switch (code) {
+      case 'uz': return 'Parol';
+      case 'ru': return 'Пароль';
+      case 'en': return 'Password';
+      case 'vi': return 'Mật khẩu';
+      case 'zh': return '密码';
+      case 'ja': return 'パスワード';
+      case 'fr': return 'Mot de passe';
+      case 'de': return 'Passwort';
+      case 'ko':
+      default: return '비밀번호';
+    }
+  }
+
+  static String _getOrLabel(String code) {
+    switch (code) {
+      case 'uz': return 'yoki';
+      case 'ru': return 'или';
+      case 'en': return 'or';
+      case 'vi': return 'hoặc';
+      case 'zh': return '或';
+      case 'ja': return 'または';
+      case 'fr': return 'ou';
+      case 'de': return 'oder';
+      case 'ko':
+      default: return '또는';
+    }
+  }
+
+  static String _getLoginLabel(String code) {
+    switch (code) {
+      case 'uz': return 'Kirish';
+      case 'ru': return 'Войти';
+      case 'en': return 'Sign In';
+      case 'vi': return 'Đăng nhập';
+      case 'zh': return '登录';
+      case 'ja': return 'ログイン';
+      case 'fr': return 'Connexion';
+      case 'de': return 'Anmelden';
+      case 'ko':
+      default: return '로그인';
+    }
+  }
+
+  static String _getLoginFailedLabel(String code) {
+    switch (code) {
+      case 'uz': return 'Kirishda xatolik yuz berdi';
+      case 'ru': return 'Ошибка входа';
+      case 'en': return 'Login failed';
+      case 'vi': return 'Đăng nhập thất bại';
+      case 'zh': return '登录失败';
+      case 'ja': return 'ログインに失敗しました';
+      case 'fr': return 'Échec de connexion';
+      case 'de': return 'Anmeldung fehlgeschlagen';
+      case 'ko':
+      default: return '로그인 실패';
+    }
+  }
+
+  static String _getSignUpPrompt(String code) {
+    switch (code) {
+      case 'uz': return "Hisobingiz yo'qmi? Ro'yxatdan o'tish";
+      case 'ru': return 'Нет аккаунта? Зарегистрироваться';
+      case 'en': return "Don't have an account? Sign Up";
+      case 'vi': return 'Chưa có tài khoản? Đăng ký';
+      case 'zh': return '还没有账号？注册';
+      case 'ja': return 'アカウントをお持ちでないですか？ 新規登録';
+      case 'fr': return "Pas de compte ? S'inscrire";
+      case 'de': return 'Kein Konto? Registrieren';
+      case 'ko':
+      default: return '계정이 없으신가요? 회원가입';
+    }
+  }
+
+  static String _getRequiredFieldsMessage(String code) {
+    switch (code) {
+      case 'uz': return 'Elektron pochta va parolni kiriting.';
+      case 'ru': return 'Пожалуйста, введите эл. почту и пароль.';
+      case 'en': return 'Please enter your email and password.';
+      case 'vi': return 'Vui lòng nhập email và mật khẩu.';
+      case 'zh': return '请输入邮箱和密码。';
+      case 'ja': return 'メールアドレスとパスワードを入力してください。';
+      case 'fr': return 'Veuillez saisir votre e-mail et votre mot de passe.';
+      case 'de': return 'Bitte geben Sie Ihre E-Mail und Ihr Passwort ein.';
+      case 'ko':
+      default: return '이메일과 비밀번호를 입력해주세요.';
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final authStateNotifier = ref.watch(authStateProvider);
+    final strings = ref.watch(appStringsProvider);
+    final locale = strings.locale;
 
     return Scaffold(
       body: SafeArea(
@@ -111,23 +208,23 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 ),
               ),
               const SizedBox(height: 24),
-              const Text('또는'),
+              Text(_getOrLabel(locale)),
               const SizedBox(height: 16),
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.mail_outline),
-                  hintText: '이메일',
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.mail_outline),
+                  hintText: strings.email,
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _passwordController,
                 obscureText: true,
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.lock_outline),
-                  hintText: '비밀번호',
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  hintText: _getPasswordHint(locale),
                 ),
               ),
               const SizedBox(height: 20),
@@ -137,19 +234,19 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   return authState.when(
                     data: (_) => FilledButton(
                       onPressed: _login,
-                      child: const Text('로그인'),
+                      child: Text(_getLoginLabel(locale)),
                     ),
                     loading: () => const CircularProgressIndicator(),
                     error: (error, _) => Column(
                       children: [
                         Text(
-                          '로그인 실패: $error',
+                          '${_getLoginFailedLabel(locale)}: $error',
                           style: const TextStyle(color: Colors.red),
                         ),
                         const SizedBox(height: 10),
                         FilledButton(
                           onPressed: _login,
-                          child: const Text('다시 시도'),
+                          child: Text(strings.retry),
                         ),
                       ],
                     ),
@@ -159,7 +256,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               const SizedBox(height: 16),
               TextButton(
                 onPressed: () => context.push('/auth/register'),
-                child: const Text('계정이 없으신가요? 회원가입'),
+                child: Text(_getSignUpPrompt(locale)),
               ),
             ],
           ),

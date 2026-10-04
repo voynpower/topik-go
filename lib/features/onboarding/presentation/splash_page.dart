@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/core/auth/session_store.dart';
 import 'package:topik_go/core/constants/prefs_keys.dart';
+import 'package:topik_go/core/services/translation_service.dart';
 import 'package:topik_go/features/users/data/user_repository.dart';
 
 class SplashPage extends ConsumerStatefulWidget {
@@ -57,6 +58,7 @@ class _SplashPageState extends ConsumerState<SplashPage> {
     if (!mounted) return;
 
     if (isAuthenticated) {
+      ref.read(currentLanguageProvider.notifier).syncWithProfile();
       context.go('/main/home');
     } else {
       context.go(completed ? '/auth/login' : '/language');

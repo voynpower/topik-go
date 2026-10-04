@@ -36,25 +36,35 @@ String getLanguageDisplayName(String? code) {
   return '${match.nativeName} (${match.name})';
 }
 
+final sharedPreferencesProvider = Provider<SharedPreferences?>((ref) => null);
+
 /// 현재 설정된 사용자 언어 코드를 관리하는 Notifier
 class LanguageNotifier extends Notifier<String> {
   @override
   String build() {
-    _init();
+    final prefs = ref.watch(sharedPreferencesProvider);
+    if (prefs != null) {
+      final saved = prefs.getString(PrefsKeys.preferredLanguageCode);
+      if (saved != null && saved.isNotEmpty) {
+        return saved;
+      }
+    } else {
+      _initAsync();
+    }
     return 'ko';
   }
 
-  Future<void> _init() async {
+  Future<void> _initAsync() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString(PrefsKeys.preferredLanguageCode);
-    if (saved != null && saved.isNotEmpty) {
+    if (saved != null && saved.isNotEmpty && state != saved) {
       state = saved;
     }
   }
 
   Future<void> setLanguage(String code) async {
     state = code;
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = ref.read(sharedPreferencesProvider) ?? await SharedPreferences.getInstance();
     await prefs.setString(PrefsKeys.preferredLanguageCode, code);
 
     // 사용자 프로필이 있는 경우 백엔드에도 동기화
@@ -63,6 +73,18 @@ class LanguageNotifier extends Notifier<String> {
       ref.invalidate(userProfileProvider);
     } catch (_) {
       // 오프라인이거나 비로그인 시 로컬 설정 유지
+    }
+  }
+
+  /// 로그인/회원가입 후 로컬에서 선택한 언어를 백엔드 프로필에 동기화
+  Future<void> syncWithProfile() async {
+    final currentCode = state;
+    if (currentCode.isEmpty) return;
+    try {
+      await ref.read(userRepositoryProvider).updateProfile({'language_code': currentCode});
+      ref.invalidate(userProfileProvider);
+    } catch (_) {
+      // 오프라인이거나 비로그인 시 무시
     }
   }
 }
