@@ -23,7 +23,6 @@ class SettingsPage extends ConsumerStatefulWidget {
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   String languageLabel = '미설정';
-  String targetLevelLabel = '미설정';
 
   @override
   void initState() {
@@ -34,12 +33,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Future<void> _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     final languageCode = prefs.getString(PrefsKeys.preferredLanguageCode);
-    final targetLevel = prefs.getInt(PrefsKeys.targetTopikLevel);
 
     if (!mounted) return;
     setState(() {
       languageLabel = getLanguageDisplayName(languageCode);
-      targetLevelLabel = targetLevel == null ? '미설정' : '$targetLevel급';
     });
   }
 
@@ -414,11 +411,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     value: getLanguageDisplayName(ref.watch(currentLanguageProvider)),
                     onTap: _showLanguagePicker,
                   ),
-                  _SettingTile(
-                    icon: Icons.flag_outlined,
-                    title: strings.targetLevel,
-                    value: targetLevelLabel,
-                  ),
                 ],
                 error: (_, _) => [
                   _SettingTile(
@@ -431,11 +423,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     title: strings.languageSetting,
                     value: getLanguageDisplayName(ref.watch(currentLanguageProvider)),
                     onTap: _showLanguagePicker,
-                  ),
-                  _SettingTile(
-                    icon: Icons.flag_outlined,
-                    title: strings.targetLevel,
-                    value: targetLevelLabel,
                   ),
                 ],
               ),
@@ -516,20 +503,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         value: profile.email ?? '미등록',
       ),
       _SettingTile(
-        icon: Icons.verified_user_outlined,
-        title: strings.role,
-        value: profile.role,
-      ),
-      _SettingTile(
         icon: Icons.language_outlined,
         title: strings.languageSetting,
         value: getLanguageDisplayName(ref.watch(currentLanguageProvider)),
         onTap: _showLanguagePicker,
-      ),
-      _SettingTile(
-        icon: Icons.flag_outlined,
-        title: strings.targetLevel,
-        value: '${profile.targetLevel}급',
       ),
       _SettingTile(
         icon: Icons.format_size_outlined,
