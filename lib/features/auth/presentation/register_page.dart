@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
+import 'package:topik_go/core/legal/legal_documents.dart';
+import 'package:topik_go/core/legal/legal_modal.dart';
 import 'package:topik_go/core/services/translation_service.dart';
 import 'package:topik_go/features/auth/application/auth_controller.dart';
 import 'package:topik_go/features/users/data/user_repository.dart';
@@ -203,12 +205,14 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                 isRequired: true,
                 value: _agreeTerms,
                 onChanged: (v) => setState(() => _agreeTerms = v!),
+                onViewContent: () => showLegalModal(context, type: LegalDocumentType.termsOfService),
               ),
               _buildAgreementItem(
                 label: '개인정보 처리방침에 동의합니다',
                 isRequired: true,
                 value: _agreePrivacy,
                 onChanged: (v) => setState(() => _agreePrivacy = v!),
+                onViewContent: () => showLegalModal(context, type: LegalDocumentType.privacyPolicy),
               ),
               _buildAgreementItem(
                 label: '마케팅 정보 수신에 동의합니다',
@@ -305,6 +309,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     required bool isRequired,
     required bool value,
     required ValueChanged<bool?> onChanged,
+    VoidCallback? onViewContent,
   }) {
     return Column(
       children: [
@@ -348,28 +353,31 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
             ),
           ],
         ),
-        Padding(
-          padding: const EdgeInsets.only(left: 36, bottom: 12),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: () {},
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text(
-                '내용 보기',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.mint,
-                  decoration: TextDecoration.underline,
+        if (onViewContent != null)
+          Padding(
+            padding: const EdgeInsets.only(left: 36, bottom: 12),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: onViewContent,
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  '내용 보기',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.mint,
+                    decoration: TextDecoration.underline,
+                  ),
                 ),
               ),
             ),
-          ),
-        ),
+          )
+        else
+          const SizedBox(height: 8),
       ],
     );
   }
