@@ -457,6 +457,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 value: '',
                 onTap: _logout,
               ),
+              _SettingTile(
+                icon: Icons.person_remove_outlined,
+                title: strings.deleteAccount,
+                value: '',
+                isDestructive: true,
+                onTap: _deleteAccount,
+              ),
               ...profile.maybeWhen(
                 data: (user) => user.isAdmin
                     ? [
@@ -708,6 +715,65 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     if (!mounted) return;
     context.go('/auth/login');
   }
+
+  Future<void> _deleteAccount() async {
+    final strings = ref.read(appStringsProvider);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: Text(
+            strings.deleteAccount,
+            style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.red),
+          ),
+          content: Text(
+            strings.deleteAccountConfirm,
+            style: const TextStyle(fontSize: 14, height: 1.4),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(strings.no),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.red,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: Text(strings.delete),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    // 1. Delete on backend and clear auth tokens
+    try {
+      await ref.read(authRepositoryProvider).deleteAccount();
+    } catch (_) {
+      // Ensure local tokens and preferences are cleared
+    }
+
+    // 2. Clear onboarding and language preferences so the user can start from the beginning
+    final prefs = ref.read(sharedPreferencesProvider) ?? await SharedPreferences.getInstance();
+    await prefs.remove(PrefsKeys.onboardingCompleted);
+    await prefs.remove(PrefsKeys.preferredLanguageCode);
+    await prefs.remove(PrefsKeys.targetTopikLevel);
+    await prefs.remove(PrefsKeys.activeTopikMode);
+
+    // 3. Reset Riverpod states
+    ref.invalidate(userProfileProvider);
+    ref.invalidate(currentLanguageProvider);
+
+    // 4. Navigate back to onboarding language select
+    if (!mounted) return;
+    context.go('/language');
+  }
 }
 
 class _SettingsHero extends StatelessWidget {
@@ -793,12 +859,14 @@ class _SettingTile extends StatelessWidget {
     required this.title,
     required this.value,
     this.onTap,
+    this.isDestructive = false,
   });
 
   final IconData icon;
   final String title;
   final String value;
   final VoidCallback? onTap;
+  final bool isDestructive;
 
   @override
   Widget build(BuildContext context) {
@@ -814,10 +882,14 @@ class _SettingTile extends StatelessWidget {
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: Colors.white),
+              border: Border.all(
+                color: isDestructive ? Colors.red.withValues(alpha: 0.2) : Colors.white,
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
+                  color: isDestructive
+                      ? Colors.red.withValues(alpha: 0.05)
+                      : Colors.black.withValues(alpha: 0.04),
                   blurRadius: 18,
                   offset: const Offset(0, 8),
                 ),
@@ -829,10 +901,16 @@ class _SettingTile extends StatelessWidget {
                   width: 46,
                   height: 46,
                   decoration: BoxDecoration(
-                    color: AppColors.mint.withValues(alpha: 0.12),
+                    color: isDestructive
+                        ? Colors.red.withValues(alpha: 0.12)
+                        : AppColors.mint.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Icon(icon, color: AppColors.mintDark, size: 25),
+                  child: Icon(
+                    icon,
+                    color: isDestructive ? Colors.red : AppColors.mintDark,
+                    size: 25,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -841,20 +919,22 @@ class _SettingTile extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
+                          color: isDestructive ? Colors.red : AppColors.textPrimary,
                         ),
                       ),
                       if (value.isNotEmpty) ...[
                         const SizedBox(height: 5),
                         Text(
                           value,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
                             height: 1.35,
-                            color: AppColors.textSecondary,
+                            color: isDestructive
+                                ? Colors.red.withValues(alpha: 0.7)
+                                : AppColors.textSecondary,
                           ),
                         ),
                       ],
@@ -865,7 +945,9 @@ class _SettingTile extends StatelessWidget {
                   const SizedBox(width: 10),
                   Icon(
                     Icons.chevron_right_rounded,
-                    color: AppColors.textSecondary.withValues(alpha: 0.75),
+                    color: isDestructive
+                        ? Colors.red.withValues(alpha: 0.6)
+                        : AppColors.textSecondary.withValues(alpha: 0.75),
                   ),
                 ],
               ],
