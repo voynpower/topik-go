@@ -39,8 +39,11 @@ class _SplashPageState extends ConsumerState<SplashPage> {
         await userRepo.getProfile();
         isAuthenticated = true;
       } catch (e) {
-        if (e is DioException && e.response?.statusCode == 401) {
-          await sessionStore.clearToken();
+        if (e is DioException &&
+            (e.response?.statusCode == 401 ||
+                e.response?.statusCode == 403 ||
+                e.response?.statusCode == 404)) {
+          await sessionStore.clearAllTokens();
           isAuthenticated = false;
         } else {
           // If network error/server offline, assume token is still valid
