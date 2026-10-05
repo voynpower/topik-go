@@ -51,6 +51,13 @@ final dioProvider = Provider<Dio>((ref) {
         handler.next(options);
       },
       onError: (error, handler) async {
+        final isProfileNotFound = error.response?.statusCode == 404 &&
+            error.requestOptions.path.contains('/users/profile');
+        if (isProfileNotFound) {
+          await sessionStore.clearAllTokens();
+          return handler.next(error);
+        }
+
         if (error.response?.statusCode == 401 &&
             !error.requestOptions.path.contains('/auth/refresh') &&
             !error.requestOptions.path.contains('/auth/login')) {
