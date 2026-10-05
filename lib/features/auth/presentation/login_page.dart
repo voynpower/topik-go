@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
+import 'package:topik_go/core/legal/legal_documents.dart';
+import 'package:topik_go/core/legal/legal_modal.dart';
 import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/core/services/translation_service.dart';
 import 'package:topik_go/features/auth/application/auth_controller.dart';
@@ -258,6 +260,46 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 onPressed: () => context.push('/auth/register'),
                 child: Text(_getSignUpPrompt(locale)),
               ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextButton(
+                    onPressed: () => showLegalModal(context, type: LegalDocumentType.termsOfService),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(
+                      strings.termsOfService,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                  const Text(' • ', style: TextStyle(color: Colors.black26, fontSize: 11)),
+                  TextButton(
+                    onPressed: () => showLegalModal(context, type: LegalDocumentType.privacyPolicy),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(
+                      strings.privacyPolicy,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
             ],
           ),
         ),

@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/core/constants/prefs_keys.dart';
+import 'package:topik_go/core/legal/legal_documents.dart';
+import 'package:topik_go/core/legal/legal_modal.dart';
 import 'package:topik_go/core/localization/app_strings.dart';
 import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/core/services/translation_service.dart';
@@ -137,6 +139,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Future<void> _showAppInfoModal() async {
     final currentLang = ref.read(currentLanguageProvider);
+    final strings = ref.read(appStringsProvider);
     final info = AppInfoData.of(currentLang);
 
     await showModalBottomSheet<void>(
@@ -294,6 +297,51 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(bottomSheetContext).pop();
+                        showLegalModal(context, type: LegalDocumentType.termsOfService);
+                      },
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        strings.termsOfService,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.mintDark,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                    const Text(' • ', style: TextStyle(color: Colors.black26, fontSize: 12)),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(bottomSheetContext).pop();
+                        showLegalModal(context, type: LegalDocumentType.privacyPolicy);
+                      },
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        strings.privacyPolicy,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.mintDark,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
                 Center(
                   child: Text(
                     info.copyright,
@@ -441,6 +489,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 title: strings.appInfo,
                 value: strings.appInfoDesc,
                 onTap: _showAppInfoModal,
+              ),
+              const SizedBox(height: 18),
+              _SectionTitle(icon: Icons.gavel_outlined, title: strings.termsAndPolicies),
+              const SizedBox(height: 10),
+              _SettingTile(
+                icon: Icons.description_outlined,
+                title: strings.termsOfService,
+                value: '',
+                onTap: () => showLegalModal(context, type: LegalDocumentType.termsOfService),
+              ),
+              _SettingTile(
+                icon: Icons.privacy_tip_outlined,
+                title: strings.privacyPolicy,
+                value: '',
+                onTap: () => showLegalModal(context, type: LegalDocumentType.privacyPolicy),
               ),
               const SizedBox(height: 18),
               _SectionTitle(icon: Icons.lock_outline, title: strings.accountSection),
