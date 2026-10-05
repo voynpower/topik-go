@@ -73,6 +73,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
     if (success && mounted) {
       await ref.read(currentLanguageProvider.notifier).syncWithProfile();
+      if (!mounted) return;
       ref.invalidate(userProfileProvider);
       ScaffoldMessenger.of(
         context,

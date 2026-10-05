@@ -7,6 +7,7 @@ import 'package:topik_go/core/legal/legal_modal.dart';
 import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/core/services/translation_service.dart';
 import 'package:topik_go/features/auth/application/auth_controller.dart';
+import 'package:topik_go/features/auth/presentation/widgets/google_sign_in_button.dart';
 import 'package:topik_go/features/users/data/user_repository.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -27,6 +28,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     super.dispose();
   }
 
+  bool _isGoogleLoading = false;
+
   Future<void> _login() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
@@ -45,21 +48,42 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     if (success && mounted) {
       await ref.read(currentLanguageProvider.notifier).syncWithProfile();
+      if (!mounted) return;
       ref.invalidate(userProfileProvider);
       context.go('/main/home');
     }
   }
 
-  Future<void> _socialLogin(String provider) async {
-    final controller = ref.read(authControllerProvider);
-    final success = provider == 'google'
-        ? await controller.loginWithGoogle()
-        : await controller.loginWithKakao();
+  Future<void> _loginWithGoogle() async {
+    if (_isGoogleLoading) return;
+    setState(() => _isGoogleLoading = true);
+    try {
+      final success = await ref.read(authControllerProvider).loginWithGoogle();
+      if (success && mounted) {
+        await ref.read(currentLanguageProvider.notifier).syncWithProfile();
+        if (!mounted) return;
+        ref.invalidate(userProfileProvider);
+        context.go('/main/home');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isGoogleLoading = false);
+      }
+    }
+  }
 
-    if (success && mounted) {
-      await ref.read(currentLanguageProvider.notifier).syncWithProfile();
-      ref.invalidate(userProfileProvider);
-      context.go('/main/home');
+  static String _getGoogleLoginLabel(String code) {
+    switch (code) {
+      case 'uz': return 'Google orqali davom etish';
+      case 'ru': return 'Продолжить с Google';
+      case 'en': return 'Continue with Google';
+      case 'vi': return 'Tiếp tục với Google';
+      case 'zh': return '通过 Google 继续';
+      case 'ja': return 'Google で続ける';
+      case 'fr': return 'Continuer avec Google';
+      case 'de': return 'Mit Google fortfahren';
+      case 'ko':
+      default: return 'Google 계정으로 계속하기';
     }
   }
 
@@ -167,51 +191,77 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             children: [
               const SizedBox(height: 24),
               Container(
-                width: 80,
-                height: 80,
-                decoration: const BoxDecoration(
-                  color: AppColors.mint,
-                  shape: BoxShape.circle,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(22),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.mintDark.withValues(alpha: 0.22),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
-                child: const Icon(
-                  Icons.flutter_dash,
-                  color: Colors.white,
-                  size: 48,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(22),
+                  child: Image.asset(
+                    'assets/icon/app_icon.png',
+                    width: 76,
+                    height: 76,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Container(
+                      width: 76,
+                      height: 76,
+                      decoration: const BoxDecoration(
+                        color: AppColors.mint,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.flutter_dash,
+                        color: Colors.white,
+                        size: 44,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               Text(
                 'TOPIK GO',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   color: AppColors.mintDark,
                   fontWeight: FontWeight.w800,
+                  letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(height: 24),
-              OutlinedButton.icon(
-                onPressed: () => _socialLogin('google'),
-                icon: const Icon(Icons.g_mobiledata_rounded),
-                label: const Text('Sign in with Google'),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 52),
-                ),
+              const SizedBox(height: 28),
+              GoogleSignInButton(
+                onPressed: _loginWithGoogle,
+                isLoading: _isGoogleLoading,
+                text: _getGoogleLoginLabel(locale),
               ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () => _socialLogin('kakao'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFFEE500),
-                    foregroundColor: Colors.black,
-                    minimumSize: const Size(double.infinity, 52),
+              const SizedBox(height: 22),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Divider(color: Color(0xFFE5E7EB), thickness: 1),
                   ),
-                  child: const Text('Login with Kakao'),
-                ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      _getOrLabel(locale),
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  const Expanded(
+                    child: Divider(color: Color(0xFFE5E7EB), thickness: 1),
+                  ),
+                ],
               ),
-              const SizedBox(height: 24),
-              Text(_getOrLabel(locale)),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
