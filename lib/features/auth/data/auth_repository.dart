@@ -108,6 +108,14 @@ class AuthRepository {
   Future<Response> getUserProfile() async {
     return _dio.get('/users/profile');
   }
+
+  Future<void> deleteAccount() async {
+    try {
+      await _dio.delete('/users/profile');
+    } finally {
+      await _sessionStore.clearAllTokens();
+    }
+  }
 }
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {

@@ -17,6 +17,10 @@ class UserRepository {
     final response = await _dio.patch('/users/profile', data: data);
     return UserProfile.fromJson(response.data as Map<String, dynamic>);
   }
+
+  Future<void> deleteAccount() async {
+    await _dio.delete('/users/profile');
+  }
 }
 
 final userRepositoryProvider = Provider<UserRepository>((ref) {

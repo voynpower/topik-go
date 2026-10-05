@@ -222,6 +222,8 @@ class AppStrings {
     required this.changePassword,
     required this.logout,
     required this.logoutConfirm,
+    required this.deleteAccount,
+    required this.deleteAccountConfirm,
     required this.yes,
     required this.no,
     required this.adminMenu,
@@ -462,6 +464,8 @@ class AppStrings {
   final String changePassword;
   final String logout;
   final String logoutConfirm;
+  final String deleteAccount;
+  final String deleteAccountConfirm;
   final String yes;
   final String no;
   final String adminMenu;
@@ -702,6 +706,8 @@ class AppStrings {
     changePassword: '비밀번호 변경',
     logout: '로그아웃',
     logoutConfirm: '정말 로그아웃 하시겠습니까?',
+    deleteAccount: '회원 탈퇴',
+    deleteAccountConfirm: '정말 탈퇴하시겠습니까? 계정을 삭제하면 학습 기록, 단어장, 오답노트 등 모든 데이터가 영구적으로 삭제되며 복구할 수 없습니다.',
     yes: '네',
     no: '아니오',
     adminMenu: '관리자 메뉴',
@@ -919,6 +925,8 @@ class AppStrings {
     changePassword: 'Change Password',
     logout: 'Log Out',
     logoutConfirm: 'Are you sure you want to log out?',
+    deleteAccount: 'Delete Account',
+    deleteAccountConfirm: 'Are you sure you want to delete your account? All your study records, bookmarks, and vocabulary will be permanently deleted and cannot be recovered.',
     yes: 'Yes',
     no: 'No',
     adminMenu: 'Admin Menu',
@@ -1136,6 +1144,8 @@ class AppStrings {
     changePassword: "Parolni o'zgartirish",
     logout: 'Chiqish',
     logoutConfirm: 'Haqiqatan ham hisobdan chiqmoqchimisiz?',
+    deleteAccount: 'Hisobni o‘chirish',
+    deleteAccountConfirm: 'Haqiqatan ham hisobingizni o‘chirmoqchimisiz? Barcha o‘rganish tarixingiz, lug‘atlar va belgilar butunlay o‘chiriladi va ularni tiklab bo‘lmaydi.',
     yes: 'Ha',
     no: "Yo'q",
     adminMenu: 'Admin menyusi',
@@ -1353,6 +1363,8 @@ class AppStrings {
     changePassword: 'Сменить пароль',
     logout: 'Выйти из аккаунта',
     logoutConfirm: 'Вы действительно хотите выйти из аккаунта?',
+    deleteAccount: 'Удалить аккаунт',
+    deleteAccountConfirm: 'Вы уверены, что хотите удалить аккаунт? Все ваши записи обучения, закладки и слова будут удалены навсегда без возможности восстановления.',
     yes: 'Да',
     no: 'Нет',
     adminMenu: 'Панель администратора',
@@ -1570,6 +1582,8 @@ class AppStrings {
     changePassword: 'Đổi mật khẩu',
     logout: 'Đăng xuất',
     logoutConfirm: 'Bạn có chắc chắn muốn đăng xuất không?',
+    deleteAccount: 'Xóa tài khoản',
+    deleteAccountConfirm: 'Bạn có chắc chắn muốn xóa tài khoản không? Tất cả hồ sơ học tập, từ vựng và dấu trang sẽ bị xóa vĩnh viễn và không thể khôi phục.',
     yes: 'Có',
     no: 'Không',
     adminMenu: 'Menu Quản trị',
@@ -1787,6 +1801,8 @@ class AppStrings {
     changePassword: '修改密码',
     logout: '退出登录',
     logoutConfirm: '确定要退出登录吗？',
+    deleteAccount: '注销账号',
+    deleteAccountConfirm: '确定要注销账号吗？注销后所有学习记录、生词本和错题本将被永久删除且无法恢复。',
     yes: '是',
     no: '否',
     adminMenu: '管理员菜单',
@@ -2004,6 +2020,8 @@ class AppStrings {
     changePassword: 'パスワード変更',
     logout: 'ログアウト',
     logoutConfirm: '本当にログアウトしますか？',
+    deleteAccount: 'アカウント削除',
+    deleteAccountConfirm: '本当にアカウントを削除しますか？学習履歴、単語帳、ブックマークなどのすべてのデータが完全に削除され、復元できなくなります。',
     yes: 'はい',
     no: 'いいえ',
     adminMenu: '管理者メニュー',
@@ -2221,6 +2239,8 @@ class AppStrings {
     changePassword: 'Changer le mot de passe',
     logout: 'Se déconnecter',
     logoutConfirm: 'Voulez-vous vraiment vous déconnecter ?',
+    deleteAccount: 'Supprimer le compte',
+    deleteAccountConfirm: 'Êtes-vous sûr de vouloir supprimer votre compte ? Tous vos historiques d\'apprentissage et favoris seront définitivement supprimés et ne pourront pas être récupérés.',
     yes: 'Oui',
     no: 'Non',
     adminMenu: 'Menu Administrateur',
@@ -2438,6 +2458,8 @@ class AppStrings {
     changePassword: 'Passwort ändern',
     logout: 'Abmelden',
     logoutConfirm: 'Möchten Sie sich wirklich abmelden?',
+    deleteAccount: 'Konto löschen',
+    deleteAccountConfirm: 'Möchten Sie Ihr Konto wirklich löschen? Alle Lernaufzeichnungen, Lesezeichen und Vokabeln werden dauerhaft gelöscht und können nicht wiederhergestellt werden.',
     yes: 'Ja',
     no: 'Nein',
     adminMenu: 'Admin-Menü',
