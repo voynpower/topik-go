@@ -16,6 +16,7 @@ import 'package:topik_go/features/mock_exam/data/mock_exam_repository.dart';
 import 'package:topik_go/features/mock_exam/data/mock_exam_history_repository.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart'
     show Question, QuestionMedia, QuestionOption;
+import 'package:topik_go/features/questions/presentation/widgets/question_ai_explanation_button.dart';
 
 class MockExamPage extends ConsumerStatefulWidget {
   const MockExamPage({super.key});
@@ -3474,10 +3475,18 @@ class _ReviewQuestionCard extends StatelessWidget {
                 ),
               ),
             ],
+            if (question != null && (selectedAnswer?.trim().isNotEmpty ?? false)) ...[
+              const SizedBox(height: 10),
+              QuestionAiExplanationButton(
+                question: question,
+                selectedAnswer: selectedAnswer!.trim(),
+              ),
+            ],
             if (question != null) ...[
               const SizedBox(height: 10),
               _QuestionExplanationVideoButton(question: question),
             ],
+
           ],
         ),
       ),
