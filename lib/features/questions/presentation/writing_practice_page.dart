@@ -10,7 +10,9 @@ import 'package:topik_go/features/question_sets/data/question_set.dart';
 import 'package:topik_go/features/questions/data/question_repository.dart';
 import 'package:topik_go/features/questions/data/writing_practice_set.dart';
 import 'package:topik_go/features/questions/presentation/question_media_view.dart';
+import 'package:topik_go/features/questions/presentation/widgets/writing_ai_feedback_button.dart';
 import 'package:topik_go/features/vocabulary/presentation/word_lookup_sheet.dart';
+
 
 class WritingPracticePage extends ConsumerStatefulWidget {
   const WritingPracticePage({super.key});
@@ -725,16 +727,19 @@ class _GraphDescriptionEditorState extends State<_GraphDescriptionEditor> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Row(
-                children: [
+              Row(
+                children: const [
                   Icon(Icons.edit_note_rounded, size: 16, color: Color(0xFF0F8C63)),
                   SizedBox(width: 6),
-                  Text(
-                    '53번 필수 서술 템플릿 (탭하여 본문에 삽입):',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF0F8C63),
+                  Expanded(
+                    child: Text(
+                      '53번 필수 서술 템플릿 (탭하여 본문에 삽입):',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0F8C63),
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -874,16 +879,19 @@ class _EssayEditorState extends State<_EssayEditor> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Row(
-                children: [
+              Row(
+                children: const [
                   Icon(Icons.checklist_rounded, size: 18, color: Color(0xFF6E5BD8)),
                   SizedBox(width: 6),
-                  Text(
-                    '54번 3대 필수 조건 체크리스트 (작성 시 확인):',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF6E5BD8),
+                  Expanded(
+                    child: Text(
+                      '54번 3대 필수 조건 체크리스트 (작성 시 확인):',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF6E5BD8),
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -1176,6 +1184,10 @@ class _ReviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isShort = question.questionNumber <= 52 ||
         question.questionType == 'writing_short_completion';
+    final effectiveUserAnswer = isShort && (controllerA != null || controllerB != null)
+        ? '㉠ ${controllerA?.text.trim() ?? ""} / ㉡ ${controllerB?.text.trim() ?? ""}'
+        : textAnswer.trim();
+
 
     return Container(
       width: double.infinity,
@@ -1188,16 +1200,19 @@ class _ReviewCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
-            children: [
+          Row(
+            children: const [
               Icon(Icons.verified_rounded, color: Color(0xFF16A34A), size: 22),
               SizedBox(width: 8),
-              Text(
-                '작성 답안 & 공식 모범 답안 비교',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 16,
-                  color: Color(0xFF15803D),
+              Expanded(
+                child: Text(
+                  '작성 답안 & 공식 모범 답안 비교',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                    color: Color(0xFF15803D),
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -1218,19 +1233,24 @@ class _ReviewCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      '내가 작성한 답안',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                        color: Colors.black87,
+                    const Expanded(
+                      child: Text(
+                        '내가 작성한 답안',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: Colors.black87,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (!isShort)
+                    if (!isShort) ...[
+                      const SizedBox(width: 8),
                       Text(
                         '${textAnswer.characters.length}자',
                         style: const TextStyle(fontSize: 11, color: Colors.black54),
                       ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -1303,17 +1323,20 @@ class _ReviewCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
-                    children: [
+                  Row(
+                    children: const [
                       Icon(Icons.assignment_turned_in_outlined,
                           size: 16, color: Color(0xFFD97706)),
                       SizedBox(width: 6),
-                      Text(
-                        '채점 기준 및 해설',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
-                          color: Color(0xFFD97706),
+                      Expanded(
+                        child: Text(
+                          '채점 기준 및 해설',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            color: Color(0xFFD97706),
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -1331,9 +1354,17 @@ class _ReviewCard extends StatelessWidget {
               ),
             ),
           ],
+          if (effectiveUserAnswer.replaceAll(RegExp(r'^[㉠㉡\s/]+$'), '').trim().isNotEmpty) ...[
+            const SizedBox(height: 14),
+            WritingAiFeedbackButton(
+              question: question,
+              userAnswer: effectiveUserAnswer,
+            ),
+          ],
         ],
       ),
     );
+
   }
 }
 

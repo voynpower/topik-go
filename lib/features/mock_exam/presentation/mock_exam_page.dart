@@ -16,7 +16,7 @@ import 'package:topik_go/features/mock_exam/data/mock_exam_repository.dart';
 import 'package:topik_go/features/mock_exam/data/mock_exam_history_repository.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart'
     show Question, QuestionMedia, QuestionOption;
-import 'package:topik_go/features/questions/presentation/widgets/question_ai_explanation_button.dart';
+
 
 class MockExamPage extends ConsumerStatefulWidget {
   const MockExamPage({super.key});
@@ -3082,7 +3082,7 @@ class _ResultCardState extends State<_ResultCard> {
                 const SizedBox(height: 18),
                 GridView.count(
                   crossAxisCount: 2,
-                  childAspectRatio: 2.55,
+                  childAspectRatio: 2.1,
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   mainAxisSpacing: 10,
@@ -3090,14 +3090,14 @@ class _ResultCardState extends State<_ResultCard> {
                   children: [
                     _SummaryPill(
                       icon: Icons.check_circle_outline,
-                      label: widget.strings.correctAnswer,
+                      label: _correctLabel(widget.strings),
                       value:
                           '${summary.correctCount}/${summary.totalQuestions}',
                       color: const Color(0xFF198754),
                     ),
                     _SummaryPill(
                       icon: Icons.cancel_outlined,
-                      label: widget.strings.wrongAnswer,
+                      label: _incorrectLabel(widget.strings),
                       value: '${summary.incorrectCount}',
                       color: const Color(0xFFE14D4D),
                     ),
@@ -3153,12 +3153,12 @@ class _ResultCardState extends State<_ResultCard> {
                 onTap: () => setState(() => _filter = _ReviewFilter.all),
               ),
               _FilterChipButton(
-                label: '${widget.strings.correctAnswer} ${summary.correctCount}',
+                label: '${_correctLabel(widget.strings)} ${summary.correctCount}',
                 selected: _filter == _ReviewFilter.correct,
                 onTap: () => setState(() => _filter = _ReviewFilter.correct),
               ),
               _FilterChipButton(
-                label: '${widget.strings.wrongAnswer} ${summary.incorrectCount}',
+                label: '${_incorrectLabel(widget.strings)} ${summary.incorrectCount}',
                 selected: _filter == _ReviewFilter.incorrect,
                 onTap: () => setState(() => _filter = _ReviewFilter.incorrect),
               ),
@@ -3183,6 +3183,28 @@ class _ResultCardState extends State<_ResultCard> {
           ],
       ],
     );
+  }
+
+  String _correctLabel(AppStrings strings) {
+    if (strings.correctAnswer.contains('정답')) return '정답';
+    if (strings.correctAnswer.contains('Correct')) return 'Correct';
+    if (strings.correctAnswer.contains("To'g'ri")) return "To'g'ri";
+    if (strings.correctAnswer.contains('Правильно')) return 'Верно';
+    if (strings.correctAnswer.contains('Chính xác')) return 'Đúng';
+    if (strings.correctAnswer.contains('正解')) return '正解';
+    if (strings.correctAnswer.contains('正确')) return '正确';
+    return '정답';
+  }
+
+  String _incorrectLabel(AppStrings strings) {
+    if (strings.wrongAnswer.contains('아쉬워요') || strings.wrongAnswer.contains('정답')) return '오답';
+    if (strings.wrongAnswer.contains('Incorrect')) return 'Incorrect';
+    if (strings.wrongAnswer.contains("Noto'g'ri")) return "Noto'g'ri";
+    if (strings.wrongAnswer.contains('Неверно')) return 'Неверно';
+    if (strings.wrongAnswer.contains('Chưa đúng')) return 'Sai';
+    if (strings.wrongAnswer.contains('残念')) return '不正解';
+    if (strings.wrongAnswer.contains('错误')) return '错误';
+    return '오답';
   }
 
   List<_ReviewItem> _buildReviewItems(MockExamResult result) {
@@ -3215,7 +3237,7 @@ class _SummaryPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
@@ -3232,6 +3254,8 @@ class _SummaryPill extends StatelessWidget {
               children: [
                 Text(
                   label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 11,
                     color: color,
@@ -3240,6 +3264,8 @@ class _SummaryPill extends StatelessWidget {
                 ),
                 Text(
                   value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
@@ -3475,18 +3501,10 @@ class _ReviewQuestionCard extends StatelessWidget {
                 ),
               ),
             ],
-            if (question != null && (selectedAnswer?.trim().isNotEmpty ?? false)) ...[
-              const SizedBox(height: 10),
-              QuestionAiExplanationButton(
-                question: question,
-                selectedAnswer: selectedAnswer!.trim(),
-              ),
-            ],
             if (question != null) ...[
               const SizedBox(height: 10),
               _QuestionExplanationVideoButton(question: question),
             ],
-
           ],
         ),
       ),
@@ -3503,6 +3521,7 @@ class _ReviewQuestionCard extends StatelessWidget {
     return null;
   }
 }
+
 
 class _AnswerLine extends StatelessWidget {
   const _AnswerLine({

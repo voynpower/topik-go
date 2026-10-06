@@ -250,7 +250,26 @@ class QuestionRepository {
       response.data as Map<String, dynamic>,
     );
   }
+
+  Future<QuestionAiWritingFeedback> getAiWritingFeedback({
+    required String questionId,
+    required String userAnswer,
+    String? languageCode,
+  }) async {
+    final response = await _dio.post(
+      '/questions/$questionId/ai-writing-feedback',
+      data: {
+        'userAnswer': userAnswer,
+        if (languageCode != null && languageCode.isNotEmpty)
+          'languageCode': languageCode,
+      },
+    );
+    return QuestionAiWritingFeedback.fromJson(
+      response.data as Map<String, dynamic>,
+    );
+  }
 }
+
 
 
 /// Orders practice questions by exam sequence: questions are grouped by their
@@ -334,4 +353,23 @@ final questionAiExplanationProvider =
         languageCode: params.languageCode,
       );
 });
+
+typedef QuestionAiWritingFeedbackParams = ({
+  String questionId,
+  String userAnswer,
+  String languageCode,
+});
+
+final questionAiWritingFeedbackProvider = FutureProvider.family<
+    QuestionAiWritingFeedback, QuestionAiWritingFeedbackParams>((
+  ref,
+  params,
+) {
+  return ref.watch(questionRepositoryProvider).getAiWritingFeedback(
+        questionId: params.questionId,
+        userAnswer: params.userAnswer,
+        languageCode: params.languageCode,
+      );
+});
+
 
