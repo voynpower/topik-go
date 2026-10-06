@@ -12,6 +12,7 @@ import 'package:topik_go/features/question_sets/data/question_set.dart';
 import 'package:topik_go/features/questions/data/listening_practice_set.dart';
 import 'package:topik_go/features/questions/data/question_repository.dart';
 import 'package:topik_go/features/questions/presentation/question_media_view.dart';
+import 'package:topik_go/features/questions/presentation/widgets/question_ai_explanation_button.dart';
 import 'package:topik_go/features/vocabulary/presentation/word_lookup_sheet.dart';
 
 /// Question group representing either a single question (Q1~20) or a pair of
@@ -537,12 +538,14 @@ class _ListeningPracticePageState extends ConsumerState<ListeningPracticePage> {
         if (showAnswer) ...[
           const SizedBox(height: 12),
           _AnswerResultCard(
+            question: question,
             selectedAnswer: selectedAnswer,
             correctAnswer: question.correctAnswer,
             explanation: question.explanation,
             options: question.options,
           ),
         ],
+
       ],
     );
   }
@@ -1477,12 +1480,14 @@ class _AnswerOptionTile extends StatelessWidget {
 
 class _AnswerResultCard extends StatelessWidget {
   const _AnswerResultCard({
+    this.question,
     required this.selectedAnswer,
     required this.correctAnswer,
     required this.explanation,
     this.options = const [],
   });
 
+  final Question? question;
   final String? selectedAnswer;
   final String? correctAnswer;
   final String? explanation;
@@ -1565,10 +1570,18 @@ class _AnswerResultCard extends StatelessWidget {
               ),
             ),
           ],
+          if (question != null && (selectedAnswer?.trim().isNotEmpty ?? false)) ...[
+            const SizedBox(height: 12),
+            QuestionAiExplanationButton(
+              question: question!,
+              selectedAnswer: selectedAnswer!.trim(),
+            ),
+          ],
         ],
       ),
     );
   }
+
 
   String _cleanExplanation(String? raw) {
     if (raw == null || raw.trim().isEmpty) return '';

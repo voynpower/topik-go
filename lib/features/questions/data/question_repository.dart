@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:topik_go/core/network/dio_provider.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart';
+import 'package:topik_go/features/questions/data/question_ai_explanation.dart';
 
 class QuestionPage {
   const QuestionPage({
@@ -231,7 +232,26 @@ class QuestionRepository {
   Future<void> removeDownloadMarker(String id) async {
     await _dio.delete('/questions/$id/download');
   }
+
+  Future<QuestionAiExplanation> getAiExplanation({
+    required String questionId,
+    required String selectedOption,
+    String? languageCode,
+  }) async {
+    final response = await _dio.post(
+      '/questions/$questionId/ai-explanation',
+      data: {
+        'selectedOption': selectedOption,
+        if (languageCode != null && languageCode.isNotEmpty)
+          'languageCode': languageCode,
+      },
+    );
+    return QuestionAiExplanation.fromJson(
+      response.data as Map<String, dynamic>,
+    );
+  }
 }
+
 
 /// Orders practice questions by exam sequence: questions are grouped by their
 /// question set (in first-seen order) and sorted by `questionNumber` inside each
@@ -296,3 +316,22 @@ final practiceQuestionsProvider =
 final questionProvider = FutureProvider.family<Question, String>((ref, id) {
   return ref.watch(questionRepositoryProvider).getQuestion(id);
 });
+
+typedef QuestionAiExplanationParams = ({
+  String questionId,
+  String selectedOption,
+  String languageCode,
+});
+
+final questionAiExplanationProvider =
+    FutureProvider.family<QuestionAiExplanation, QuestionAiExplanationParams>((
+  ref,
+  params,
+) {
+  return ref.watch(questionRepositoryProvider).getAiExplanation(
+        questionId: params.questionId,
+        selectedOption: params.selectedOption,
+        languageCode: params.languageCode,
+      );
+});
+

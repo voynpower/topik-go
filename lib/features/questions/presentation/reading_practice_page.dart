@@ -10,6 +10,7 @@ import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
 import 'package:topik_go/features/question_sets/data/question_set.dart';
 import 'package:topik_go/features/questions/data/question_repository.dart';
 import 'package:topik_go/features/questions/data/reading_practice_set.dart';
+import 'package:topik_go/features/questions/presentation/widgets/question_ai_explanation_button.dart';
 import 'package:topik_go/features/vocabulary/presentation/word_lookup_sheet.dart';
 
 /// Question group representing either a single question (Q1~18, 25~41) or a set
@@ -679,12 +680,14 @@ class _ReadingPracticePageState extends ConsumerState<ReadingPracticePage> {
         if (showAnswer) ...[
           const SizedBox(height: 12),
           _AnswerResultCard(
+            question: question,
             selectedAnswer: selectedAnswer,
             correctAnswer: question.correctAnswer,
             explanation: question.explanation,
             options: options,
           ),
         ],
+
       ],
     );
   }
@@ -1543,12 +1546,14 @@ class _AnswerOptionTile extends StatelessWidget {
 
 class _AnswerResultCard extends StatelessWidget {
   const _AnswerResultCard({
+    this.question,
     required this.selectedAnswer,
     required this.correctAnswer,
     required this.explanation,
     this.options = const [],
   });
 
+  final Question? question;
   final String? selectedAnswer;
   final String? correctAnswer;
   final String? explanation;
@@ -1631,11 +1636,19 @@ class _AnswerResultCard extends StatelessWidget {
               ),
             ),
           ],
+          if (question != null && (selectedAnswer?.trim().isNotEmpty ?? false)) ...[
+            const SizedBox(height: 12),
+            QuestionAiExplanationButton(
+              question: question!,
+              selectedAnswer: selectedAnswer!.trim(),
+            ),
+          ],
         ],
       ),
     );
   }
 }
+
 
 // Problem 6: Do not display question numbers on "이전" and "다음" buttons!
 class _BottomControls extends StatelessWidget {
