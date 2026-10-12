@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:topik_go/app/theme/app_colors.dart';
 import 'package:topik_go/core/localization/app_strings_provider.dart';
 import 'package:topik_go/core/network/api_error_message.dart';
 import 'package:topik_go/features/bookmarks/data/bookmark_repository.dart';
@@ -51,7 +53,30 @@ class BookmarkedGrammarPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: Text(strings.bookmarkedGrammar)),
       body: allItems.isEmpty
-          ? Center(child: Text(strings.noBookmarks))
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.bookmark_border, size: 52, color: Colors.black26),
+                  const SizedBox(height: 14),
+                  Text(
+                    strings.noBookmarks,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    strings.mySavedGrammarbookDesc,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: AppColors.textSecondary, height: 1.4),
+                  ),
+                  const SizedBox(height: 18),
+                  FilledButton.tonal(
+                    onPressed: () => context.push('/grammar'),
+                    child: Text(strings.allTopikGrammar),
+                  ),
+                ],
+              ),
+            )
           : RefreshIndicator(
               onRefresh: () async {
                 ref.invalidate(bookmarkedGrammarProvider);
