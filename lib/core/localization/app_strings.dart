@@ -199,6 +199,7 @@ class AppStrings {
     required this.bookmarkedVocab,
     required this.bookmarkedGrammar,
     required this.noBookmarks,
+    required this.bookmarkedQuestionsEmptyDesc,
     // Settings Page
     required this.settingsTitle,
     required this.appSettingsHeroTitle,
@@ -444,6 +445,7 @@ class AppStrings {
   final String bookmarkedVocab;
   final String bookmarkedGrammar;
   final String noBookmarks;
+  final String bookmarkedQuestionsEmptyDesc;
 
   // Settings Page
   final String settingsTitle;
@@ -692,6 +694,8 @@ class AppStrings {
     bookmarkedVocab: '내 저장 단어',
     bookmarkedGrammar: '내 저장 문법',
     noBookmarks: '저장된 항목이 없습니다.',
+    bookmarkedQuestionsEmptyDesc:
+        '연습이나 모의고사에서 헷갈리는 문제를 저장해두고 시험 전에 집중 복습해 보세요.',
     settingsTitle: '설정',
     appSettingsHeroTitle: '앱 설정',
     appSettingsHeroDesc: '계정, 학습 환경, 언어 설정을 한 곳에서 관리하세요.',
@@ -915,6 +919,8 @@ class AppStrings {
     bookmarkedVocab: 'Saved Words',
     bookmarkedGrammar: 'Saved Grammar',
     noBookmarks: 'No saved items yet.',
+    bookmarkedQuestionsEmptyDesc:
+        'Save confusing questions from practice or mock exams and review them intensively before the test.',
     settingsTitle: 'Settings',
     appSettingsHeroTitle: 'App Settings',
     appSettingsHeroDesc: 'Manage your account, study preferences, and language in one place.',
@@ -1138,6 +1144,8 @@ class AppStrings {
     bookmarkedVocab: "Saqlangan so'zlar",
     bookmarkedGrammar: 'Saqlangan grammatika',
     noBookmarks: "Saqlangan ma'lumotlar yo'q.",
+    bookmarkedQuestionsEmptyDesc:
+        "Mashq yoki soxta imtihonlarda chalkash savollarni saqlab qoling va testdan oldin ularni chuqur takrorlang.",
     settingsTitle: 'Sozlamalar',
     appSettingsHeroTitle: 'Ilova sozlamalari',
     appSettingsHeroDesc: "Hisobingiz, o'rganish muhiti va til sozlamalarini boshqaring.",
@@ -1361,6 +1369,8 @@ class AppStrings {
     bookmarkedVocab: 'Сохраненные слова',
     bookmarkedGrammar: 'Сохраненная грамматика',
     noBookmarks: 'Пока ничего не сохранено.',
+    bookmarkedQuestionsEmptyDesc:
+        'Сохраняйте сложные вопросы из практики или пробных экзаменов и повторяйте их перед тестом.',
     settingsTitle: 'Настройки',
     appSettingsHeroTitle: 'Настройки приложения',
     appSettingsHeroDesc: 'Управляйте профилем, языком интерфейса и параметрами обучения.',
@@ -1584,6 +1594,8 @@ class AppStrings {
     bookmarkedVocab: 'Sổ từ của tôi',
     bookmarkedGrammar: 'Ngữ pháp của tôi',
     noBookmarks: 'Chưa có mục nào được lưu.',
+    bookmarkedQuestionsEmptyDesc:
+        'Lưu lại các câu hỏi khó hiểu khi luyện tập hoặc thi thử để ôn tập kỹ trước kỳ thi.',
     settingsTitle: 'Cài đặt',
     appSettingsHeroTitle: 'Cài đặt ứng dụng',
     appSettingsHeroDesc: 'Quản lý tài khoản, môi trường học tập và ngôn ngữ giao diện.',
@@ -1807,6 +1819,8 @@ class AppStrings {
     bookmarkedVocab: '我的单词本',
     bookmarkedGrammar: '我的语法本',
     noBookmarks: '暂无收录内容。',
+    bookmarkedQuestionsEmptyDesc:
+        '保存练习或模拟考试中易混淆的题目，在考前集中复习。',
     settingsTitle: '设置',
     appSettingsHeroTitle: '应用设置',
     appSettingsHeroDesc: '集中管理您的账户信息、学习偏好与界面语言。',
@@ -2030,6 +2044,8 @@ class AppStrings {
     bookmarkedVocab: 'マイ単語帳',
     bookmarkedGrammar: 'マイ文法帳',
     noBookmarks: '保存された項目はありません。',
+    bookmarkedQuestionsEmptyDesc:
+        '練習や模擬試験で迷った問題を保存し、試験前に集中して復習しましょう。',
     settingsTitle: '設定',
     appSettingsHeroTitle: 'アプリ設定',
     appSettingsHeroDesc: 'アカウント、学習環境、言語設定を一箇所で管理。',
@@ -2253,6 +2269,8 @@ class AppStrings {
     bookmarkedVocab: 'Mon vocabulaire',
     bookmarkedGrammar: 'Ma grammaire',
     noBookmarks: 'Aucun élément enregistré.',
+    bookmarkedQuestionsEmptyDesc:
+        'Enregistrez les questions difficiles des entraînements ou examens blancs et révisez-les avant le test.',
     settingsTitle: 'Paramètres',
     appSettingsHeroTitle: "Paramètres de l'application",
     appSettingsHeroDesc: 'Gérez votre compte, votre rythme d’étude et la langue.',
@@ -2476,6 +2494,8 @@ class AppStrings {
     bookmarkedVocab: 'Mein Vokabelheft',
     bookmarkedGrammar: 'Meine Grammatik',
     noBookmarks: 'Noch keine Elemente gespeichert.',
+    bookmarkedQuestionsEmptyDesc:
+        'Speichern Sie schwierige Fragen aus Übungen oder Probeüberprüfungen und wiederholen Sie sie vor der Prüfung.',
     settingsTitle: 'Einstellungen',
     appSettingsHeroTitle: 'App-Einstellungen',
     appSettingsHeroDesc: 'Verwalten Sie Konto, Lernumgebung und Sprache an einem Ort.',

@@ -53,10 +53,10 @@ class BookmarkedQuestionsPage extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      '연습이나 모의고사에서 헷갈리는 문제를 저장해두고 시험 전에 집중 복습해 보세요.',
+                    Text(
+                      strings.bookmarkedQuestionsEmptyDesc,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 13,
                         color: Color(0xFF64748B),
                         height: 1.4,
