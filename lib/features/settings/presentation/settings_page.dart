@@ -565,6 +565,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         icon: Icons.person_outline,
         title: strings.username,
         value: profile.nickname,
+        onTap: () => _editNickname(profile.nickname),
       ),
       _SettingTile(
         icon: Icons.mail_outline,
@@ -588,6 +589,30 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         value: profile.timezone,
       ),
     ];
+  }
+
+  Future<void> _editNickname(String currentNickname) async {
+    final strings = ref.read(appStringsProvider);
+    final newNickname = await showDialog<String>(
+      context: context,
+      builder: (context) => _EditNicknameDialog(
+        initialNickname: currentNickname,
+        strings: strings,
+      ),
+    );
+
+    if (newNickname == null || newNickname == currentNickname) return;
+
+    try {
+      await ref.read(userRepositoryProvider).updateProfile({'nickname': newNickname});
+      ref.invalidate(userProfileProvider);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('닉네임이 성공적으로 변경되었습니다.')),
+      );
+    } catch (error) {
+      _showError(error);
+    }
   }
 
   Future<void> _findAdminUser() async {
@@ -1018,6 +1043,84 @@ class _SettingTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _EditNicknameDialog extends StatefulWidget {
+  const _EditNicknameDialog({
+    required this.initialNickname,
+    required this.strings,
+  });
+
+  final String initialNickname;
+  final AppStrings strings;
+
+  @override
+  State<_EditNicknameDialog> createState() => _EditNicknameDialogState();
+}
+
+class _EditNicknameDialogState extends State<_EditNicknameDialog> {
+  late final TextEditingController _controller;
+  String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialNickname);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final trimmed = _controller.text.trim();
+    if (trimmed.length < 2 || trimmed.length > 20) {
+      setState(() {
+        _errorText = '닉네임은 2자 이상 20자 이하로 입력해 주세요.';
+      });
+      return;
+    }
+    Navigator.of(context).pop(trimmed);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.strings.username),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            decoration: InputDecoration(
+              labelText: widget.strings.username,
+              errorText: _errorText,
+            ),
+            onChanged: (_) {
+              if (_errorText != null) {
+                setState(() => _errorText = null);
+              }
+            },
+            onSubmitted: (_) => _submit(),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(widget.strings.cancel),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: Text(widget.strings.save),
+        ),
+      ],
     );
   }
 }
